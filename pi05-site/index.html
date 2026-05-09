@@ -1,0 +1,82 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>π₀.5 — A standalone walk-through</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Source+Serif+4:ital,wght@0,400;0,600;0,700;1,400&family=Inter:wght@400;500;700&family=JetBrains+Mono:wght@400;600&display=swap">
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+
+<header class="page-header">
+  <a class="mark" href="index.html">π₀.5</a>
+  <nav class="progress-strip" aria-label="page progress">
+    <a href="page1.html" class="seg" title="1. Substrate"></a>
+    <a href="page2.html" class="seg" title="2. Action expert"></a>
+    <a href="page3.html" class="seg" title="3. Flow matching"></a>
+    <a href="page4.html" class="seg" title="4. Hierarchical inference"></a>
+    <a href="page5.html" class="seg" title="5. Training / KI"></a>
+    <a href="page6.html" class="seg" title="6. Generalization"></a>
+  </nav>
+</header>
+
+<main>
+
+  <section class="hero reveal">
+    <h1>π₀.5, from scratch.</h1>
+    <p class="thesis">π₀.5 uses a <strong>discrete</strong> categorical objective to <em>shape</em> the language model during training, and a <strong>continuous</strong> flow-matching objective to <em>act</em> at runtime — and that asymmetry is the architecture.</p>
+  </section>
+
+  <section class="reveal prose">
+    <p>This is a six-stop walk through π₀.5 — a vision-language-action policy from Physical Intelligence that took mobile-manipulation robots into homes the model had never trained in. It is built for someone who has never opened a transformer paper, never heard of FAST tokenization, and does not yet know what an action expert is. By the end you will know what π₀.5 is, what it computes, what it learns, and where it breaks.</p>
+
+    <p>The site assumes you know what a neural network is and what a robot looks like. Everything else — multi-head attention, prefix-LM masking, flow matching, knowledge insulation, the FAST tokenizer — is built up from primitives. Each page surfaces a 5-minute spine; deeper material is tucked into optional collapses.</p>
+  </section>
+
+  <nav class="toc reveal">
+    <a class="toc-item" href="page1.html">
+      <span><span class="num">01</span><span class="title">The substrate</span><span class="duration">~6 min</span></span>
+      <span class="desc">Tokens, attention, transformers, vision-language models, prefix-LM masks. From zero.</span>
+    </a>
+    <a class="toc-item" href="page2.html">
+      <span><span class="num">02</span><span class="title">The action expert</span><span class="duration">~4 min</span></span>
+      <span class="desc">A second transformer talks to the language model, sharing attention and producing continuous robot actions.</span>
+    </a>
+    <a class="toc-item" href="page3.html">
+      <span><span class="num">03</span><span class="title">Flow matching</span><span class="duration">~5 min</span></span>
+      <span class="desc">Why actions are continuous and how the model integrates a learned vector field to denoise an action chunk in ten small steps.</span>
+    </a>
+    <a class="toc-item" href="page4.html">
+      <span><span class="num">04</span><span class="title">Hierarchical inference</span><span class="duration">~4 min</span></span>
+      <span class="desc">The model first emits natural language ("pick up the sponge"), then conditions itself on that string to produce the next second of motion.</span>
+    </a>
+    <a class="toc-item" href="page5.html">
+      <span><span class="num">05</span><span class="title">Training recipe — knowledge insulation</span><span class="duration">~5 min</span></span>
+      <span class="desc">Two gradients, asymmetrically routed. The action loss is detached from the language model; a separate discrete loss is allowed through.</span>
+    </a>
+    <a class="toc-item" href="page6.html">
+      <span><span class="num">06</span><span class="title">What generalizes, what doesn't</span><span class="duration">~4 min</span></span>
+      <span class="desc">The data mix that made it work, the three-home eval that sized the claim honestly, and what is still open.</span>
+    </a>
+  </nav>
+
+  <section class="reveal prose" style="margin-top: 4rem;">
+    <p style="color: var(--ink-muted); font-style: italic;">You can stop wherever you have what you came for. Each page ends with a <strong>so what</strong> takeaway in plain language.</p>
+  </section>
+
+</main>
+
+<footer class="page-footer">
+  <div class="sources">
+    <strong>Sources:</strong> π₀.5 paper (Black et al., arXiv 2504.16054), Knowledge Insulation (Driess et al., arXiv 2505.23705), FAST tokenizer (Pertsch et al., arXiv 2501.09747), π₀ paper for inherited substrate (Black et al., arXiv 2410.24164).
+  </div>
+  <a href="page1.html" class="next">start: the substrate →</a>
+</footer>
+
+<script src="shared.js"></script>
+
+</body>
+</html>

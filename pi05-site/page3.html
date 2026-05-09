@@ -1,0 +1,184 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Flow matching — π₀.5</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Source+Serif+4:ital,wght@0,400;0,600;0,700;1,400&family=Inter:wght@400;500;700&family=JetBrains+Mono:wght@400;600&display=swap">
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/katex.min.css">
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+
+<header class="page-header">
+  <a class="mark" href="index.html">π₀.5</a>
+  <nav class="progress-strip" aria-label="page progress">
+    <a href="page1.html" class="seg" title="1. Substrate"></a>
+    <a href="page2.html" class="seg" title="2. Action expert"></a>
+    <a href="page3.html" class="seg current" title="3. Flow matching"></a>
+    <a href="page4.html" class="seg" title="4. Hierarchical"></a>
+    <a href="page5.html" class="seg" title="5. Training / KI"></a>
+    <a href="page6.html" class="seg" title="6. Generalization"></a>
+  </nav>
+</header>
+
+<main>
+
+  <section class="reveal">
+    <span class="eyebrow">Section 3 · the runtime objective</span>
+    <h1>Flow matching.</h1>
+    <p class="lede">How π₀.5 turns a fistful of random noise into a coherent second of robot motion in ten small steps.</p>
+  </section>
+
+  <section class="reveal prose">
+    <p>The action expert has to produce <strong>fifty future actions, each eighteen-dimensional</strong> — nine hundred numbers describing the next second of behavior. The obvious thing to do is regress them. But that fails in a particular way: if two valid action chunks exist for the same scene — the robot could grab the mug from the left or from the right — mean-squared regression averages them, and the model produces an action chunk that points <em>between</em> the two grasps. That is a crash, not a behavior. Action distributions are multi-modal; their averages are not actions. Autoregressing nine hundred numbers one at a time is no better — at thirty milliseconds per token that is half a minute per chunk.</p>
+
+    <p>The trick is to learn <strong>which direction to move</strong>, not the chunk itself. Imagine the chunk as a single <em>point</em> in a nine-hundred-dimensional space. Now imagine a much simpler point: pure Gaussian noise, also a point in that space. The action expert learns a <strong>velocity field</strong> — a function that, at every point along a path between noise and a clean chunk, says "go this way." At runtime you start from a fresh noise sample and follow the field for a few small steps. A coherent chunk falls out the other end.</p>
+  </section>
+
+  <figure class="reveal">
+    <span class="fig-label">Figure 3.1 — Velocity field, two-dimensional toy</span>
+    <div class="fig-body">
+      <canvas class="viz-canvas" id="viz-flow-2d-toy" width="760" height="500"></canvas>
+      <div class="fig-controls">
+        <label>t <input type="range" id="flow-2d-tau" min="0" max="100" value="0"> <span class="readout" id="flow-2d-tau-readout">0.00</span></label>
+        <button id="flow-2d-play">play denoise</button>
+        <button id="flow-2d-field-toggle" class="active">show field</button>
+      </div>
+      <div class="legend">
+        <span><span class="swatch" style="background: var(--c-noise)"></span>noise distribution</span>
+        <span><span class="swatch" style="background: var(--c-data)"></span>target distribution</span>
+        <span><span class="swatch" style="background: var(--c-flow)"></span>velocity field arrows</span>
+      </div>
+    </div>
+    <figcaption>Drag t from 0 to 1. At each time-stamp, a grid of teal arrows shows the velocity field. Sixty particles ride the field from the lower-left noise blob into the upper-right ring.</figcaption>
+  </figure>
+
+  <section class="reveal prose">
+    <p>That is the whole picture, in two dimensions. Each particle starts in the noise blob at <code>t = 0</code>. At every point in space — and every value of <code>t</code> — there is an arrow that says where to go next. Following the arrows for a finite time delivers the particle into the ring. At training time the model is taught what those arrows are; at inference time it follows them.</p>
+
+    <p>The lift to robot actions is mechanical. Replace "point in 2D" with "fifty-by-eighteen action chunk," "noise blob" with a 900-dimensional Gaussian, and "ring" with the distribution of clean chunks the robot has seen humans demonstrate. Same machinery, much higher dimension.</p>
+  </section>
+
+  <figure class="reveal">
+    <span class="fig-label">Figure 3.2 — The same picture, in action space</span>
+    <div class="fig-body">
+      <canvas class="viz-canvas" id="viz-action-denoise" width="900" height="460"></canvas>
+      <div class="fig-controls">
+        <label>t <input type="range" id="action-denoise-tau" min="0" max="100" value="0"> <span class="readout" id="action-denoise-tau-readout">0.00</span></label>
+      </div>
+      <div class="legend">
+        <span><span class="swatch" style="background: var(--j0)"></span>joint 0</span>
+        <span><span class="swatch" style="background: var(--j1)"></span>joint 1</span>
+        <span><span class="swatch" style="background: var(--j2)"></span>joint 2</span>
+        <span><span class="swatch" style="background: var(--j3)"></span>joint 3</span>
+        <span><span class="swatch" style="background: var(--j4)"></span>joint 4</span>
+        <span><span class="swatch" style="background: var(--j5)"></span>joint 5</span>
+        <span><span class="swatch" style="background: var(--j6)"></span>joint 6</span>
+        <span><span class="swatch" style="background: var(--c-action)"></span>arm</span>
+      </div>
+    </div>
+    <figcaption>Seven joint traces, each spanning fifty chunk timesteps. At t = 0 they are random. As t advances they resolve into the dashed target — and the schematic arm on the right snaps from a jittery cloud into a coherent reach.</figcaption>
+  </figure>
+
+  <section class="reveal prose">
+    <p><strong>Training the field.</strong> Pick a clean chunk <code>x₁</code> from a human demonstration. Sample fresh Gaussian noise <code>ε</code>. Pick a random time-stamp <code>t</code> in <code>[0, 1]</code>. Build the in-between point on the straight line:</p>
+
+    <div class="reveal-eq">$$x_t = (1-t)\,\varepsilon \,+\, t\, x_1$$</div>
+
+    <p>and ask the network to predict the velocity along that line — which is just the constant <code>x₁ − ε</code>. The loss is mean-squared error against that target.</p>
+
+    <div class="reveal-eq eq-label">Conditional flow-matching loss</div>
+    <div class="reveal-eq">$$\mathcal{L}_{\text{flow}} \;=\; \mathbb{E}_{t,\,\varepsilon,\,x_1}\,\bigl\| v_\theta(x_t,\, t,\, c) - (x_1 - \varepsilon) \bigr\|^2$$</div>
+
+    <p>where <code>c</code> is the conditioning context — images and language read from the VLM through shared self-attention. That is the entire training-time objective for the action expert.</p>
+
+    <p><strong>Inference: integrate the ODE.</strong> Start at a fresh noise sample <code>x₀ ∼ N(0, I)</code>. Take ten forward-Euler steps of size <code>δ = 0.1</code>. At each step, evaluate the network and advance the chunk:</p>
+
+    <div class="reveal-eq">$$x_{t+\delta} \;=\; x_t \,+\, \delta \cdot v_\theta(x_t,\, t,\, c)$$</div>
+
+    <p>After ten steps you arrive at <code>t = 1</code> and the chunk is clean. On an RTX 4090, all ten steps cost about twenty-seven milliseconds; the remainder of the seventy-three-millisecond budget goes to image encoding and the prefix forward pass.<span class="sn-anchor">¹</span><span class="sidenote">π₀.5 §D, Table I: image encoders 14 ms, prefix forward pass 32 ms, ten action-token forward passes 27 ms — 73 ms on-board.</span></p>
+  </section>
+
+  <figure class="reveal">
+    <span class="fig-label">Figure 3.3 — Same network, two control flows</span>
+    <div class="fig-body">
+      <canvas class="viz-canvas" id="viz-train-vs-inference" width="900" height="480"></canvas>
+      <div class="fig-controls">
+        <button id="tvi-train" class="active">training</button>
+        <button id="tvi-infer">inference</button>
+        <button id="tvi-step">sample t (train step)</button>
+        <button id="tvi-reset">reset</button>
+        <button id="tvi-play">auto</button>
+      </div>
+      <div class="legend">
+        <span><span class="swatch" style="background: var(--c-noise)"></span>ε</span>
+        <span><span class="swatch" style="background: var(--c-flow)"></span>x_t</span>
+        <span><span class="swatch" style="background: var(--c-data)"></span>clean</span>
+      </div>
+    </div>
+    <figcaption>Training (left) re-samples a random t each step and computes a residual against (clean − ε). Inference (right) starts at noise and walks t in order across ten Euler steps. The same v<sub>θ</sub> is used in both.</figcaption>
+  </figure>
+
+  <section class="reveal prose">
+    <p><strong>Why ten steps?</strong> Because the chunk-quality curve has a knee there. One step is too few — the network has to map noise to a clean chunk in a single jump, and at high curvature it can't. Five steps gets close. Ten is the plateau. Twenty doubles the cost and adds nothing.</p>
+  </section>
+
+  <figure class="reveal">
+    <span class="fig-label">Figure 3.4 — Why π₀.5 picks ten</span>
+    <div class="fig-body">
+      <canvas class="viz-canvas" id="viz-step-budget" width="760" height="360"></canvas>
+      <div class="fig-controls">
+        <label>N steps <input type="range" id="step-budget-n" min="1" max="20" value="10"> <span class="readout" id="step-budget-n-readout">10</span></label>
+      </div>
+      <div class="legend">
+        <span><span class="swatch" style="background: var(--c-flow)"></span>chunk quality</span>
+        <span><span class="swatch" style="background: var(--c-action)"></span>wall-clock (ms)</span>
+        <span><span class="swatch" style="background: var(--c-data)"></span>task success</span>
+      </div>
+    </div>
+    <figcaption>Three curves, one slider. Quality plateaus near N = 10; wall-clock is linear; success rate steps up sharply between four and seven and then flattens.</figcaption>
+  </figure>
+
+  <section class="reveal prose">
+    <p><strong>Connection back to π₀.5.</strong> The action expert's job, at every step of integration, is exactly to compute <code>v<sub>θ</sub>(x<sub>t</sub>, t, c)</code>. Its inputs are the current noisy chunk, the time-stamp <code>t</code>, and the context <code>c</code> from the vision-language model. The time-stamp is mixed into each action token's input projection via a sinusoidal embedding. Everything else in the architecture exists to produce a good velocity prediction in twenty-seven milliseconds.</p>
+
+    <p>One second of motion is, however, too short for a task like "clean the kitchen." The model needs a way to plan over longer horizons.</p>
+  </section>
+
+  <details>
+    <summary>How the time-stamp is sampled during training (it is not uniform).</summary>
+    <p>π₀.5 inherits π₀'s <code>Beta(1.5, 1)</code>-shaped sampler over <code>τ ∈ [0, 0.999]</code>, which weights <em>high-noise</em> time-stamps more heavily than uniform.<span class="sn-anchor">²</span><span class="sidenote">π₀ §B "Sampling the flow matching timestep." The schedule is the opposite of Stable Diffusion 3, which emphasizes the middle of the noise range.</span> The reasoning: at low noise the answer is essentially given by the conditioning, so there is little to learn there; at high noise the chunk is genuinely uncertain and the gradient is informative. The cap at 0.999 exists because inference uses ten steps of size 0.1 — the model never operates above 0.999 at runtime.</p>
+  </details>
+
+  <details>
+    <summary>Why flow matching and not diffusion?</summary>
+    <p>The two families share a generative-model lineage but train against different targets. Score-based diffusion learns a noise-prediction or score function under a multi-step noise schedule and integrates a stochastic differential equation at inference, typically over fifty to a thousand steps. Flow matching with linear (optimal-transport) paths is the special case where the path between noise and data is a straight line and the target velocity is a constant — making the ODE nearly straight and integrable in five-to-ten Euler steps. For π₀.5's inference budget that ten-times speedup is the entire reason flow was chosen.<span class="sn-anchor">³</span><span class="sidenote">Lipman et al. 2023 (Flow Matching for Generative Modeling); Liu et al. 2023 (Rectified Flow); Stable Diffusion 3 also adopted this family.</span></p>
+  </details>
+
+  <details>
+    <summary>What happens to the prefix during the ten Euler steps?</summary>
+    <p>The prefix — image patches, language tokens, and the proprioceptive state token — does not change as <code>t</code> walks from 0 to 1. The model computes the prefix's keys and values once and caches them. Each Euler step only re-runs the action-block forward pass over the fifty action tokens, attending to the cached prefix. That is what keeps the per-step cost at about 2.7 ms.</p>
+  </details>
+
+</main>
+
+<footer class="page-footer">
+  <div class="sources">
+    <strong>Sources:</strong> π₀.5 (arXiv 2504.16054), π₀ (arXiv 2410.24164) §B and §IV for the flow-matching mechanics inherited by π₀.5, Lipman et al. 2023 for conditional flow matching with optimal-transport paths.
+  </div>
+  <a href="page4.html" class="next">next: hierarchical inference →</a>
+</footer>
+
+<script src="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/katex.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/contrib/auto-render.min.js"></script>
+<script src="shared.js"></script>
+<script src="viz_flow_2d_toy.js"></script>
+<script src="viz_action_denoise.js"></script>
+<script src="viz_train_vs_inference.js"></script>
+<script src="viz_step_budget.js"></script>
+
+</body>
+</html>

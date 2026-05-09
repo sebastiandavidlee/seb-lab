@@ -1,0 +1,123 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Hierarchical inference — π₀.5</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Source+Serif+4:ital,wght@0,400;0,600;0,700;1,400&family=Inter:wght@400;500;700&family=JetBrains+Mono:wght@400;600&display=swap">
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/katex.min.css">
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+
+<header class="page-header">
+  <a class="mark" href="index.html">π₀.5</a>
+  <nav class="progress-strip" aria-label="page progress">
+    <a href="page1.html" class="seg" title="1. Substrate"></a>
+    <a href="page2.html" class="seg" title="2. Action expert"></a>
+    <a href="page3.html" class="seg" title="3. Flow matching"></a>
+    <a href="page4.html" class="seg current" title="4. Hierarchical"></a>
+    <a href="page5.html" class="seg" title="5. Training / KI"></a>
+    <a href="page6.html" class="seg" title="6. Generalization"></a>
+  </nav>
+</header>
+
+<main>
+
+  <section class="reveal">
+    <span class="eyebrow">Section 4 · planning over longer horizons</span>
+    <h1>Hierarchical inference.</h1>
+    <p class="lede">π₀.5 plans by talking to itself. Before each second of motion, the same VLM decodes a short subtask string in plain English — and conditions the next chunk on what it just said.</p>
+  </section>
+
+  <section class="reveal prose">
+    <p>An action chunk is one second of motion. "Clean the kitchen" is two minutes of motion at minimum. Something has to bridge the gap between a goal stated in language and a one-second window of joint angles.</p>
+
+    <p>The bridge is to <strong>ask the VLM what to do next, in language</strong>. At every chunk boundary — about once a second — the VLM autoregressively decodes a short string: <em>"pick up the sponge"</em>. That string then becomes part of the conditioning for the next chunk. The action expert flow-matches a one-second trajectory under that string, the robot executes it, and at the next boundary the VLM emits another string: <em>"place on counter"</em>. Two clocks running side by side.</p>
+  </section>
+
+  <figure class="reveal">
+    <span class="fig-label">Figure 4.1 — Two clocks running side by side</span>
+    <div class="fig-body">
+      <canvas class="viz-canvas" id="viz-hierarchical-timeline" width="1000" height="360"></canvas>
+      <div class="fig-controls">
+        <button id="hier-play">play</button>
+        <label>scrub <input type="range" id="hier-scrub" min="0" max="100" value="0"> <span class="readout" id="hier-scrub-readout">0.00s</span></label>
+      </div>
+      <div class="legend">
+        <span><span class="swatch" style="background: var(--c-vlm)"></span>HL — VLM emits subtask string</span>
+        <span><span class="swatch" style="background: var(--c-action)"></span>LL — action expert flow-matches a chunk</span>
+        <span><span class="swatch" style="background: var(--c-flow)"></span>control — robot consumes one action / 20 ms</span>
+      </div>
+    </div>
+    <figcaption>Top track: subtask strings emitted at boundaries. Middle track: one-second chunks, each holding a fifty-action mini-pattern. Bottom track: the 50 Hz controller ticking forward. Scrub the playhead to see the three tracks staying in sync.</figcaption>
+  </figure>
+
+  <section class="reveal prose">
+    <p>The asymmetry is the whole point. The high-level loop runs at <strong>about one hertz</strong> — slow, deliberative, generating tokens. The low-level loop runs at <strong>chunk-rate</strong> — fast, all fifty actions decoded in parallel by ten Euler steps of flow. The robot's controller runs at <strong>fifty hertz</strong>, executing actions out of the most-recent chunk one at a time. Each layer is doing the kind of work it is good at, at the rate that work demands.</p>
+
+    <p><strong>Why language as the bottleneck?</strong> The natural alternative is to pass a learned vector — some compressed latent representation of "what to do next" — between the planning layer and the acting layer. Both architectures look similar on a whiteboard.</p>
+  </section>
+
+  <figure class="reveal">
+    <span class="fig-label">Figure 4.2 — Two ways to wire up a hierarchy</span>
+    <div class="fig-body">
+      <canvas class="viz-canvas" id="viz-language-vs-latent" width="900" height="460"></canvas>
+      <div class="fig-controls">
+        <button id="lvl-language" class="active">language hierarchy (π₀.5)</button>
+        <button id="lvl-latent">learned-vector hierarchy</button>
+      </div>
+      <div class="legend">
+        <span><span class="swatch" style="background: var(--c-vlm)"></span>System-2 (VLM)</span>
+        <span><span class="swatch" style="background: var(--c-action)"></span>System-1 (action expert)</span>
+        <span><span class="swatch" style="background: var(--c-flow)"></span>language bottleneck</span>
+        <span><span class="swatch" style="background: var(--c-fast)"></span>vector bottleneck</span>
+      </div>
+    </div>
+    <figcaption>Toggle the bottleneck. Both panels share the same prompt at the top and the same two-layer System-2 / System-1 split; only what passes between them changes.</figcaption>
+  </figure>
+
+  <section class="reveal prose">
+    <p>Language wins for two reasons that are hard to engineer in any other way. First, the VLM's language head <strong>already knows compositional structure</strong>: it has seen "the red mug" and "from the counter" and "behind the toaster" combined a billion ways during text pretraining. A new subtask string the model has never literally produced before — say, "pick up the blue spatula behind the kettle" — still parses into familiar pieces. Compositional generalization is inherited, not learned. A learned vector latent gets none of that for free; you would have to train it explicitly, on every combination, to get the same behavior.</p>
+
+    <p>Second, language is <strong>interpretable for debugging</strong>. When the robot does something wrong, you can read what it thought it was doing. If a kitchen-cleaning rollout produces the string "wipe the counter" while the robot is hovering over a stack of plates, you have a precise locus for the failure: the high-level planner picked the wrong subtask, not the low-level flow that executed it. With a vector latent, the same failure looks like noise.</p>
+
+    <p>The cost is fragility to phrasing. The π₀.5 paper documents <strong>swings of zero to one hundred percent</strong> on the same physical task when the high-level prompt is reworded.<span class="sn-anchor">¹</span><span class="sidenote">π₀.5 §4. Independent evaluation by Penn GRASP reports 0% on novel glass and unseen backgrounds, with prompt-rewording sensitivity as a frequent failure mode.</span> A model that listens to language is a model that can be confused by the words it is listening to. The same property that buys compositional generalization also buys this brittleness.</p>
+
+    <p>All of that is still <em>runtime</em>. The hard part is what kind of training recipe produces a VLM that can both (a) decode a useful subtask string from a kitchen photo and (b) hand its features to an action expert without those features being ruined by the action loss. That is the next page.</p>
+  </section>
+
+  <details>
+    <summary>Where exactly does the subtask string enter the action expert's conditioning?</summary>
+    <p>The subtask string is decoded by the VLM at the chunk boundary and then concatenated into the same prefix of language tokens that the action expert reads via shared self-attention. From the action expert's point of view there is no separate "subtask channel" — the words are simply additional language tokens in the prefix, indistinguishable in mechanism from the original task prompt. The model has been trained to treat the most-recently-emitted subtask string as the operative one.</p>
+  </details>
+
+  <details>
+    <summary>How is the high-level head trained to emit useful subtasks?</summary>
+    <p>The π₀.5 data mix includes about eleven percent of high-level annotations in which a human watched a long-horizon rollout and labeled what subtask was happening at each chunk boundary. The same VLM is trained to predict those labels by ordinary next-token language-modeling on the labels themselves. That supervision is what gives the language head the prior over robot-relevant subtasks. The paper's own ablations show this verbal-instruction stream is one of the two active levers behind π₀.5's generalization, alongside embodiment diversity in the action data; web VQA was found to be statistically insignificant on the main tasks.</p>
+  </details>
+
+  <details>
+    <summary>What happens at a chunk boundary in detail?</summary>
+    <p>Sequence: (a) the controller has just consumed the last action of the previous chunk; (b) fresh camera frames and proprioception are fed to the VLM, which autoregressively decodes a short subtask string — about a hundred milliseconds for a half-dozen tokens on a modern GPU; (c) that string is appended to the language prefix; (d) the action expert samples a fresh noise chunk and runs ten Euler steps of flow matching, conditioned on the new prefix; (e) the controller starts consuming the new chunk at fifty hertz. The high-level decode and the low-level flow happen in series at each boundary, but only the flow runs between boundaries.</p>
+  </details>
+
+</main>
+
+<footer class="page-footer">
+  <div class="sources">
+    <strong>Sources:</strong> π₀.5 (arXiv 2504.16054) §3 for the hierarchical inference loop and §4 for the prompt-rewording sensitivity. Hi Robot (Driess et al.) for the System-2/System-1 framing this descends from. Independent in-the-wild evaluation by Penn GRASP for the failure-mode characterization.
+  </div>
+  <a href="page5.html" class="next">next: training recipe →</a>
+</footer>
+
+<script src="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/katex.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/contrib/auto-render.min.js"></script>
+<script src="shared.js"></script>
+<script src="viz_hierarchical_timeline.js"></script>
+<script src="viz_language_vs_latent.js"></script>
+
+</body>
+</html>

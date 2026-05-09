@@ -1,0 +1,215 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>The substrate — π₀.5</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Source+Serif+4:ital,wght@0,400;0,600;0,700;1,400&family=Inter:wght@400;500;700&family=JetBrains+Mono:wght@400;600&display=swap">
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/katex.min.css">
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+
+<header class="page-header">
+  <a class="mark" href="index.html">π₀.5</a>
+  <nav class="progress-strip" aria-label="page progress">
+    <a href="page1.html" class="seg current" title="1. Substrate"></a>
+    <a href="page2.html" class="seg" title="2. Action expert"></a>
+    <a href="page3.html" class="seg" title="3. Flow matching"></a>
+    <a href="page4.html" class="seg" title="4. Hierarchical"></a>
+    <a href="page5.html" class="seg" title="5. Training / KI"></a>
+    <a href="page6.html" class="seg" title="6. Generalization"></a>
+  </nav>
+</header>
+
+<main>
+
+  <section class="reveal">
+    <span class="eyebrow">Section 1 · the substrate</span>
+    <h1>What the model is made of.</h1>
+    <p class="lede">π₀.5 takes pixels and language as input and emits robot actions as output. Before any of that, both inputs have to be chopped into pieces a transformer can read.</p>
+  </section>
+
+  <section class="reveal prose">
+    <p>A neural network does not natively understand a kitchen photo or the sentence <em>pick up the sponge</em>. It understands vectors of numbers. The first job of the model is to turn both into the same kind of thing &mdash; a flat sequence of vectors we call <strong>tokens</strong>.</p>
+
+    <p>For text, a tokenizer chops a sentence into sub-word units (<em>pick</em>, <em>up</em>, <em>the</em>, <em>spo</em>, <em>nge</em>) and looks each one up in a fixed dictionary. Every entry has a learned vector, typically a few hundred numbers wide.</p>
+
+    <p>For images, the trick is grid-and-flatten. A 224&times;224 photograph is sliced into a 14&times;14 grid of 16-pixel patches; each patch runs through a small network and is squeezed into a single vector of the same width as a text token. A photo becomes 196 vectors. <span class="sn-anchor">¹</span> Both streams concatenate into one long row.</p>
+    <span class="sidenote">14 &times; 14 = 196 patches at the default 224-pixel input. PaliGemma is the open vision-language model π₀.5 starts from.</span>
+  </section>
+
+  <figure class="reveal">
+    <span class="fig-label">Figure 1.1 — A photo and a sentence become one sequence</span>
+    <div class="fig-body">
+      <canvas class="viz-canvas" id="viz-token-anatomy" width="900" height="500"></canvas>
+      <div class="fig-controls">
+        <button id="ta-mode-img" class="active">show image patches</button>
+        <button id="ta-mode-text">show text tokens</button>
+        <button id="ta-mode-both">combined sequence</button>
+      </div>
+      <div class="legend">
+        <span><span class="swatch" style="background: var(--c-vlm)"></span>image patch / text token (VLM-routed)</span>
+        <span><span class="swatch" style="background: var(--ink-muted)"></span>raw pixels / characters</span>
+      </div>
+    </div>
+    <figcaption>A 14&times;14 grid of patches over a kitchen scene flattens into 196 patch vectors; a five-word command tokenises into five sub-word vectors; both rows live in the same sequence.</figcaption>
+  </figure>
+
+  <section class="reveal prose">
+    <h2>Attention: how a token decides what to listen to.</h2>
+
+    <p>Once the sequence exists, tokens have to talk to each other. The mechanism is called <strong>attention</strong>, and it is mechanical.</p>
+
+    <p>For every token, the model produces three short vectors from its embedding: a <strong>query</strong>, a <strong>key</strong>, and a <strong>value</strong>. The query is a question (&ldquo;what kind of word goes after <em>cat</em>?&rdquo;); the key is a label the token advertises (&ldquo;I am a verb&rdquo;); the value is content the token will hand over (&ldquo;sat&rdquo;).</p>
+
+    <p>To update a token, the model dot-products its query against every other token's key, normalises the scores with softmax so they sum to one, and uses those weights to take a weighted average of the values. That weighted average is the token's new representation.</p>
+
+    <div class="reveal-eq eq-label">SCALED DOT-PRODUCT ATTENTION</div>
+    <div class="reveal-eq">$$\text{Attention}(Q, K, V) = \text{softmax}\!\left(\frac{Q K^\top}{\sqrt{d}}\right) V$$</div>
+
+    <p>The $\sqrt{d}$ keeps dot products from blowing up when vectors get wide; without it, softmax saturates and the model stops learning.</p>
+  </section>
+
+  <figure class="reveal">
+    <span class="fig-label">Figure 1.2 — A single attention head, one token at a time</span>
+    <div class="fig-body">
+      <canvas class="viz-canvas" id="viz-attn-anatomy" width="900" height="520"></canvas>
+      <div class="fig-controls">
+        <span style="margin-right:0.5rem">click a token:</span>
+        <button data-attn-token="0">the</button>
+        <button data-attn-token="1" class="active">cat</button>
+        <button data-attn-token="2">sat</button>
+        <button data-attn-token="3">on</button>
+        <button data-attn-token="4">the</button>
+        <button data-attn-token="5">mat</button>
+        <span style="flex-basis:100%; height:0"></span>
+        <button id="attn-step-1">1. compute Q&middot;K</button>
+        <button id="attn-step-2">2. softmax</button>
+        <button id="attn-step-3">3. weight V</button>
+      </div>
+      <div class="legend">
+        <span><span class="swatch" style="background: var(--c-vlm)"></span>query token (the one asking)</span>
+        <span><span class="swatch" style="background: var(--c-data)"></span>strong attention</span>
+        <span><span class="swatch" style="background: var(--ink-muted)"></span>weak attention</span>
+      </div>
+    </div>
+    <figcaption>Click any word in <em>the cat sat on the mat</em>. Step 1 shows raw dot products between that word's query and every key; step 2 normalises them with softmax; step 3 mixes the values according to those weights.</figcaption>
+  </figure>
+
+  <section class="reveal prose">
+    <h2>Multi-head attention: several questions at once.</h2>
+
+    <p>One attention computation forces every token to ask one question per layer. The fix is to run several in parallel, each on its own slice of the embedding. Each slice is called a <strong>head</strong> and learns its own query/key/value matrices. One head ends up tracking word order; another tracks which subject a verb belongs to; another binds adjectives to their nouns. The heads' outputs concatenate and pass through one final projection.</p>
+  </section>
+
+  <figure class="reveal">
+    <span class="fig-label">Figure 1.3 — Four heads, four reading strategies</span>
+    <div class="fig-body">
+      <canvas class="viz-canvas" id="viz-multihead" width="900" height="520"></canvas>
+      <div class="fig-controls">
+        <button data-mh-mode="single" class="active">one head at a time</button>
+        <button data-mh-mode="all">all four heads</button>
+        <button data-mh-mode="concat">concatenate &amp; project</button>
+        <span style="flex-basis:100%; height:0"></span>
+        <span style="margin-right:0.5rem">head:</span>
+        <button data-mh-head="0" class="active">positional</button>
+        <button data-mh-head="1">syntactic</button>
+        <button data-mh-head="2">coreference</button>
+        <button data-mh-head="3">image-grounding</button>
+      </div>
+      <div class="legend">
+        <span><span class="swatch" style="background: var(--c-vlm)"></span>head output</span>
+        <span><span class="swatch" style="background: var(--c-data)"></span>strong attention</span>
+        <span><span class="swatch" style="background: var(--ink-muted)"></span>weak attention</span>
+      </div>
+    </div>
+    <figcaption>Four hand-authored heads on the sentence <em>the red cube is to the left of the blue cube</em>; their outputs concatenate end-to-end and pass through one final linear projection.</figcaption>
+  </figure>
+
+  <section class="reveal prose">
+    <h2>A transformer block: attention plus a small per-token network.</h2>
+
+    <p>A transformer stacks identical blocks. One block does two things in order: multi-head attention, so tokens mix information across the sequence, then a small two-layer network (a <strong>feed-forward</strong> or <strong>MLP</strong>) applied to each token independently &mdash; this is where most parameters live. <strong>Residual connections</strong> let information skip past each sublayer; <strong>layer norm</strong> keeps activation sizes stable as the stack goes deep.</p>
+
+    <p>Stack 18 of these blocks and you have the language-model half of PaliGemma &mdash; the backbone π₀.5 starts from. <span class="sn-anchor">²</span></p>
+    <span class="sidenote">PaliGemma combines a SigLIP vision tower (~400M params) with a Gemma-2B language model. Together: ~3.0B parameters of vision-language model.</span>
+  </section>
+
+  <figure class="reveal">
+    <span class="fig-label">Figure 1.4 — One transformer block, animated</span>
+    <div class="fig-body">
+      <canvas class="viz-canvas" id="viz-block" width="900" height="500"></canvas>
+      <div class="fig-controls">
+        <button id="block-step">step ▸</button>
+        <button id="block-play">play</button>
+        <button id="block-reset">reset</button>
+        <span style="flex-basis:100%; height:0"></span>
+        <span style="color: var(--ink-muted)">stack 18 of these blocks &rarr; PaliGemma backbone</span>
+      </div>
+      <div class="legend">
+        <span><span class="swatch" style="background: var(--c-vlm)"></span>token flowing through</span>
+        <span><span class="swatch" style="background: var(--c-data)"></span>active sublayer</span>
+        <span><span class="swatch" style="background: var(--ink-muted)"></span>residual stream</span>
+      </div>
+    </div>
+    <figcaption>A single token's path through one block: norm, attention, residual add, norm, feed-forward, residual add. Eighteen of these stacked is the language backbone of π₀.5.</figcaption>
+  </figure>
+
+  <section class="reveal prose">
+    <h2>The mask: who is allowed to look at whom.</h2>
+
+    <p>Attention defaults to letting every token see every other. For a model generating text one token at a time, that is too much &mdash; a token must not peek at words it has not produced yet. The fix is a <strong>mask</strong>: a 2D table the same size as the attention matrix, with forbidden cells set to $-\infty$ before the softmax (which forces their weights to zero).</p>
+
+    <p>π₀.5 uses a pattern called <strong>prefix-LM</strong>. The input &mdash; image patches plus the language prompt &mdash; is the <em>prefix</em>; tokens inside the prefix see each other in both directions because the model is reading them, not generating them. Anything <em>after</em> the prefix &mdash; the <em>suffix</em> &mdash; is causal: each new token sees all the prefix and only the earlier suffix tokens.</p>
+  </section>
+
+  <figure class="reveal">
+    <span class="fig-label">Figure 1.5 — The prefix-LM attention mask</span>
+    <div class="fig-body">
+      <canvas class="viz-canvas" id="viz-mask" width="900" height="560"></canvas>
+      <div class="fig-controls">
+        <label>prefix length <input type="range" id="mask-prefix" min="6" max="22" value="21"> <span class="readout" id="mask-prefix-out">21</span></label>
+        <span style="flex-basis:100%; height:0"></span>
+        <span style="color: var(--ink-muted)">hover any row to see what that token attends to</span>
+      </div>
+      <div class="legend">
+        <span><span class="swatch" style="background: var(--c-vlm); opacity: 0.65"></span>prefix &harr; prefix (bidirectional)</span>
+        <span><span class="swatch" style="background: var(--c-flow); opacity: 0.55"></span>suffix &rarr; prefix (read input)</span>
+        <span><span class="swatch" style="background: var(--c-action); opacity: 0.55"></span>suffix &rarr; suffix (causal)</span>
+        <span><span class="swatch" style="background: var(--rule-strong)"></span>blocked</span>
+      </div>
+    </div>
+    <figcaption>An attention mask for ~24 tokens (16 image patches + 5 text tokens + 3 generated tokens); allowed regions are coloured by role, blocked cells are dark.</figcaption>
+  </figure>
+
+  <section class="reveal prose">
+    <p>That is the substrate. Tokens are vectors; attention is a learned weighted average; a block is attention plus a per-token network with residuals; stack the blocks under the prefix-LM mask and you have the vision-language model π₀.5 is built on.</p>
+
+    <p>The next page introduces <strong>the action expert</strong> &mdash; a second transformer that talks to this one and produces continuous robot actions instead of words.</p>
+  </section>
+
+  <details>
+    <summary>One layer's worth of arithmetic, in numbers</summary>
+    <p>In the Gemma-2B language model used by π₀.5's backbone, each token is a vector of 2048 numbers. Attention runs with 18 heads, so each head sees 2048 / 18 ≈ 114 dimensions per query/key/value. The feed-forward sublayer expands every token to 16384 and projects back. Eighteen blocks stack on top of each other; the attention mask is shared across blocks but the weights are not. Image patches use the same dimension as text tokens because PaliGemma projects the SigLIP vision-tower outputs into the language model's token space with a single linear map.</p>
+  </details>
+
+</main>
+
+<footer class="page-footer">
+  <div class="sources"><strong>Sources:</strong> Vaswani et al. (canonical scaled-dot-product attention); PaliGemma technical report (prefix-LM masking); π₀ paper §B (Gemma-2B backbone configuration), arXiv 2410.24164; π₀.5 paper, arXiv 2504.16054.</div>
+  <a href="page2.html" class="next">next: action expert →</a>
+</footer>
+
+<script src="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/katex.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/contrib/auto-render.min.js"></script>
+<script src="shared.js"></script>
+<script src="viz_token_anatomy.js"></script>
+<script src="viz_attention_anatomy.js"></script>
+<script src="viz_multihead_split.js"></script>
+<script src="viz_transformer_block.js"></script>
+<script src="viz_prefix_lm_mask.js"></script>
+</body>
+</html>

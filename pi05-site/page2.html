@@ -1,0 +1,145 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>The action expert — π₀.5</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Source+Serif+4:ital,wght@0,400;0,600;0,700;1,400&family=Inter:wght@400;500;700&family=JetBrains+Mono:wght@400;600&display=swap">
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/katex.min.css">
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+
+<header class="page-header">
+  <a class="mark" href="index.html">π₀.5</a>
+  <nav class="progress-strip" aria-label="page progress">
+    <a href="page1.html" class="seg" title="1. Substrate"></a>
+    <a href="page2.html" class="seg current" title="2. Action expert"></a>
+    <a href="page3.html" class="seg" title="3. Flow matching"></a>
+    <a href="page4.html" class="seg" title="4. Hierarchical"></a>
+    <a href="page5.html" class="seg" title="5. Training / KI"></a>
+    <a href="page6.html" class="seg" title="6. Generalization"></a>
+  </nav>
+</header>
+
+<main>
+
+  <section class="reveal">
+    <span class="eyebrow">Section 2 · the action expert</span>
+    <h1>The other transformer.</h1>
+    <p class="lede">A robot does not output words. It outputs joint angles, gripper positions, base velocities &mdash; and lots of them, fast. π₀.5's solution is a second, smaller transformer that shares attention with the language model but runs its own weights.</p>
+  </section>
+
+  <section class="reveal prose">
+    <p>A language model emits one of about 256,000 possible word-pieces at each step. A robot has no such vocabulary. To move the arm of a UR20 + Robotiq gripper through one second of motion at 50&nbsp;Hz, the model has to produce <em>50 timesteps</em>, each holding <em>18 floating-point numbers</em>: seven joint targets per arm, two grippers, plus optional torso and base. <span class="sn-anchor">¹</span></p>
+    <span class="sidenote">D = 18 is the largest configuration in the data; smaller robots get zero-padded so the same model can drive any of them.</span>
+
+    <p>That makes the output of one chunk a vector in $\mathbb{R}^{50 \times 18} = \mathbb{R}^{900}$, with the constraint that consecutive timesteps form a smooth motion. Discrete word-piece prediction is the wrong tool; we need a head that produces real-valued, temporally coherent trajectories.</p>
+
+    <p>Predicting one timestep at a time would be cheaper. It would also be worse. A single 1/50-second action carries almost no commitment about where the gripper is going; the model would have to re-decide on every tick and the resulting motion would jitter. Predicting a full second at once forces the model to commit to a coherent trajectory and lets a downstream controller interpolate between chunks smoothly.</p>
+  </section>
+
+  <figure class="reveal">
+    <span class="fig-label">Figure 2.1 — One second of motion is one chunk</span>
+    <div class="fig-body">
+      <canvas class="viz-canvas" id="viz-chunk" width="900" height="500"></canvas>
+      <div class="fig-controls">
+        <label>reveal up to t = <input type="range" id="chunk-t" min="1" max="50" value="50"> <span class="readout" id="chunk-t-out">50</span></label>
+        <button id="chunk-play">play sweep</button>
+      </div>
+      <div class="legend">
+        <span><span class="swatch" style="background: var(--c-action)"></span>action chunk window</span>
+        <span><span class="swatch" style="background: var(--j0)"></span>joint 1</span>
+        <span><span class="swatch" style="background: var(--j1)"></span>2</span>
+        <span><span class="swatch" style="background: var(--j2)"></span>3</span>
+        <span><span class="swatch" style="background: var(--j3)"></span>4</span>
+        <span><span class="swatch" style="background: var(--j4)"></span>5</span>
+        <span><span class="swatch" style="background: var(--j5)"></span>6</span>
+        <span><span class="swatch" style="background: var(--j6)"></span>gripper</span>
+      </div>
+    </div>
+    <figcaption>An action chunk plotted as seven joint traces over fifty 50-Hz steps; sweep the slider to see the chunk reveal itself, with a small arm graphic tracking the current joint targets.</figcaption>
+  </figure>
+
+  <section class="reveal prose">
+    <h2>The trick: same attention, two parallel weight banks.</h2>
+
+    <p>You could solve the problem by bolting a second transformer next to the language model and connecting the two with cross-attention layers &mdash; expensive and architecturally fussy. You could bolt a small MLP head on top and ask it to produce all 900 numbers in one shot &mdash; cheap, but throws away the transformer's ability to let action timesteps reason about each other.</p>
+
+    <p>π₀.5 takes a third path. The model is <strong>one transformer</strong>. Its attention layer is shared. But it carries <em>two parallel sets of feed-forward weights</em>: one trained on text and image tokens (the language model side, marked in purple), one trained on action tokens (the action expert, marked in amber). A token's <em>type</em> &mdash; text/image or action &mdash; deterministically picks which feed-forward bank it flows through. <span class="sn-anchor">²</span></p>
+    <span class="sidenote">π₀ §B calls this &ldquo;a single transformer with two sets of weights, also known as experts; the weights interact only through the transformer's self-attention layers.&rdquo; π₀.5 inherits the construction.</span>
+
+    <p>Inside the shared attention, action queries see image and language keys; image queries see only image and language keys (the prefix-LM mask of <a href="page1.html">page&nbsp;1</a> still applies). One Q&middot;K&middot;V product, two parameter sets touching it. People call this a <em>mixture of transformer experts</em>. Routing is by token type, not learned.</p>
+  </section>
+
+  <figure class="reveal">
+    <span class="fig-label">Figure 2.2 — Shared attention, two MLP banks</span>
+    <div class="fig-body">
+      <canvas class="viz-canvas" id="viz-banks" width="1100" height="560"></canvas>
+      <div class="fig-controls">
+        <button data-banks-mode="text" class="active">text-only token</button>
+        <button data-banks-mode="action">action-only token</button>
+        <button data-banks-mode="joint">joint mode (mixed sequence)</button>
+      </div>
+      <div class="legend">
+        <span><span class="swatch" style="background: var(--c-vlm)"></span>VLM weights / route</span>
+        <span><span class="swatch" style="background: var(--c-action)"></span>action expert weights / route</span>
+        <span><span class="swatch" style="background: var(--ink-muted)"></span>shared attention</span>
+      </div>
+    </div>
+    <figcaption>One transformer block. Attention is one shared box; the two MLP banks live below it as parallel weight tiles. A token's type chooses which tile it routes through, both in attention's QKV projections and in the feed-forward.</figcaption>
+  </figure>
+
+  <section class="reveal prose">
+    <h2>What the action expert costs.</h2>
+
+    <p>The vision-language backbone is the heavy half: about 3.0 billion parameters, dominated by an 18-layer Gemma-2B language model and a SigLIP image tower. The action expert is the lighter half: about 0.3 billion parameters &mdash; <em>roughly 10% the size</em> &mdash; with the same depth (18 layers) and the same number of attention heads (so the shared attention computation aligns) but a narrower MLP and a narrower hidden width.</p>
+
+    <p>The asymmetry is deliberate. At inference the language backbone runs once per chunk; the action expert runs ten times per chunk (the ten flow-matching steps of <a href="page3.html">page&nbsp;3</a>). Per-step compute matters more for the expert than for the backbone, so the expert is the smaller of the two.</p>
+  </section>
+
+  <figure class="reveal">
+    <span class="fig-label">Figure 2.3 — π₀.5 in one diagram</span>
+    <div class="fig-body wide">
+      <canvas class="viz-canvas" id="viz-pi05" width="1100" height="600"></canvas>
+      <div class="fig-controls">
+        <span style="color: var(--ink-muted)">hover any block for its role and parameter count</span>
+      </div>
+      <div class="legend">
+        <span><span class="swatch" style="background: var(--c-vlm)"></span>VLM (~3.0B)</span>
+        <span><span class="swatch" style="background: var(--c-action)"></span>action expert (~0.3B)</span>
+        <span><span class="swatch" style="background: var(--c-flow)"></span>flow head &amp; gradient</span>
+        <span><span class="swatch" style="background: var(--ink-muted)"></span>subtask preview (page 4)</span>
+      </div>
+    </div>
+    <figcaption>Image and language tokens enter the VLM block; action tokens enter the same block through the parallel weight bank; their representations meet in shared attention; the action expert's outputs feed a flow head that produces the 50&times;18 chunk a robot consumes.</figcaption>
+  </figure>
+
+  <section class="reveal prose">
+    <p>The action expert produces representations. It does <em>not</em>, on its own, produce actions. Each of its output tokens is a vector that needs one more step to become a joint angle: a head that maps that vector to a velocity in action space, and an integrator that walks ten steps along that velocity to land at a clean chunk.</p>
+
+    <p>That last step is <strong>flow matching</strong>, and it is the next page.</p>
+  </section>
+
+  <details>
+    <summary>Why share the attention layer at all?</summary>
+    <p>Two reasons. First, sharing is what lets action tokens read VLM features in the same forward pass &mdash; no separate cross-attention needed. Second, attention is most of the compute when the prefix is long (≈200 image patches plus a language prompt). Doubling the attention layer would roughly double the inference cost; doubling the much smaller MLP is cheap. The action expert's MLP is also narrower than the VLM's (~1024 wide vs 2048 wide), so even the &ldquo;extra&rdquo; bank is a fraction of a full transformer.</p>
+  </details>
+
+</main>
+
+<footer class="page-footer">
+  <div class="sources"><strong>Sources:</strong> π₀ paper §B (mixture-of-experts attention; Gemma-2B configuration; action-expert width), arXiv 2410.24164; π₀.5 paper, arXiv 2504.16054; PaliGemma technical report.</div>
+  <a href="page3.html" class="next">next: flow matching →</a>
+</footer>
+
+<script src="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/katex.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/contrib/auto-render.min.js"></script>
+<script src="shared.js"></script>
+<script src="viz_action_chunk.js"></script>
+<script src="viz_two_mlp_banks.js"></script>
+<script src="viz_pi05_block_diagram.js"></script>
+</body>
+</html>

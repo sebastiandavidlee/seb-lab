@@ -1,0 +1,156 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Two losses, two paths — π₀.5</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Source+Serif+4:ital,wght@0,400;0,600;0,700;1,400&family=Inter:wght@400;500;700&family=JetBrains+Mono:wght@400;600&display=swap">
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/katex.min.css">
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+
+<header class="page-header">
+  <a class="mark" href="index.html">π₀.5</a>
+  <nav class="progress-strip" aria-label="page progress">
+    <a href="page1.html" class="seg" title="1. Substrate"></a>
+    <a href="page2.html" class="seg" title="2. Action expert"></a>
+    <a href="page3.html" class="seg" title="3. Flow matching"></a>
+    <a href="page4.html" class="seg" title="4. Hierarchical"></a>
+    <a href="page5.html" class="seg current" title="5. Training / KI"></a>
+    <a href="page6.html" class="seg" title="6. Generalization"></a>
+  </nav>
+</header>
+
+<main>
+
+  <section class="reveal">
+    <span class="eyebrow">Section 5 · the training recipe</span>
+    <h1>Two losses, two paths.</h1>
+    <p class="lede">π₀.5 trains by routing a continuous loss into the action expert and a discrete loss into the language model — and refusing, deliberately, to let either gradient cross over.</p>
+  </section>
+
+  <section class="reveal prose">
+    <p>So far this has been a story about runtime. Training is a different shape. At training time the same network sees several losses at once: the action expert is hit with a flow-matching loss against a real demonstration chunk, and the vision-language model is hit with ordinary language modelling on web text, image captioning, and visual question-answering. On top of those, there is one extra loss that is the whole point of this page.</p>
+
+    <p>If you wired this naively &mdash; one network, all losses summed, gradients allowed to flow wherever they want &mdash; the system breaks.</p>
+  </section>
+
+  <section class="reveal prose">
+    <h2>The pathology.</h2>
+
+    <p>Flow matching predicts a velocity at a noise level $t \in [0,1]$. The variance of that target depends on $t$: near $t \approx 0$ the chunk is almost pure noise and the velocity needs to do nearly all of the work; near $t \approx 1$ the chunk is almost the clean answer and the velocity is small but sensitive. Across the whole schedule the gradient signal is non-stationary &mdash; spiky and badly behaved.<span class="sn-anchor">¹</span></p>
+    <span class="sidenote">The variance pathology was first observed in earlier end-to-end vision-language-action recipes; the Knowledge Insulation paper (arXiv 2505.23705 §1) names it as the motivation for separating the two gradients.</span>
+
+    <p>If those gradients propagate back into a vision-language model carefully pre-trained on the open internet, they slowly corrupt its language priors. The model still moves the robot, but its instruction-following degrades and its captioning drifts. You have spent a lot of compute teaching a language model how to be a slightly worse language model.</p>
+  </section>
+
+  <figure class="reveal wide">
+    <span class="fig-label">Figure 5.1 — Where each gradient is allowed to go</span>
+    <div class="fig-body">
+      <canvas class="viz-canvas" id="viz-ki-gradients" width="1100" height="600"></canvas>
+      <div class="fig-controls">
+        <button data-ki-mode="naive">naive end-to-end</button>
+        <button data-ki-mode="ki" class="active">KI training</button>
+      </div>
+      <div class="legend">
+        <span><span class="swatch" style="background: var(--c-vlm)"></span>VLM (PaliGemma)</span>
+        <span><span class="swatch" style="background: var(--c-action)"></span>action expert</span>
+        <span><span class="swatch" style="background: var(--c-flow)"></span>flow head / forward</span>
+        <span><span class="swatch" style="background: var(--c-fast)"></span>FAST aux head &amp; gradient</span>
+        <span><span class="swatch" style="background: var(--c-grad-stop)"></span>flow gradient (stopped)</span>
+      </div>
+    </div>
+    <figcaption>Solid arrows show the forward pass. Dashed animated arrows show backward gradients. In KI mode the flow gradient meets a hard stop at the VLM boundary; the FAST cross-entropy gradient reaches the VLM normally.</figcaption>
+  </figure>
+
+  <section class="reveal prose">
+    <h2>The two-piece fix.</h2>
+
+    <p><strong>One.</strong> A <em>stop-gradient</em> sits at the boundary between the action expert and the VLM. In the forward pass the action expert reads VLM features as if nothing has changed; in the backward pass the gradient is detached &mdash; literally, in code, an operation that copies activations forward but returns zero on the way back.<span class="sn-anchor">²</span> The flow loss never reaches the VLM.</p>
+    <span class="sidenote">In PyTorch the operation is <code>x.detach()</code>; in JAX it is <code>jax.lax.stop_gradient(x)</code>. The forward output is identical to <code>x</code>; the gradient through it is zero.</span>
+
+    <p><strong>Two.</strong> A second, well-behaved loss is added on the VLM side. The same action chunk that the flow expert regresses toward is also passed through a tokenizer called <strong>FAST</strong> &mdash; explained next &mdash; which compresses it into roughly thirty to sixty discrete integer tokens. A small auxiliary head hangs off the VLM and predicts those tokens via categorical cross-entropy. <em>This</em> loss is allowed to update the VLM. Cross-entropy on a discrete target has stationary, well-conditioned gradients; the language priors take it in stride.</p>
+
+    <p>That is the asymmetry. Flow gradient: action expert only. FAST cross-entropy gradient: VLM. Two gradients, two paths, by construction.</p>
+  </section>
+
+  <section class="reveal prose">
+    <h2>What FAST actually does.</h2>
+
+    <p>The FAST tokenizer takes the same continuous chunk &mdash; fifty timesteps of an eighteen-dimensional action vector &mdash; and runs four transforms on it. First, a <strong>discrete cosine transform</strong> along the time axis turns each joint's trajectory into frequency-domain coefficients; for smooth motor traces almost all the energy lives in the lowest dozen frequencies. Second, those coefficients get <strong>uniformly quantized</strong> into a small set of integer bins. Third, a <strong>byte-pair-encoding</strong> pass merges the most common adjacent pairs in the integer stream, the same idea that subword text tokenizers use, exploiting the fact that motor primitives repeat. Fourth, the result is a short sequence of token ids drawn from a vocabulary of about a thousand to two thousand entries.<span class="sn-anchor">³</span></p>
+    <span class="sidenote">FAST is a published tokenizer (Pertsch et al., <a href="https://arxiv.org/abs/2501.09747">arXiv 2501.09747</a>) originally proposed for autoregressive vision-language-action models; in π₀.5 it is repurposed as an auxiliary objective during training only. The tokenizer itself was pre-trained on roughly a million robot trajectories, which is why it generalizes across embodiments.</span>
+  </section>
+
+  <figure class="reveal wide">
+    <span class="fig-label">Figure 5.2 — FAST: from continuous chunk to ~40 discrete tokens</span>
+    <div class="fig-body">
+      <canvas class="viz-canvas" id="viz-fast-pipeline" width="1100" height="460"></canvas>
+      <div class="fig-controls">
+        <button data-fast-stage="0" class="active">1. chunk</button>
+        <button data-fast-stage="1">2. DCT</button>
+        <button data-fast-stage="2">3. quantize</button>
+        <button data-fast-stage="3">4. BPE</button>
+        <button data-fast-stage="4">5. tokens</button>
+      </div>
+      <div class="legend">
+        <span><span class="swatch" style="background: var(--c-fast)"></span>kept FAST coefficients / tokens</span>
+        <span><span class="swatch" style="background: var(--c-frozen)"></span>truncated frequencies</span>
+        <span><span class="swatch" style="background: var(--j0)"></span>joint trace 0 …</span>
+      </div>
+    </div>
+    <figcaption>Click any stage to highlight it. The pipeline turns 350 floats per second of motion into roughly forty token ids — a clean target for a categorical loss.</figcaption>
+  </figure>
+
+  <section class="reveal prose">
+    <p>The discrete tokens are <em>only</em> a training target. At runtime the model never produces them &mdash; the action chunk is generated by flow matching.<span class="sn-anchor">⁴</span> FAST exists in this architecture because cross-entropy on a discrete target is the well-behaved teacher the VLM needs, the same family of trick that BERT's masked language modelling and MaskGIT use in adjacent settings.</p>
+    <span class="sidenote">Pertsch (FAST first author), April 2025: <em>"discrete FAST action tokenization now powers all of our pre-training in π0.5"</em>. The tokens are the pre-training signal, not the runtime output.</span>
+
+    <p>The thesis from the index page, in mechanism: <strong>π₀.5 uses a discrete categorical objective to <em>shape</em> the language model during training, and a continuous flow-matching objective to <em>act</em> at runtime.</strong> The recipe makes π₀.5 trainable. But trainable for <em>what</em>?</p>
+  </section>
+
+  <section class="reveal prose">
+    <div class="reveal-eq eq-label">JOINT TRAINING OBJECTIVE</div>
+    <div class="reveal-eq">$$\mathcal{L} = \underbrace{\lambda_\text{flow}\,\mathbb{E}\,\| v_\theta(x_t,t) - (x_1 - x_0) \|^2}_{\text{action expert only (stop-grad at VLM)}} \;+\; \underbrace{\lambda_\text{FAST}\,\mathbb{E}\,\text{CE}\!\left(\hat{y},\, y_\text{FAST}\right)}_{\text{VLM is updated}} \;+\; \mathcal{L}_\text{LM} + \mathcal{L}_\text{caption} + \mathcal{L}_\text{VQA}$$</div>
+
+    <p>Three or four loss terms, summed; the partition of who-can-update-what comes from the stop-gradient, not from the equation itself. Page 6 turns to what this recipe actually <em>buys</em> &mdash; and what it doesn't.</p>
+  </section>
+
+  <details>
+    <summary>One-line code sketch of the gradient routing</summary>
+    <pre style="font-family: var(--font-mono); font-size: 0.86em; line-height: 1.55; color: var(--ink); margin: 0.5rem 0 0;">vlm_features = vlm(image, text)                       # shape: [B, T_vlm, D]
+fast_logits  = fast_aux_head(vlm_features)            # gradients reach VLM
+loss_fast    = cross_entropy(fast_logits, fast_tokens)
+
+vlm_for_expert = stop_gradient(vlm_features)          # ← the load-bearing line
+v_pred         = action_expert(vlm_for_expert, x_t, t)
+loss_flow      = mse(v_pred, x1 - x0)
+
+loss = lambda_flow * loss_flow + lambda_fast * loss_fast + loss_lm + ...</pre>
+    <p style="margin-top: 0.75rem">In code, KI is one extra line: <code>stop_gradient</code> on the VLM features before they enter the action expert. Everything else falls out of that.</p>
+  </details>
+
+  <details>
+    <summary>Is the FAST head doing the real work, or is the stop-gradient enough?</summary>
+    <p>Per the KI paper's own ablations, removing the FAST cross-entropy auxiliary loss drops out-of-distribution performance more than removing either the stop-gradient or the heterogeneous co-training data. The stop-gradient on its own is a safety belt &mdash; it prevents corruption &mdash; but it does not by itself give the VLM an action-relevant signal. The FAST head is what teaches the VLM that some image-text inputs imply action structure.</p>
+    <p>Open question: KI ablates <em>the choice of FAST</em>, not <em>the choice of discrete target</em>. A learned VQ-VAE codebook, a wavelet quantization, or a simple binned representation might do equivalent variance-reduction work. The proven claim is "a discrete auxiliary target stabilizes the continuous generative backbone"; whether DCT-BPE specifically is the right discrete target is unsettled.</p>
+  </details>
+
+</main>
+
+<footer class="page-footer">
+  <div class="sources">
+    <strong>Sources:</strong> Knowledge Insulation, Driess et al., <a href="https://arxiv.org/abs/2505.23705">arXiv 2505.23705</a> §3 (stop-gradient + FAST aux loss); π₀.5, Black et al., <a href="https://arxiv.org/abs/2504.16054">arXiv 2504.16054</a> §3 (training recipe); FAST tokenizer, Pertsch et al., <a href="https://arxiv.org/abs/2501.09747">arXiv 2501.09747</a> (DCT + quantize + BPE pipeline); Pertsch X thread (April 2025) confirming FAST tokens as a pre-training target in π₀.5.
+  </div>
+  <a href="page6.html" class="next">next: generalization →</a>
+</footer>
+
+<script src="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/katex.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/contrib/auto-render.min.js"></script>
+<script src="shared.js"></script>
+<script src="viz_ki_gradients.js"></script>
+<script src="viz_fast_pipeline.js"></script>
+</body>
+</html>

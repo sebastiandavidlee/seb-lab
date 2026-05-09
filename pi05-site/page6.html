@@ -1,0 +1,132 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>What generalizes — π₀.5</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Source+Serif+4:ital,wght@0,400;0,600;0,700;1,400&family=Inter:wght@400;500;700&family=JetBrains+Mono:wght@400;600&display=swap">
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/katex.min.css">
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+
+<header class="page-header">
+  <a class="mark" href="index.html">π₀.5</a>
+  <nav class="progress-strip" aria-label="page progress">
+    <a href="page1.html" class="seg" title="1. Substrate"></a>
+    <a href="page2.html" class="seg" title="2. Action expert"></a>
+    <a href="page3.html" class="seg" title="3. Flow matching"></a>
+    <a href="page4.html" class="seg" title="4. Hierarchical"></a>
+    <a href="page5.html" class="seg" title="5. Training / KI"></a>
+    <a href="page6.html" class="seg current" title="6. Generalization"></a>
+  </nav>
+</header>
+
+<main>
+
+  <section class="reveal">
+    <span class="eyebrow">Section 6 · what the recipe buys</span>
+    <h1>What generalizes, what doesn't.</h1>
+    <p class="lede">π₀.5 is trained on a deliberate mixture of five data streams. Two of them do the work. One is supportive. One — the most loudly advertised — does almost nothing.</p>
+  </section>
+
+  <section class="reveal prose">
+    <p>The training batch in π₀.5 is heterogeneous on purpose. A single update step pulls examples from five sources, weighted into roughly the proportions shown below. The architecture treats them uniformly &mdash; same forward pass, same loss machinery from the previous page &mdash; but their effects on what the deployed model can do are wildly unequal.</p>
+  </section>
+
+  <figure class="reveal wide">
+    <span class="fig-label">Figure 6.1 — Five data streams, three ablation verdicts</span>
+    <div class="fig-body">
+      <canvas class="viz-canvas" id="viz-data-mixture" width="1100" height="360"></canvas>
+      <div class="legend">
+        <span><span class="swatch" style="background: var(--c-trained)"></span><strong>active lever</strong> — removing it significantly hurts OOD performance</span>
+        <span><span class="swatch" style="background: var(--c-frozen)"></span><strong>support</strong> — sample-efficient backbone but not a novel lever</span>
+        <span><span class="swatch" style="background: var(--c-grad-stop)"></span><strong>not significant</strong> — ablation does not move the metric</span>
+      </div>
+    </div>
+    <figcaption>Hover any slice to see the source dataset and the ablation verdict from π₀.5 §5.</figcaption>
+  </figure>
+
+  <section class="reveal prose">
+    <p><strong>Cross-embodiment data</strong> &mdash; demonstrations collected on multiple robot platforms in a roughly OXE-style format &mdash; is an active lever. Removing it drops unseen-home performance significantly. Same with <strong>subtask-language annotations</strong>: the roughly eleven percent of the high-level data labelled with short natural-language strings (<em>"pick up the sponge"</em>, <em>"open the cabinet"</em>) is what lets the hierarchical reasoner emit useful subtask plans. Pulling either of those out of the recipe collapses the result.</p>
+
+    <p>The ~400 hours of mobile-manipulator data collected across 104 homes &mdash; the headline ingredient that gets the most attention &mdash; is supportive but not novel. It is the in-domain fuel; without it the model has nothing to imitate at deployment time. With it, the lever-pulls above are what actually drive generalization. <strong>Web VQA, OCR, and detection</strong> &mdash; the kind of data that PaliGemma was originally trained on, the kind that suggests "internet-scale knowledge transfers to robots" &mdash; is, by π₀.5's own ablations, not statistically significant on the main tasks. This is the surprise. Anyone who frames π₀.5 as <em>"add web data and generalization emerges"</em> is wrong about π₀.5.<span class="sn-anchor">¹</span></p>
+    <span class="sidenote">π₀.5 paper, Black et al. <a href="https://arxiv.org/abs/2504.16054">arXiv 2504.16054</a> §5: "no WD ablation is not statistically significant" on the main tasks. Authors are explicit about this in the paper, less so in the marketing.</span>
+  </section>
+
+  <section class="reveal prose">
+    <h2>Sized correctly, the result is real.</h2>
+
+    <p>The headline experimental setup is straightforward to state: pre-train on the mixture above, evaluate in <em>three unseen homes</em> &mdash; kitchens and bedrooms the model has never seen during training &mdash; on long-horizon language-conditioned tasks (clean the kitchen, make the bed, put the laundry away). π₀.5 reports <em>non-zero</em> success on these tasks, with the model invoking its own subtask plans and recovering from intermediate failures.</p>
+
+    <p>That is a real result. The prior baseline of "drop a vision-language-action model into a kitchen it has never seen" is essentially zero. The contribution is genuine. It is also <em>not</em> zero-shot generalization to arbitrary settings.</p>
+  </section>
+
+  <figure class="reveal wide">
+    <span class="fig-label">Figure 6.2 — The generalization gap, by lever</span>
+    <div class="fig-body">
+      <canvas class="viz-canvas" id="viz-generalization-gap" width="1100" height="480"></canvas>
+      <div class="fig-controls">
+        <button data-gen-lever="xemb" class="active">cross-embodiment data</button>
+        <button data-gen-lever="subtask" class="active">subtask language</button>
+        <button data-gen-lever="webvqa" class="active">web VQA / OCR</button>
+      </div>
+      <div class="legend">
+        <span><span class="swatch" style="background: var(--c-trained)"></span>training distribution</span>
+        <span><span class="swatch" style="background: var(--c-flow)"></span>unseen home (held)</span>
+        <span><span class="swatch" style="background: var(--c-grad-stop)"></span>caveat — see caption</span>
+      </div>
+    </div>
+    <figcaption id="gen-note">Click a lever to ablate that data slice; the unseen-home bar updates. Cross-embodiment and subtask-language drops are large; web-VQA drop is essentially noise.</figcaption>
+  </figure>
+
+  <section class="reveal prose">
+    <h2>Where the eval breaks.</h2>
+
+    <p>Outside the paper's own evaluation set, the picture is rougher. An independent in-the-wild evaluation by Penn GRASP reports <em>zero percent</em> success on novel glass surfaces and on unseen backgrounds &mdash; cases the model was not exposed to during training, where the visual statistics simply fall off the manifold. Prompt rewording &mdash; the same task described with different words &mdash; can swing success rates from zero to one hundred percent on the same scene; the policy is more sensitive to language phrasing than the marketing implies. And the LeRobot weight port hit zero percent out of the box until image preprocessing was fixed, suggesting the system is not yet plug-and-play reproducible outside the authors' stack.<span class="sn-anchor">²</span></p>
+    <span class="sidenote">Penn GRASP independent evaluation; LeRobot HF issue #2533 (preprocessing); see also Correll Lab review describing the eval as "a narrow slice of real-world manipulation."</span>
+
+    <p>Three homes, evaluated by the team that built the model, with prompt sensitivity that swings results across the entire scoring range. The right summary is: π₀.5 generalizes to <em>unseen-but-statistically-similar</em> kitchens. <em>Open-world</em> overstates the eval.</p>
+  </section>
+
+  <section class="reveal prose">
+    <h2>What is still open.</h2>
+
+    <p>The natural failure modes &mdash; novel object geometry, unfamiliar lighting, transparent or reflective surfaces &mdash; are not yet fixed by this recipe. Whether they get fixed by more data, by a different discrete target, or by a different inference loop is unsettled. The paper does not include a head-to-head with Gemini Robotics or other closed vision-language-action systems on shared benchmarks; that comparison is a conspicuous absence and the most natural follow-up question. And the LoRA-versus-Knowledge-Insulation question raised on the last page is an open empirical claim &mdash; KI works, but whether simpler parameter-efficient fine-tuning works <em>just as well</em> has not been tested in print.</p>
+
+    <p>π₀.5 is a calibration point. It demonstrates that a small architectural surface area &mdash; one transformer with two MLP banks, an action expert, a flow head, a stop-gradient, a discrete auxiliary target &mdash; combined with a careful training recipe and a heterogeneous data mix can produce non-trivial generalization in homes the model has never seen. The next versions, on this trajectory, will tell us how much further the recipe goes.</p>
+  </section>
+
+  <details>
+    <summary>The five-slice mixture and what each does, in one paragraph each</summary>
+    <p><strong>Lab teleop:</strong> the legacy Pi multi-robot teleoperation fleet, single-embodiment in spirit. Foundational; not a novel lever for π₀.5.</p>
+    <p><strong>Mobile-manipulator data, 104 homes:</strong> roughly 400 hours of in-domain demonstrations across 104 distinct homes, collected for π₀.5. The sample-efficient backbone for the flagship task; supportive in ablations.</p>
+    <p><strong>Cross-embodiment:</strong> OXE-style demonstrations across multiple robot platforms. <em>Removing it significantly degrades unseen-home performance.</em> Active lever.</p>
+    <p><strong>Web VQA / OCR / detection:</strong> internet image-text data inherited from PaliGemma. Surprisingly: ablation is <em>not statistically significant</em> on the main tasks per π₀.5 §5. The most surprising finding in the paper.</p>
+    <p><strong>Subtask language:</strong> roughly 11% of the high-level data, labelled with short natural-language strings. <em>Removing it is the largest single drop in the ablation table.</em> Active lever.</p>
+  </details>
+
+  <details>
+    <summary>What's <em>not</em> a contribution of π₀.5</summary>
+    <p>Architecture: π₀.5 keeps the same transformer family, the same flow-matching action expert, the same PaliGemma backbone size class. No new attention pattern, no new loss family, no new optimizer. The Knowledge Insulation paper that formalizes the recipe was published one month later as a separate piece; π₀.5's contribution is the data mixture and the curriculum.</p>
+    <p>Open-world capability: the eval is three homes. The marketing language outpaces the empirical scope. This is the single most important thing to keep straight when reading the paper.</p>
+  </details>
+
+</main>
+
+<footer class="page-footer">
+  <div class="sources">
+    <strong>Sources:</strong> π₀.5, Black et al., <a href="https://arxiv.org/abs/2504.16054">arXiv 2504.16054</a> §3 (data mixture) &amp; §5 (ablations); Knowledge Insulation, Driess et al., <a href="https://arxiv.org/abs/2505.23705">arXiv 2505.23705</a> (formalized recipe); Penn GRASP independent in-the-wild evaluation; LeRobot HF issue #2533 (weight-port reproduction); Correll Lab Medium review of π₀.5.
+  </div>
+  <a href="index.html" class="next">↑ back to start</a>
+</footer>
+
+<script src="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/katex.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/contrib/auto-render.min.js"></script>
+<script src="shared.js"></script>
+<script src="viz_data_mixture.js"></script>
+<script src="viz_generalization_gap.js"></script>
+</body>
+</html>
