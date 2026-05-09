@@ -1,0 +1,109 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>&pi;&#x2080; &rarr; &pi;&#x2080;.5 &mdash; A Walked Tour</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+  <header class="page-header">
+    <nav class="page-nav">
+      <a href="index.html">index</a>
+      <a href="page1.html">1. Substrate</a>
+      <a href="page2.html">2. &pi;&#x2080;</a>
+      <a href="page3.html">3. FAST</a>
+      <a href="page4.html">4. KI</a>
+      <a href="page5.html">5. &pi;&#x2080;.5</a>
+    </nav>
+    <div class="arc-progress" aria-label="page progress">
+      <span class="dot" title="1. Substrate"></span>
+      <span class="dot" title="2. &pi;&#x2080;"></span>
+      <span class="dot" title="3. FAST"></span>
+      <span class="dot" title="4. KI"></span>
+      <span class="dot" title="5. &pi;&#x2080;.5"></span>
+      <span class="label">5 stops &middot; ~25 min end-to-end</span>
+    </div>
+  </header>
+
+  <main>
+    <section class="landing-hero">
+      <h1>&pi;&#x2080; &rarr; &pi;&#x2080;.5: A Walked Tour</h1>
+      <p class="tagline">Six months. Same architecture. New training recipe. A policy that sometimes works in a kitchen it has never seen.</p>
+
+      <p>What actually changed between &pi;&#x2080; (Oct 2024) and &pi;&#x2080;.5 (Apr 2025)? Almost nothing in the architecture. Almost everything in the training recipe. This site is a 25-minute walk through the five load-bearing ideas that make that sentence honest &mdash; starting at multi-head attention and ending at the open-world generalization claim, framed the way PI's own ablations frame it.</p>
+
+      <p>The detour through FAST and Knowledge Insulation is mandatory. FAST is the tokenizer that nearly became &pi;&#x2080;-FAST &mdash; an autoregressive runtime sister of &pi;&#x2080; that didn't survive deployment &mdash; whose tokens now live on as a <em>training-time</em> auxiliary signal. Knowledge Insulation is how those tokens coexist with the flow-matching action head without corrupting the VLM. Together they are the recipe; &pi;&#x2080;.5 is the result.</p>
+
+      <p>Each page anchors one mental model and one or two visualizations that earn their pixels. Stop wherever you have what you came for &mdash; every footer calls out the standalone takeaway. About five minutes a page; you can read the climax (Page 4) on its own if that is all you came for.</p>
+
+      <p class="cite">Sources: &pi;&#x2080; (arXiv 2410.24164), FAST (arXiv 2501.09747), &pi;&#x2080;.5 (arXiv 2504.16054), Knowledge Insulation (arXiv 2505.23705), Real-Time Chunking (arXiv 2506.07339).</p>
+    </section>
+
+    <section class="nav-cards">
+      <a class="nav-card card-substrate" href="page1.html">
+        <div class="num">PAGE 1 &middot; ~5 MIN</div>
+        <h3>The Transformer Substrate</h3>
+        <p>Multi-head attention, mixture-of-experts routing, KV cache, the prefix-LM mask. The vocabulary every later page reuses.</p>
+      </a>
+      <a class="nav-card card-pi0" href="page2.html">
+        <div class="num">PAGE 2 &middot; ~5 MIN</div>
+        <h3>&pi;&#x2080;: VLM &plus; Flow Head</h3>
+        <p>PaliGemma backbone &plus; a 300M action expert sharing attention, distinct MLPs. Flow matching denoises a 50&times;D chunk in ~10 Euler steps.</p>
+      </a>
+      <a class="nav-card card-fast" href="page3.html">
+        <div class="num">PAGE 3 &middot; ~6 MIN</div>
+        <h3>FAST: Discrete Tokens, Honestly</h3>
+        <p>DCT &rarr; quantize &rarr; BPE. The AR runtime that shipped, then died at deployment. The tokenizer that survived as auxiliary signal.</p>
+      </a>
+      <a class="nav-card card-ki" href="page4.html">
+        <div class="num">PAGE 4 &middot; ~5 MIN</div>
+        <h3>Knowledge Insulation</h3>
+        <p>The climax. Stop-gradient between action expert and VLM &plus; FAST cross-entropy on the VLM head. Two gradients, one backbone.</p>
+      </a>
+      <a class="nav-card card-pi05" href="page5.html">
+        <div class="num">PAGE 5 &middot; ~4 MIN</div>
+        <h3>&pi;&#x2080;.5: What Changed</h3>
+        <p>Side-by-side &pi;&#x2080; vs &pi;&#x2080;.5 along five axes. Same runtime, wider data, KI co-training. Open-world claim, honestly framed.</p>
+      </a>
+    </section>
+
+    <section class="rails-section">
+      <h2>How to read this site</h2>
+      <p>Two reasonable paths.</p>
+
+      <h3>Linear (first read)</h3>
+      <ul>
+        <li><b>1 &rarr; 2 &rarr; 3 &rarr; 4 &rarr; 5.</b> The arc lands the &ldquo;aha&rdquo; on Page 4 (the gradient stops <em>here</em>) and the commercial-relevance click on Page 5 (therefore, novel houses).</li>
+        <li>Don't skip Page 1 even if it feels slow. Pages 4 and 5 reuse the prefix-LM mask vocabulary built on Page 1.</li>
+      </ul>
+
+      <h3>Reference (second read / lookup)</h3>
+      <ul>
+        <li>What's an action chunk? &rarr; Page 2.</li>
+        <li>What is FAST? &rarr; Page 3 (and the linked <a href="../fast_workshop/index.html">FAST Workshop</a> for the tokenizer pipeline in detail).</li>
+        <li>Why doesn't &pi;&#x2080;.5 just freeze the VLM? &rarr; Page 4 &mdash; this is the most-misunderstood detail on the whole site.</li>
+        <li>What concretely changed between &pi;&#x2080; and &pi;&#x2080;.5? &rarr; Page 5.</li>
+      </ul>
+
+      <div class="callout-quote">
+        <strong>One-line thesis:</strong> &pi;&#x2080;.5 = &pi;&#x2080; architecture &plus; KI co-training &plus; a heterogeneous data mixture. Inference is unchanged: continuous flow matching, no FAST tokens at runtime.
+      </div>
+    </section>
+  </main>
+
+  <footer>
+    <p><strong>&pi;&#x2080; / &pi;&#x2080;.5 Workshop Artifact</strong> &middot; Sources:
+      <a href="https://arxiv.org/abs/2410.24164">arXiv 2410.24164</a> (&pi;&#x2080;) &middot;
+      <a href="https://arxiv.org/abs/2501.09747">arXiv 2501.09747</a> (FAST) &middot;
+      <a href="https://arxiv.org/abs/2504.16054">arXiv 2504.16054</a> (&pi;&#x2080;.5) &middot;
+      <a href="https://arxiv.org/abs/2505.23705">arXiv 2505.23705</a> (KI) &middot;
+      <a href="https://arxiv.org/abs/2506.07339">arXiv 2506.07339</a> (RTC)
+    </p>
+    <p>Companion site: <a href="../fast_workshop/index.html">FAST Tokenizer Workshop</a> &mdash; deep dive on the DCT &plus; BPE pipeline.</p>
+  </footer>
+
+  <script src="data.js"></script>
+  <script src="shared.js"></script>
+</body>
+</html>

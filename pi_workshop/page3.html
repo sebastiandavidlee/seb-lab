@@ -1,0 +1,107 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>&pi;&#x2080; Workshop &mdash; Page 3: FAST</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+  <header class="page-header">
+    <nav class="page-nav">
+      <a href="index.html">index</a>
+      <a href="page1.html">1. Substrate</a>
+      <a href="page2.html">2. &pi;&#x2080;</a>
+      <a href="page3.html">3. FAST</a>
+      <a href="page4.html">4. KI</a>
+      <a href="page5.html">5. &pi;&#x2080;.5</a>
+    </nav>
+    <div class="arc-progress" aria-label="page progress">
+      <span class="dot" title="1. Substrate"></span>
+      <span class="dot" title="2. &pi;&#x2080;"></span>
+      <span class="dot" title="3. FAST"></span>
+      <span class="dot" title="4. KI"></span>
+      <span class="dot" title="5. &pi;&#x2080;.5"></span>
+      <span class="label">page 3 of 5</span>
+    </div>
+    <h1>Page 3 &mdash; FAST: When Discrete Tokens Help (and When They Don't)</h1>
+  </header>
+
+  <main>
+    <section class="page-intro">
+      <p><strong>Where you are.</strong> Page 2 left you with &pi;&#x2080; as a continuous-flow VLA. This page is the controlled detour through the alternative. FAST is best understood as a research arc, not a single result. In January 2025, Physical Intelligence released it as an autoregressive alternative to flow matching &mdash; a tokenizer plus an AR runtime head that would let a 3B VLM emit dexterous actions directly. By May 2025, PI had retired the runtime architecture: inference was roughly 2&times; slower than flow matching, and deployment pathologies stacked up. <strong>What stayed load-bearing is the tokenizer itself</strong>, now the standard pretraining auxiliary target inside Knowledge Insulation and &pi;&#x2080;.5. <span class="cite">[FAST paper, arXiv 2501.09747; KI paper, arXiv 2505.23705]</span></p>
+      <p>The central twist of this entire site is on this page: the <em>tokenizer</em> survived, the <em>AR runtime</em> did not. Hold that distinction; Pages 4 and 5 depend on it. We hand off the deep tokenizer mechanics to the companion <a href="../fast_workshop/index.html">FAST Tokenizer Workshop</a> &mdash; that site has the full DCT &rarr; quantize &rarr; BPE pipeline with interactive math.</p>
+      <aside class="callout-quote">
+        <strong>What you'll see:</strong> a one-paragraph framing of the FAST pipeline with a link out to the tokenizer workshop (F2), and a runtime-race comparison showing why AR over discrete tokens is structurally slower than flow over continuous chunks (R1).
+      </aside>
+      <p class="cite">Sources: FAST paper (arXiv 2501.09747); KI paper (arXiv 2505.23705); fast_deep_dive_2026-04-14.md.</p>
+    </section>
+
+    <!-- ============================== F2 — fast tokenizer link ============================== -->
+    <article class="viz-section">
+      <header>
+        <h2>F2 &mdash; The FAST tokenizer in one paragraph</h2>
+        <p class="purpose">DCT along time &rarr; uniform scalar quantization &rarr; BPE merge. 350 floats become 30&ndash;60 tokens.</p>
+      </header>
+      <div class="viz-body wrap wrap--wide">
+        <div class="viz-section" id="viz-fast_tokenizer_link" data-viz="fast_tokenizer_link"></div>
+      </div>
+      <div class="viz-explanation">
+        <p>FAST is a four-stage pipeline. (1) Take an action chunk of shape <span class="shape-pill">[T=50, D=7]</span> &mdash; 350 floats, one second of motion. (2) Run the Discrete Cosine Transform along the <em>time</em> axis (not the dimension axis), exploiting the fact that joint trajectories are smooth in time but joint indices are categorical. (3) Apply uniform scalar quantization to the DCT coefficients. (4) Run BPE on the resulting integer stream to merge frequent sub-sequences into ~1024&ndash;2048 motor primitives. <span class="cite">[FAST &sect;3]</span></p>
+        <p>Two facts to take with you. First, the top-16 of 350 DCT coefficients hold roughly 95% of the trajectory's energy &mdash; that's why discretizing the coefficients (rather than the raw chunk values) avoids the &ldquo;every adjacent token is identical&rdquo; pathology. Second, the JPEG analogy is the design, not a metaphor: DCT-along-time concentrates energy into a few low-frequency coefficients exactly the way DCT-on-image-blocks concentrates energy in JPEG.</p>
+        <p>The <a href="../fast_workshop/index.html">FAST Tokenizer Workshop</a> covers all of this with interactive viz: the chunk, the naive-tokenization failure mode, the DCT-vs-DFT-vs-wavelet ablation, the end-to-end pipeline strip with byte counts. If you want the deep tokenizer story, read it after this page and come back. For our purposes here, the tokenizer is a black box that turns a chunk into 30&ndash;60 categorical tokens.</p>
+        <aside class="callout-quote">
+          <strong>Where this matters for &pi;&#x2080;.5:</strong> these tokens are the <em>training-time auxiliary target</em> on the VLM in &pi;&#x2080;.5 / KI. They are never decoded at inference. We unpack the why on Page 4.
+        </aside>
+        <p class="cite">Sources: FAST paper &sect;3 (DCT pipeline); fast_deep_dive_2026-04-14.md &sect;1.</p>
+      </div>
+    </article>
+
+    <!-- ============================== R1 — runtime race ============================== -->
+    <article class="viz-section">
+      <header>
+        <h2>R1 &mdash; AR vs flow at the wall clock</h2>
+        <p class="purpose">A continuous flow head finishes one chunk in ~10 ODE steps. AR over FAST tokens needs ~30&ndash;60 sequential decodes.</p>
+      </header>
+      <div class="viz-body wrap wrap--wide">
+        <div class="viz-section" id="viz-runtime_race" data-viz="runtime_race"></div>
+      </div>
+      <div class="viz-explanation">
+        <p>Two horizontal progress strips. The top strip is &pi;&#x2080;-FAST, the AR runtime version: a single chunk requires 30&ndash;60 token decodes through the 3B VLM, and each decode is sequential by construction (the next-token prediction objective forbids parallelism). The bottom strip is &pi;&#x2080;'s flow head: 10 Euler steps through a 300M action expert, all <code>H=50</code> action tokens denoised in parallel within each step.</p>
+        <p>Two structural facts make this gap unbridgeable, not a tuning gap. <strong>(1) AR is sequential by construction.</strong> Token <code>k+1</code> needs token <code>k</code>'s value, so you cannot parallelize over the time axis. <strong>(2) Flow is parallel within a step.</strong> All <code>H</code> action tokens are denoised in one forward pass; only the 10 Euler steps are serial, and they're cheap because they share the cached prefix. The KI paper is blunt about it:</p>
+        <blockquote>&ldquo;An autoregressive VLA (&pi;&#x2080;-FAST) requires twice the amount of time to solve the task&hellip; The robot running an autoregressive VLA only just starts to perform the task by the time the robot running our approach has already finished the instruction.&rdquo; <span class="cite">[KI paper / blog, May 2025]</span></blockquote>
+        <p>There is also a deployment-level reason flow won. Real-Time Chunking (RTC, arXiv 2506.07339) treats the boundary between consecutive action chunks as a diffusion <em>inpainting</em> problem &mdash; freeze the tail of the previous chunk as known context, use masked diffusion to inpaint a smooth start to the next. This trick is mathematically only possible on continuous flow / diffusion heads. There is no &ldquo;partially denoised chunk&rdquo; inside an autoregressive token stream. LeRobot's RTC implementation (PR #1698, Nov 2025) supports &pi;&#x2080;, &pi;&#x2080;.5, SmolVLA &mdash; explicitly not &pi;&#x2080;-FAST. <span class="cite">[fast_deep_dive_2026-04-14.md &sect;5]</span></p>
+        <aside class="callout-quote">
+          <strong>What the viz shows:</strong> press play &rarr; both strips race. The flow strip finishes in ~10 cells; the AR strip finishes in ~60. The wall-clock ratio (~73&nbsp;ms vs ~750&nbsp;ms per chunk on RTX 4090) is from the &pi;&#x2080; paper Table I and the FAST paper &sect;VI-D &mdash; measured, not schematic.
+        </aside>
+        <p class="cite">Sources: &pi;&#x2080; paper &sect;D Table I; FAST paper &sect;VI-D; KI paper / blog (May 2025); LeRobot RTC PR #1698.</p>
+      </div>
+    </article>
+
+    <!-- ============================== What survived ============================== -->
+    <section class="page-intro">
+      <h2 style="font-size:18px;">What survived, what didn't</h2>
+      <ul style="line-height:1.7; padding-left:22px;">
+        <li><strong>Survived:</strong> the FAST <em>tokenizer</em> &mdash; DCT &plus; quant &plus; BPE. Used as a training-time auxiliary cross-entropy target on the VLM head in &pi;&#x2080;.5 and KI. (Pertsch, April 2025: &ldquo;Training with discrete FAST action tokenization now powers all of our pre-training in &pi;0.5!&rdquo;)</li>
+        <li><strong>Did not survive:</strong> the FAST <em>autoregressive runtime architecture</em> (&pi;&#x2080;-FAST). Retired by PI before May 2025. The KI paper itself uses &pi;&#x2080;-FAST as the &ldquo;bad baseline&rdquo; against which KI is compared.</li>
+        <li><strong>Why this matters:</strong> the most common confusion about &pi;&#x2080;.5 is that &ldquo;&pi;&#x2080;.5 uses FAST&rdquo; means &ldquo;&pi;&#x2080;.5 emits FAST tokens at runtime.&rdquo; It does not. &pi;&#x2080;.5 emits a continuous action chunk via flow matching. FAST tokens are predicted by a separate auxiliary head, only during training, and discarded at inference.</li>
+      </ul>
+      <aside class="callout-quote">
+        <strong>Bridge to Page 4.</strong> FAST tokens didn't survive at runtime. But they're load-bearing at training time. To see how a discrete categorical signal and a continuous flow loss can coexist on one backbone without the flow gradient corrupting the language priors, we need one mechanism: stop-gradient. <a href="page4.html">Page 4 &rarr;</a>
+      </aside>
+    </section>
+  </main>
+
+  <footer>
+    <div class="footer-stop"><b>If you stop here, you walked away with:</b> FAST is a DCT+BPE tokenizer for actions; the AR runtime that used it (&pi;&#x2080;-FAST) was retired; the tokenizer itself lives on as a training auxiliary in &pi;&#x2080;.5. The AR-vs-flow gap is structural (sequential vs parallel within a step), not a tuning gap.</div>
+    <p>&pi;&#x2080; / &pi;&#x2080;.5 Workshop &middot; Page 3 of 5 &middot; Sources: <a href="https://arxiv.org/abs/2501.09747">arXiv 2501.09747</a> (FAST) &middot; <a href="https://arxiv.org/abs/2505.23705">arXiv 2505.23705</a> (KI) &middot; <a href="https://arxiv.org/abs/2506.07339">arXiv 2506.07339</a> (RTC)</p>
+    <p>Companion: <a href="../fast_workshop/index.html">FAST Tokenizer Workshop &rarr;</a> (the deep tokenizer pipeline)</p>
+    <p>Next: <a href="page4.html">Page 4 &mdash; Knowledge Insulation: Two Gradients, One Backbone &rarr;</a></p>
+  </footer>
+
+  <script src="data.js"></script>
+  <script src="shared.js"></script>
+  <script src="viz_fast_tokenizer_link.js"></script>
+  <script src="viz_runtime_race.js"></script>
+</body>
+</html>

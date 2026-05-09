@@ -1,0 +1,111 @@
+<section class="viz" id="viz-7" data-viz="7">
+  <h3 class="viz-title">FAST Viz 7 &mdash; end-to-end pipeline</h3>
+  <p class="viz-purpose">
+    One chunk (50&times;7 floats) &rarr; DCT &rarr; quantize &rarr; flatten &rarr; BPE &rarr; a short token sequence.
+    <span class="cite">[FAST &sect;3] [fast_deep_dive_2026-04-14.md &sect;1]</span>
+  </p>
+
+  <div class="panel">
+    <div class="headline">
+      <div class="big">Compression: <span class="js-hdr-in">350</span> floats &rarr; <span class="js-hdr-out">66</span> tokens <span class="rate">(<span class="js-hdr-rate">5.3</span>&times;)</span></div>
+      <div class="small">
+        Trains ~5&times; faster than per-cell tokenization &mdash; at the cost of ~2&times; slower inference vs flow matching.
+        <span class="cite">[FAST &sect;VI-D]</span>
+      </div>
+    </div>
+
+    <div class="controls">
+      <button class="js-btn-animate">&#9654; Animate pipeline</button>
+      <button class="js-btn-reset">Show all</button>
+      <span class="js-animate-status" style="font-size:12px;color:var(--muted);"></span>
+    </div>
+
+    <div class="pipeline js-pipeline">
+      <div class="stage js-stage-1">
+        <h3><span class="stage-num">1</span> Input chunk</h3>
+        <div class="canvas-slot">
+          <canvas class="js-c-stage1 heatmap" width="280" height="140"></canvas>
+          <div class="axis-x">t = 0 &rarr; 49 (rows), joints 0-6 (cols, colored palette)</div>
+        </div>
+        <div class="stage-label">
+          <span class="count js-lbl-stage1">350 floats</span> &mdash; 50 timesteps &times; 7 dims
+        </div>
+        <div class="stage-note">raw joint-angle trajectory (radians)</div>
+        <div class="counter-chip">shape 50&times;7 &middot; floats</div>
+      </div>
+
+      <div class="arrow-col js-arrow-1">
+        <div class="op">DCT along<br>time axis</div>
+        <svg class="svg-arrow" viewBox="0 0 60 26"><defs><marker id="v7a1" viewBox="0 0 8 8" refX="6" refY="4" markerWidth="8" markerHeight="8" orient="auto"><path d="M0,0 L8,4 L0,8 z" fill="#444"/></marker></defs><line x1="2" y1="13" x2="54" y2="13" stroke="#444" stroke-width="1.8" marker-end="url(#v7a1)"/></svg>
+      </div>
+
+      <div class="stage js-stage-2">
+        <h3><span class="stage-num">2</span> DCT matrix</h3>
+        <div class="canvas-slot">
+          <canvas class="js-c-stage2 heatmap" width="280" height="140"></canvas>
+          <div class="cb-wrap">
+            <canvas class="js-cb-stage2" width="120" height="8"></canvas>
+            <span class="js-cb2-min">-</span><span>&hellip;0&hellip;</span><span class="js-cb2-max">+</span>
+          </div>
+          <div class="axis-x">k = 0 &rarr; 49 (freq index, rows), dim 0-6 (cols)</div>
+        </div>
+        <div class="stage-label">
+          <span class="count js-lbl-stage2">350 floats</span> &mdash; same shape, frequency domain
+        </div>
+        <div class="stage-note">energy compacted into low-k columns (left side) &mdash; top-16 coeffs hold <span class="js-chip-compaction">95%</span> of energy</div>
+        <div class="counter-chip">shape 50&times;7 &middot; floats</div>
+      </div>
+
+      <div class="arrow-col js-arrow-2">
+        <div class="op">uniform scalar<br>quant (per-coef)</div>
+        <svg class="svg-arrow" viewBox="0 0 60 26"><defs><marker id="v7a2" viewBox="0 0 8 8" refX="6" refY="4" markerWidth="8" markerHeight="8" orient="auto"><path d="M0,0 L8,4 L0,8 z" fill="#444"/></marker></defs><line x1="2" y1="13" x2="54" y2="13" stroke="#444" stroke-width="1.8" marker-end="url(#v7a2)"/></svg>
+      </div>
+
+      <div class="stage js-stage-3">
+        <h3><span class="stage-num">3</span> Quantized integers</h3>
+        <div class="canvas-slot">
+          <canvas class="js-c-stage3 heatmap" width="280" height="140"></canvas>
+          <div class="cb-wrap">
+            <span style="display:inline-block;width:10px;height:10px;background:#000;border:1px solid #555;vertical-align:middle;margin-right:3px;"></span>
+            <span>= 0</span>
+            <span style="margin-left:8px;">non-zero:</span>
+            <canvas class="js-cb-stage3" width="80" height="8"></canvas>
+          </div>
+          <div class="axis-x">black cells = rounded-to-zero (sparse)</div>
+        </div>
+        <div class="stage-label">
+          <span class="count js-lbl-stage3">350 ints</span> &mdash; but <span class="js-sparsity-pct">84.6%</span> are zero
+        </div>
+        <div class="stage-note">integer range &asymp; [-20, +20] (int8-safe)</div>
+        <div class="counter-chip">~<span class="js-chip-nonzero">54</span> non-zero &middot; int8</div>
+      </div>
+
+      <div class="arrow-col js-arrow-3">
+        <div class="op">flatten (row-major)<br>+ BPE merge</div>
+        <svg class="svg-arrow" viewBox="0 0 60 26"><defs><marker id="v7a3" viewBox="0 0 8 8" refX="6" refY="4" markerWidth="8" markerHeight="8" orient="auto"><path d="M0,0 L8,4 L0,8 z" fill="#444"/></marker></defs><line x1="2" y1="13" x2="54" y2="13" stroke="#444" stroke-width="1.8" marker-end="url(#v7a3)"/></svg>
+      </div>
+
+      <div class="stage js-stage-4">
+        <h3><span class="stage-num">4</span> BPE tokens</h3>
+        <div class="canvas-slot">
+          <canvas class="js-c-stage4 heatmap" width="280" height="140"></canvas>
+          <div class="axis-x">1 cell = 1 token ID (hash-colored)</div>
+        </div>
+        <div class="stage-label">
+          <span class="count js-lbl-stage4">66 tokens</span> &mdash; fixed vocab, pastes into VLM embedding table
+        </div>
+        <div class="stage-note"><span class="js-merges-count">14</span> BPE merges applied</div>
+        <div class="counter-chip">1&times;66 &middot; uint</div>
+      </div>
+    </div>
+
+    <div class="pullquote">
+      "We&hellip; feed the resulting sequence of integers into a BPE tokenizer. This simple combination of DCT compression and BPE encoding yields an action tokenizer that achieves substantial compression of action chunks while preserving fine-grained details&hellip;"
+      <span class="src">&mdash; FAST &sect;3</span>
+    </div>
+    <div class="viz-caption">
+      The pipeline collapses 350 correlated floats into ~66 discrete tokens that plug straight into a VLM's embedding table &mdash; that's the whole trick. DCT makes the signal sparse in frequency, quantization hardens the sparsity, BPE eats the zero-runs and common patterns.
+      <span class="cite">[FAST &sect;3] [FAST &sect;VI-D] [fast_deep_dive_2026-04-14.md &sect;1]</span>
+    </div>
+  </div>
+</section>

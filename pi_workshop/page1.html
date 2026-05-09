@@ -1,0 +1,161 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>&pi;&#x2080; Workshop &mdash; Page 1: The Transformer Substrate</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+  <header class="page-header">
+    <nav class="page-nav">
+      <a href="index.html">index</a>
+      <a href="page1.html">1. Substrate</a>
+      <a href="page2.html">2. &pi;&#x2080;</a>
+      <a href="page3.html">3. FAST</a>
+      <a href="page4.html">4. KI</a>
+      <a href="page5.html">5. &pi;&#x2080;.5</a>
+    </nav>
+    <div class="arc-progress" aria-label="page progress">
+      <span class="dot active" title="1. Substrate"></span>
+      <span class="dot" title="2. &pi;&#x2080;"></span>
+      <span class="dot" title="3. FAST"></span>
+      <span class="dot" title="4. KI"></span>
+      <span class="dot" title="5. &pi;&#x2080;.5"></span>
+      <span class="label">page 1 of 5</span>
+    </div>
+    <h1>Page 1 &mdash; The Transformer Substrate</h1>
+  </header>
+
+  <main>
+    <!-- ============================== Page intro ============================== -->
+    <section class="page-intro">
+      <p>The rest of this site reuses four ideas without re-introducing them: <em>scaled-dot-product attention</em>, <em>multi-head splitting</em>, the <em>prefix-LM mask</em>, and the <em>mixture-of-transformer-experts</em> pattern. Page 1 sets that vocabulary precisely. If you've trained a transformer recently, scan the math; the prefix-LM viz (M1) is the load-bearing one.</p>
+      <p>The walk: a tight math bridge &rarr; A1 (drag Q/K, watch softmax) &rarr; A2 (four heads, four relations) &rarr; M1 (causal / bidirectional / prefix-LM &mdash; this is &pi;&#x2080;'s mask) &rarr; D2 (one transformer block tensor-by-tensor, with the MoE hole &pi;&#x2080; fills).</p>
+      <p class="cite">Sources: &pi;&#x2080; paper (arXiv 2410.24164) &sect;B; Vaswani et al. 2017 (canonical scaled-dot-product attention); PaliGemma technical report (prefix-LM masking).</p>
+    </section>
+
+    <!-- ============================== Math bridge ============================== -->
+    <section class="page-intro">
+      <h2 style="font-size:18px;margin-top:8px">The four formulas everything else assumes</h2>
+
+      <h3 style="font-size:14px;margin-top:14px">1. Scaled dot-product attention</h3>
+      <p>For one query and one key, the score is <code>s<sub>ij</sub> = q<sub>i</sub> &middot; k<sub>j</sub> / &radic;d</code>. The dot product is similarity in <code>&#8477;<sup>d</sup></code>: when token <code>i</code>'s question vector aligns with token <code>j</code>'s answer vector, the score is large. Stack scores into a matrix <code>S = QK<sup>T</sup>/&radic;d</code> and softmax row-wise:</p>
+      <p style="text-align:center;font-family:var(--mono);font-size:13px;background:#f4f4f2;padding:10px;border-left:3px solid #888">
+        Attention(Q, K, V) = softmax(QK<sup>T</sup>/&radic;d) V
+      </p>
+      <p>Three things to internalize. <strong>The dot product is the matchmaking</strong>: high <code>q<sub>i</sub>&middot;k<sub>j</sub></code> means token <code>i</code> finds token <code>j</code> relevant. <strong>The softmax is per-row</strong>: each query's attention weights sum to 1, so attention is a competition among keys, not an absolute score. <strong>The <code>&radic;d</code> is a variance fix</strong>: at large <code>d</code>, <code>q&middot;k</code> grows like <code>&radic;d</code>; without the divisor, softmax saturates and gradients die. It is not "averaging."</p>
+
+      <h3 style="font-size:14px;margin-top:14px">2. Multi-head splitting</h3>
+      <p>Instead of one attention with width <code>d_model</code>, run <code>h</code> in parallel with <code>head_dim = d_model / h</code> each. <strong>The total compute is unchanged</strong> &mdash; you split the channels, you didn't add capacity. What you bought is <em>specialization</em>: each head has its own <code>(W<sup>Q</sup>, W<sup>K</sup>, W<sup>V</sup>)</code>, so different heads learn different relations (positional, syntactic, coreferential). Concatenate their outputs and project through one shared <code>W<sup>O</sup>: &#8477;<sup>d_model</sup> &rarr; &#8477;<sup>d_model</sup></code> to recombine. In Gemma-2B / &pi;&#x2080; backbone: <code>d_model = 2048, h = 18, head_dim = 256</code>, with multi-query attention (1 KV head shared across all 18 Q heads). <span class="cite">[&pi;&#x2080; &sect;B]</span></p>
+
+      <h3 style="font-size:14px;margin-top:14px">3. Causal mask</h3>
+      <p>For autoregressive generation, token <code>t</code> may not see tokens <code>&gt; t</code>. Implementation: add a mask <code>M</code> to the scores <em>before</em> softmax, where <code>M<sub>ij</sub> = &minus;&infin;</code> for <code>j &gt; i</code> and <code>0</code> otherwise. Setting an entry to <code>&minus;&infin;</code> makes its softmax weight exactly zero. The mask is upper-triangular &minus;&infin;; the allowed region is the lower triangle (including the diagonal). At inference, this is what lets you cache K and V from prior tokens and only compute one new column per step &mdash; the KV cache.</p>
+
+      <h3 style="font-size:14px;margin-top:14px">4. Prefix-LM (the bridge to &pi;&#x2080;)</h3>
+      <p>PaliGemma's twist, which &pi;&#x2080; inherits: pick a prefix length <code>k</code>. The first <code>k</code> tokens are <em>mutually bidirectional</em> &mdash; image patches, language prompt, robot state all see each other. The remaining tokens are causal &mdash; each one sees the entire prefix and the suffix tokens up to itself. Mask shape: a fully-white <code>k&times;k</code> block in the upper-left (the prefix), a lower-triangular block on the suffix, and the off-diagonal block lets every suffix query read every prefix key but never the other way around. <strong>This is &pi;&#x2080;'s attention pattern</strong>, with the suffix being the noisy action chunk being denoised over 10 flow-matching steps. <span class="cite">[&pi;&#x2080; &sect;B, "Attention mask"]</span></p>
+
+      <h3 style="font-size:14px;margin-top:14px">5. Mixture-of-transformer-experts (a preview, not Page 1's job)</h3>
+      <p>&pi;&#x2080; is one transformer with <em>two sets of weights</em> ("experts"): a PaliGemma-initialized expert for image and language tokens, an action-expert for state and noisy-action tokens. <strong>The two experts share only the attention computation</strong> &mdash; they have separate Q/K/V/O projection weights and separate MLPs, but inside each layer the K's and V's from both experts are concatenated and every Q sees every allowed K. The routing is deterministic by token type, not learned gating. <span class="cite">[&pi;&#x2080; &sect;B, "Action expert"]</span> Page 2 unpacks this; for now just notice that the diagram fits inside one transformer block.</p>
+      <aside class="callout-quote">
+        <strong>What we deliberately omit on this page:</strong> optimizer details (AdamW, schedules, warmup), kernel-level optimizations (FlashAttention, paged-KV, quantization), positional encodings (RoPE, ALiBi), alternative architectures (Mamba/SSM, RWKV), and RLHF/preference learning. None of these are load-bearing for &pi;&#x2080;/&pi;&#x2080;.5; they are first-Google-search territory if you need them.
+      </aside>
+    </section>
+
+    <!-- ============================== A1 — single-head attention ============================== -->
+    <article class="viz-section">
+      <header>
+        <h2>A1 &mdash; Attention as Q/K/V matchmaking</h2>
+        <p class="purpose">Drag any K. Watch the heatmap row redistribute via softmax. Click a preset to see three canonical attention patterns.</p>
+      </header>
+      <div class="viz-body wrap wrap--wide">
+        <div class="viz-section" id="viz-attn_qkv_playground" data-viz="attn_qkv_playground"></div>
+      </div>
+      <div class="viz-explanation">
+        <p>Eight toy tokens on a 1-D line. Each carries a Q arrow, a K arrow, and a colored V swatch. The middle panel is the 8&times;8 attention heatmap: cell <code>(i,j) = softmax(q<sub>i</sub>&middot;k<sub>j</sub> / &radic;d)<sub>j</sub></code>. The bottom row is each token's mixed-V color &mdash; the layer's output. Drag a K, watch its column recolor and the output row blend. Toggle "pre-softmax" to see raw <code>q&middot;k/&radic;d</code>: the diverging map shows the softmax doing a lot of work, turning roughly-equal raw scores into a sharp competition.</p>
+        <p>The three presets snap K positions to canonical patterns. <strong>Self-loop heavy</strong>: K<sub>i</sub>=Q<sub>i</sub> &rarr; the diagonal lights up. <strong>Next-token</strong>: K<sub>i</sub>=Q<sub>i&minus;1</sub> &rarr; the sub-diagonal lights up (this is what positional heads do). <strong>Global mix</strong>: K's are tiny &rarr; q&middot;k is small everywhere &rarr; softmax flattens into a near-uniform row.</p>
+        <aside class="callout-quote">
+          <strong>What the viz shows:</strong> drag any K-arrowhead &rarr; that column recolors &rarr; the output row blends differently. Hover a cell &rarr; <code>s<sub>i,j</sub></code> evaluates inline. <code>d=2</code> for legibility; real models use <code>d=64</code> to <code>256</code> per head.
+        </aside>
+        <p class="cite">Sources: Vaswani et al. 2017 (canonical scaled-dot-product attention).</p>
+      </div>
+    </article>
+
+    <!-- ============================== A2 — multi-head ============================== -->
+    <article class="viz-section">
+      <header>
+        <h2>A2 &mdash; Why multiple heads</h2>
+        <p class="purpose">Different heads attend to different relations. Total dim is fixed; heads slice it.</p>
+      </header>
+      <div class="viz-body wrap wrap--wide">
+        <div class="viz-section" id="viz-multi_head_split" data-viz="multi_head_split"></div>
+      </div>
+      <div class="viz-explanation">
+        <p>The fixed prompt is "<em>the red cube is to the left of the blue cube</em>." Four heads, hand-authored to make the point: one is positional (each token mostly attends to its neighbor), one is syntactic (verbs find their subjects), one is color-coreference ("red" binds to its "cube", "blue" binds to its "cube"), one is object-coreference (the two "cube" tokens find each other). Click a head &rarr; see only its pattern. Click a token &rarr; see all four heads light up where that token attends.</p>
+        <p>Two myths to puncture. <strong>Myth one: "more heads = more capacity."</strong> Heads slice a fixed total dim into <code>h</code> equal subspaces &mdash; with <code>d_model = 2048</code> and <code>h = 18</code> (the &pi;&#x2080; backbone), each head is <code>head_dim = 256</code>. <span class="cite">[&pi;&#x2080; &sect;B]</span> The capacity gain is in <em>specialization</em> &mdash; different subspaces capture different relations &mdash; not raw parameters. <strong>Myth two: "heads are independent layers."</strong> They are parallel projections within one layer, concatenated and projected back to <code>d_model</code> by a single output matrix <code>W<sup>O</sup></code>.</p>
+        <aside class="callout-quote">
+          <strong>Honest caveat:</strong> the four head patterns above are stylized examples, not extracted weights. Real heads are messier; the pedagogical claim "different heads specialize" is real but per-head interpretability is hard.
+        </aside>
+        <p class="cite">Sources: Vaswani et al. 2017; &pi;&#x2080; paper &sect;B (Gemma-2B head config).</p>
+      </div>
+    </article>
+
+    <!-- ============================== M1 — causal mask ============================== -->
+    <article class="viz-section">
+      <header>
+        <h2>M1 &mdash; The triangular veil and the prefix-LM exception</h2>
+        <p class="purpose">Causal mask = upper triangle set to &minus;&infin;. Toggle to prefix-LM to see &pi;&#x2080;'s exact attention pattern &mdash; the climax of Page 1.</p>
+      </header>
+      <div class="viz-body wrap wrap--wide">
+        <div class="viz-section" id="viz-causal_mask_explorer" data-viz="causal_mask_explorer"></div>
+      </div>
+      <div class="viz-explanation">
+        <p>Three modes. <strong>Causal</strong>: position <code>t</code> may attend only to positions <code>&le; t</code>. The mask is added before softmax, not after &mdash; setting an entry to <code>&minus;&infin;</code> is exactly what makes its softmax weight zero. <strong>Bidirectional</strong>: every position sees every other (BERT, encoders). <strong>Prefix-LM</strong>: the first <code>k</code> tokens are mutually bidirectional; everything after is causal with respect to the prefix and to itself. PaliGemma uses prefix-LM so image patches and the language prompt all see each other (they are the question), while the generated suffix is causal (it is the answer being decoded one token at a time).</p>
+        <p>This is exactly the pattern &pi;&#x2080; reuses, with a twist we'll meet on Page 2: three blocks <code>[image+text]&nbsp;&rarr;&nbsp;[state]&nbsp;&rarr;&nbsp;[action]</code>, bidirectional within each block, causal between them. <span class="cite">[&pi;&#x2080; &sect;B, "Attention mask"]</span> The action chunk attends to everything earlier; the VLM prefix never attends forward into actions; the state token caches once across all 10 flow-matching steps. Toggle prefix-LM mode in the viz &mdash; the orange overlay is the prefix block; the white square in the lower-right is the suffix's causal triangle.</p>
+        <aside class="callout-quote">
+          <strong>What the viz shows:</strong> hover a row &rarr; that query's allowed keys highlight on the bar chart; toggle modes &rarr; the grid morphs. In prefix-LM mode, the labeled overlay names the two blocks ([prefix], [generation]) and a banner links forward to Page 2 where the same shape carries image+text+state+action.
+        </aside>
+        <p class="cite">Sources: &pi;&#x2080; paper &sect;B (block-causal attention mask); PaliGemma technical report.</p>
+      </div>
+    </article>
+
+    <!-- ============================== D2 — transformer block dataflow ============================== -->
+    <article class="viz-section">
+      <header>
+        <h2>D2 &mdash; One transformer block, tensor by tensor</h2>
+        <p class="purpose">What lives where. Scrub through the eleven sub-ops of a single decoder block, then notice where &pi;&#x2080; inserts a second expert.</p>
+      </header>
+      <div class="viz-body wrap wrap--wide">
+        <div class="viz-section" id="viz-transformer_block_dataflow" data-viz="transformer_block_dataflow"></div>
+      </div>
+      <div class="viz-explanation">
+        <p>One decoder block, in order: input <code>&rarr;</code> RMSNorm <code>&rarr;</code> Q/K/V projections <code>&rarr;</code> attention <code>&rarr;</code> attention-output projection <code>&rarr;</code> residual add <code>&rarr;</code> RMSNorm <code>&rarr;</code> MLP up-projection <code>&rarr;</code> activation <code>&rarr;</code> MLP down-projection <code>&rarr;</code> residual add. The residual stream is the "shared bus" every sub-layer reads from and writes to. Norms keep activations stable; the MLP does most of the per-token compute and holds most of the parameters &mdash; <code>mlp_dim = 16384</code> in Gemma-2B vs <code>width = 2048</code>. <span class="cite">[&pi;&#x2080; &sect;B]</span></p>
+        <p>This is also the unit where &pi;&#x2080;'s mixture-of-experts lives. <strong>The action expert is not a separate transformer with cross-attention to the VLM</strong> &mdash; it is a second set of weights inside <em>this same block</em>, with token-wise routing. Image and text tokens hit the big PaliGemma MLP weights (<code>width=2048, mlp_dim=16384</code>); state and action tokens hit a smaller action-expert MLP (<code>width=1024, mlp_dim=4096</code>). Both kinds of tokens flow through the <em>same</em> attention computation, mixing inside one Q&middot;K&middot;V product. This is structurally a Shazeer-style mixture of experts with deterministic per-modality routing instead of a learned gate. <span class="cite">[&pi;&#x2080; &sect;B, "Action expert"]</span> Page 2 unpacks this; for now, just notice that the action expert lives <em>inside</em> this block diagram, not next to it.</p>
+        <aside class="callout-quote">
+          <strong>What the viz shows:</strong> the active op glows amber as you scrub. Hover any tensor strip &rarr; tooltip with shape <span class="shape-pill">[B, T, D]</span>. Toggle "residual highlight" to see the bus tracing through the two adds.
+        </aside>
+        <p class="cite">Sources: &pi;&#x2080; paper &sect;B (Gemma-2B configuration; "Action expert").</p>
+      </div>
+    </article>
+
+    <!-- ============================== Bridge ============================== -->
+    <section class="page-intro">
+      <h2 style="font-size:18px">Bridge to Page 2</h2>
+      <p>Four artifacts now in head: scaled-dot-product attention, the multi-head split, the prefix-LM mask, and a one-block dataflow with a hole where the MLP can be split into two experts. Page 2 wires them together. A VLM is this stack with image patches concatenated to the prompt under a prefix-LM mask. &pi;&#x2080; adds a second expert &mdash; same attention block, separate MLP weights &mdash; for continuous actions instead of language; the action expert reads the cached VLM prefix through shared self-attention and emits a velocity field integrated over 10 Euler steps.</p>
+    </section>
+  </main>
+
+  <footer>
+    <div class="footer-stop"><b>If you stop here:</b> you have the transformer vocabulary needed for the rest of this site. You can read &pi;&#x2080; &sect;B without re-Googling Q/K/V. You know that the prefix-LM mask is one diagram, not a category, and you know that &pi;&#x2080;'s "action expert" is two MLP weight sets inside one shared-attention transformer &mdash; not a separate model with cross-attention. That alone clears about 60% of the ambient confusion in VLA writeups.</div>
+    <p>&pi;&#x2080; / &pi;&#x2080;.5 Workshop &middot; Page 1 of 5 &middot; Sources: <a href="https://arxiv.org/abs/2410.24164">arXiv 2410.24164</a> (&pi;&#x2080;); Vaswani et al. 2017; PaliGemma technical report</p>
+    <p>Next: <a href="page2.html">Page 2 &mdash; &pi;&#x2080;: A VLM with a Flow-Matching Action Head &rarr;</a></p>
+  </footer>
+
+  <script src="data.js"></script>
+  <script src="shared.js"></script>
+  <script src="viz_attn_qkv_playground.js"></script>
+  <script src="viz_multi_head_split.js"></script>
+  <script src="viz_causal_mask_explorer.js"></script>
+  <script src="viz_transformer_block_dataflow.js"></script>
+</body>
+</html>

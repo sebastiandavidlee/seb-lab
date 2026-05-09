@@ -1,0 +1,32 @@
+<section class="viz" id="viz-1" data-viz="1">
+  <h3 class="viz-title">Viz 1 &mdash; The chunk itself</h3>
+  <p class="viz-purpose">
+    1 chunk = 50 timesteps &times; 7 joint dimensions = 350 floats. At 50 Hz control, this is 1 second of motion.
+    <span class="cite">[FAST &sect;3] [fast_deep_dive_2026-04-14.md &sect;1]</span>
+  </p>
+
+  <div class="viz-controls">
+    <button class="js-btn-heatmap active">Heatmap</button>
+    <button class="js-btn-lineplot">Line plot</button>
+  </div>
+
+  <div class="js-view-heatmap">
+    <div class="heatmap-row">
+      <div class="axis-y">joint dim (0-6)</div>
+      <canvas class="js-heatmap heatmap" width="500" height="70"></canvas>
+    </div>
+    <div class="axis-x">timestep (0 &rarr; 49, 50 Hz)</div>
+    <div class="colorbar-wrap">
+      <span>joint value (rad):</span>
+      <canvas class="js-colorbar" width="200" height="10" style="border:1px solid #ccc;"></canvas>
+      <span class="js-cb-min">-</span>
+      <span>&hellip;</span>
+      <span class="js-cb-max">+</span>
+    </div>
+  </div>
+
+  <div class="js-view-lineplot" style="display:none;">
+    <canvas class="js-lines" width="900" height="320" style="display:block; border:1px solid var(--border);"></canvas>
+    <div class="legend js-legend"></div>
+  </div>
+</section>

@@ -1,0 +1,51 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>FAST Workshop &mdash; Home</title>
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+  <header class="page-header">
+    <nav class="page-nav">
+      <a href="index.html" class="active">Home</a>
+      <a href="page1.html">1. Problem</a>
+      <a href="page2.html">2. Pipeline</a>
+      <a href="page3.html">3. Context</a>
+    </nav>
+    <h1>FAST Tokenizer Workshop</h1>
+  </header>
+
+  <main>
+    <section class="landing-hero">
+      <p class="tagline">An honest walk through what FAST compresses, why the compression works, and why only half of the paper survived.</p>
+
+      <p>FAST is best understood as a research arc, not a single result. In January 2025, Physical Intelligence released it as an autoregressive alternative to flow matching &mdash; a tokenizer plus an AR runtime head that would let a 3B VLM emit dexterous actions directly. By May 2025, PI had retired the runtime architecture: inference was roughly 2&times; slower than flow matching, and deployment pathologies stacked up. What stayed load-bearing is the tokenizer itself, now the standard pretraining auxiliary target inside Knowledge Insulation and &pi;&#x2080;.5. This workshop walks that arc honestly.</p>
+
+      <p class="cite">Sources: FAST &sect;1 (arXiv 2501.09747); KI paper &sect;intro (arXiv 2505.23705).</p>
+    </section>
+
+    <section class="nav-cards">
+      <a class="nav-card" href="page1.html">
+        <div class="num">PAGE 1</div>
+        <h3>Problem &amp; Intuition</h3>
+        <p>What is an action chunk? Why does naive tokenization fail? Why DCT along time?</p>
+      </a>
+      <a class="nav-card" href="page2.html">
+        <div class="num">PAGE 2</div>
+        <h3>The Pipeline</h3>
+        <p>DCT energy compaction, uniform quantization, BPE merge, end-to-end 350 floats &rarr; 30&ndash;60 tokens.</p>
+      </a>
+      <a class="nav-card" href="page3.html">
+        <div class="num">PAGE 3</div>
+        <h3>FAST in Context</h3>
+        <p>The PI stack. AR vs flow at runtime. RTC incompatibility. Honest framing and FAQ.</p>
+      </a>
+    </section>
+  </main>
+
+  <footer>
+    <p>FAST Workshop Artifact &middot; Sources: <a href="https://arxiv.org/abs/2501.09747">arXiv 2501.09747</a> (FAST) &middot; <a href="https://arxiv.org/abs/2505.23705">arXiv 2505.23705</a> (KI) &middot; <a href="https://arxiv.org/abs/2504.16054">arXiv 2504.16054</a> (&pi;&#x2080;.5) &middot; <a href="https://arxiv.org/abs/2506.07339">arXiv 2506.07339</a> (RTC) &middot; <a href="https://arxiv.org/abs/2512.04952">arXiv 2512.04952</a> (FASTer)</p>
+  </footer>
+</body>
+</html>

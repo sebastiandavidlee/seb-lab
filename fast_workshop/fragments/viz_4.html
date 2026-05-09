@@ -1,0 +1,62 @@
+<section class="viz" id="viz-4" data-viz="4">
+  <h3 class="viz-title">DCT energy compaction &mdash; how few coefficients does the chunk need?</h3>
+  <p class="viz-purpose">
+    50&times;7 chunk &rarr; 350 DCT coefficients. Variance collapses exponentially with frequency index;
+    top-16 captures <b>95.1%</b> of the signal energy.
+    <span class="cite">[FAST &sect;3] [fast_deep_dive &sect;1]</span>
+  </p>
+
+  <!-- Panel A -->
+  <div class="panel">
+    <h2>A &middot; DCT spectrum &mdash; variance per coefficient index <span class="cite" style="font-weight:400">(log scale)</span></h2>
+    <div class="axis-note">For k = 0..49, variance is taken across the 7 DOF dims of <code>dct[k][d]</code>. Bars are log-scaled.</div>
+    <div class="canvas-holder">
+      <canvas class="js-cv-a" width="1080" height="300"></canvas>
+    </div>
+    <div class="plotlabel">x &mdash; coefficient index k (0 = DC) &middot; y &mdash; log<sub>10</sub> variance over 7 dims</div>
+  </div>
+
+  <!-- Panel B -->
+  <div class="panel">
+    <h2>B &middot; Reconstruction from top-K coefficients</h2>
+    <div class="axis-note">Keeps the <b>K largest-magnitude</b> coefficients out of all 350 (50 time &times; 7 dim), zeros the rest, inverse-DCT.</div>
+
+    <div class="slider-row">
+      <span class="kval">K = <b class="js-kval">16</b> / 350</span>
+      <input type="range" class="js-kslider" min="1" max="350" step="1" value="16">
+      <span class="mse">MSE = <b class="js-mseval">0.0000</b></span>
+    </div>
+    <div class="controls">
+      <span style="color:var(--dim);font-size:12px;">preset:</span>
+      <button class="js-preset" data-k="1">K=1</button>
+      <button class="js-preset" data-k="4">K=4</button>
+      <button class="js-preset on" data-k="16">K=16</button>
+      <button class="js-preset" data-k="64">K=64</button>
+      <button class="js-preset" data-k="350">K=350</button>
+    </div>
+    <div class="help">Keyboard: &larr; / &rarr; nudge K by 1 &middot; &uarr; / &darr; by 5. Click a preset to jump.</div>
+
+    <div class="stack">
+      <div class="plotlabel">original chunk &mdash; 7 dims over 50 timesteps</div>
+      <div class="canvas-holder"><canvas class="js-cv-b1" width="1080" height="220"></canvas></div>
+      <div class="plotlabel">reconstruction &mdash; top-K coefficients, inverse DCT</div>
+      <div class="canvas-holder"><canvas class="js-cv-b2" width="1080" height="220"></canvas></div>
+      <div class="legend js-legend"></div>
+    </div>
+  </div>
+
+  <!-- Panel C -->
+  <div class="panel">
+    <h2>C &middot; JPEG analogy</h2>
+    <div class="aside-body">
+      FAST&rsquo;s top-K energy compaction on action chunks is structurally the same trick JPEG plays on 8&times;8 image patches.
+      Both rely on the DCT&rsquo;s property that smooth signals &mdash; adjacent pixels or adjacent robot poses &mdash; concentrate their energy in a few low-frequency coefficients.
+      Drop the high-frequency tail, quantize the survivors, entropy-code the zeros, and reconstruction is still near-perfect.
+      At K=16 (95%-energy cutoff) the robot trajectory looks visually identical; this is exactly what JPEG does inside every 8&times;8 block.
+    </div>
+    <div class="pull">
+      DCT is commonly used for compression algorithms (e.g., JPEG) due to its simplicity, computational efficiency, and strong compression property: since pixels often vary smoothly, DCT can often represent most of the information of an input signal in only a few coefficients.
+    </div>
+    <div class="cite" style="margin-top:6px;">&mdash; [FAST &sect;3]</div>
+  </div>
+</section>

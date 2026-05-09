@@ -1,0 +1,59 @@
+<section class="viz" id="viz-3" data-viz="3">
+  <h3 class="viz-title">Why DCT runs along time, not dim</h3>
+  <p class="viz-purpose">Temporal (50&times;50) vs cross-dim (7&times;7) Pearson correlation on the same 50&times;7 chunk.</p>
+
+  <div class="controls">
+    <button class="js-toggle-btn">Show only |corr| &gt; 0.5</button>
+    <span class="threshold-note">Threshold filter fades cells with |corr| &le; 0.5 to reveal structure.</span>
+  </div>
+
+  <div class="panels">
+    <div class="panel">
+      <h2>Temporal correlation (50 &times; 50)</h2>
+      <div class="axis-note">pearson(chunk[i], chunk[j]) across 7 dims &middot; x: timestep j, y: timestep i</div>
+      <div class="canvas-holder">
+        <canvas class="js-cv-t" width="520" height="520"></canvas>
+      </div>
+      <div class="stat">
+        <span class="label">mean |corr| off-diagonal:</span> <b class="js-stat-t-moad">&hellip;</b>
+        &nbsp;|&nbsp; <span class="label">adjacent (i,i+1):</span> <b class="js-stat-t-adj">&hellip;</b>
+      </div>
+      <div class="note-diag">The thick diagonal band is the signal: poses at nearby timesteps are nearly identical. That is the temporal smoothness DCT-along-time compacts into a few low-frequency coefficients.</div>
+    </div>
+
+    <div class="panel">
+      <h2>Cross-dim correlation (7 &times; 7)</h2>
+      <div class="axis-note">pearson(col_i, col_j) across 50 timesteps &middot; x: dim j, y: dim i</div>
+      <div class="canvas-holder">
+        <canvas class="js-cv-x" width="364" height="364"></canvas>
+      </div>
+      <div class="stat">
+        <span class="label">mean |corr| off-diagonal:</span> <b class="js-stat-x-moad">&hellip;</b>
+        &nbsp;|&nbsp; <span class="label">adjacent (j,j+1):</span> <b class="js-stat-x-adj">&hellip;</b>
+      </div>
+      <div class="note-diag">Off-diagonal pattern is scrambled &mdash; joint 3 is not geometrically "near" joint 4. No smooth structure along the dim axis to exploit.</div>
+    </div>
+  </div>
+
+  <div class="legend">
+    <div>
+      <div class="bar"></div>
+      <div class="ends"><span>-1</span><span>0</span><span>+1</span></div>
+    </div>
+  </div>
+
+  <div class="annotation">
+    <div><span class="label" style="color:var(--dim)">Adjacent-step correlation ratio:</span> <span class="big js-ratio-adj">&hellip;</span></div>
+    <div style="margin-top:6px">Time axis has <b class="js-ratio-adj-inline">&hellip;</b>&times; more <em>adjacent</em> correlation than the dim axis.
+    <span class="emph">DCT exploits this &mdash; that's why it runs along time, not dim.</span></div>
+    <div style="margin-top:6px; color:var(--dim); font-size:12px">
+      (Global mean |corr| off-diagonal is similar for both matrices because they include many unrelated pairs. The <em>structural</em> difference lives next to the diagonal, where smoothness matters.)
+    </div>
+  </div>
+
+  <div class="pull">
+    Time axis specifically &mdash; that's where the redundancy lives. Actions are smooth in time (temporal correlation), not in dimension index (categorical &mdash; joint 3 isn't "near" joint 4 geometrically). You don't DCT across dims.
+  </div>
+
+  <div class="viz-caption">Source: <span class="cite">fast_deep_dive_2026-04-14.md &sect;1</span>. Data: <span class="cite cite--mono">FASTData.CHUNK</span> (50&times;7 synthetic chunk at 50&nbsp;Hz).</div>
+</section>

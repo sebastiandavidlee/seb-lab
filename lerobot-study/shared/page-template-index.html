@@ -1,0 +1,68 @@
+<!doctype html>
+<html lang="en" data-theme="dark">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>LeRobot Study — Start here</title>
+  <link rel="stylesheet" href="shared/styles.css" />
+  <script defer src="shared/site.js"></script>
+</head>
+<body>
+
+<header class="site-header">
+  <h1><a href="index.html">LeRobot Study</a></h1>
+  <div class="subtitle">A pedagogical tour for SO-101 hobbyists</div>
+</header>
+
+<main class="page-grid">
+  <aside id="site-nav" aria-label="Site navigation">
+    <!-- injected by site.js from shared/nav.html -->
+  </aside>
+
+  <article class="page-content">
+
+    <!-- BLOCK: HERO (big title + subtitle + one-line verdict) -->
+    <section class="hero">
+      {{HERO}}
+    </section>
+
+    <!-- BLOCK: TLDR (the verdict in one sentence — what should I take away) -->
+    <section class="tldr">
+      {{TLDR}}
+    </section>
+
+    <!-- BLOCK: HERO CARD GRID (3-4 "pick your path" cards linking into the site) -->
+    <section class="hero-card-grid">
+      {{HERO_CARDS}}
+    </section>
+
+    <!-- BLOCK: AT-A-GLANCE FACTS (small table of key facts about LeRobot) -->
+    <section>
+      {{AT_A_GLANCE}}
+    </section>
+
+    <!-- BLOCK: TOPIC GUIDE (2-column grid of "what's on each page") -->
+    <section>
+      {{TOPIC_GUIDE}}
+    </section>
+
+    <!-- BLOCK: GLOSSARY (key terms in <dl>; use .glossary container) -->
+    <section class="glossary">
+      {{GLOSSARY}}
+    </section>
+
+  </article>
+</main>
+
+<button id="to-top" aria-label="Back to top" title="Back to top">&uarr;</button>
+
+<footer class="site-footer">
+  <div>Built {{BUILD_DATE}} &middot; pinned tags
+    <a href="https://github.com/huggingface/lerobot/tree/v0.4.4" target="_blank" rel="noopener">v0.4.4</a>
+    /
+    <a href="https://github.com/huggingface/lerobot/tree/v0.5.0" target="_blank" rel="noopener">v0.5.0</a>
+  </div>
+</footer>
+
+</body>
+</html>

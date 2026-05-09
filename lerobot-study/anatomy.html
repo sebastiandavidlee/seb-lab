@@ -1,0 +1,520 @@
+<!doctype html>
+<html lang="en" data-theme="dark">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>How LeRobot is organized — LeRobot Study</title>
+  <link rel="stylesheet" href="shared/styles.css" />
+  <script defer src="shared/site.js"></script>
+</head>
+<body>
+
+<header class="site-header">
+  <h1><a href="index.html">LeRobot Study</a></h1>
+  <div class="subtitle">A friendly tour of LeRobot 0.4.4 &rarr; 0.5.0 for SO-101 hobbyists.</div>
+</header>
+
+<main class="page-grid">
+  <aside id="site-nav" aria-label="Site navigation">
+    <!-- injected by site.js from shared/nav.html -->
+  </aside>
+
+  <article class="page-content">
+    <div class="reading-order" role="navigation" aria-label="Reading order">
+      <a href="index.html">&larr; prev</a>
+      <span class="sep">&middot;</span>
+      <span>How LeRobot is organized</span>
+      <span class="sep">&middot;</span>
+      <a href="teleop.html">next &rarr;</a>
+    </div>
+
+    <div class="eyebrow">The big picture</div>
+
+    <h1>How LeRobot is organized</h1>
+
+    <p class="read-time">5 min read &middot; <span class="persona-tag">for SO-101 users</span></p>
+
+    <section class="tldr">
+      Think of LeRobot as five Lego pieces: a <strong>robot driver</strong>, a
+      <strong>teleop controller</strong>, a <strong>dataset format</strong>, a
+      <strong>trainer script</strong>, and a <strong>policy</strong>. The 0.5.0
+      release didn't change which pieces exist &mdash; it only added a Unitree G1
+      driver and shuffled some internal plumbing.
+    </section>
+
+    <p class="what-this-means">
+      What this means for you: when you run <code>lerobot-record</code>, you're
+      using the robot driver + teleop + dataset format. When you run
+      <code>lerobot-train</code>, you're using the dataset + trainer + policy.
+      Every other page on this site zooms into one of those five pieces.
+    </p>
+
+    <section class="mental-model">
+<pre>  ┌─────────┐    ┌──────────┐    ┌──────────┐
+  │ Teleop  │───▶│  Robot   │───▶│ Dataset  │
+  │ (leader)│    │(follower)│    │ (record) │
+  └─────────┘    └──────────┘    └────┬─────┘
+                                      ▼
+                                ┌──────────┐    ┌──────────┐
+                                │  Policy  │◀───│ Trainer  │
+                                │ (ACT…)   │    │ (train)  │
+                                └──────────┘    └──────────┘</pre>
+      <p>
+        Recording flows left-to-right; training flows right-to-left. A trained
+        policy then drives the robot directly during evaluation.
+      </p>
+    </section>
+
+    <h2>The basics</h2>
+
+    <h3>What is a policy?</h3>
+    <p>
+      A <em>policy</em> is the trained brain. You feed it what the robot sees
+      (camera frames + joint angles) and it outputs what the robot should do
+      next (target joint positions, or a short chunk of upcoming motions).
+      ACT, Diffusion, SmolVLA, &pi;0 are all different recipes for that brain.
+    </p>
+
+    <h3>What is a teleop?</h3>
+    <p>
+      A <em>teleop</em> (teleoperator) is whatever you use to drive the robot
+      while recording demos. For SO-101 that's almost always a <em>leader
+      arm</em> &mdash; a smaller twin you grip with your hand. The follower
+      mirrors your motion. Other options: keyboard, gamepad, or a phone for
+      6-DoF (six degrees of freedom) tracking.
+    </p>
+
+    <h3>What's a robot driver?</h3>
+    <p>
+      The piece that talks to the actual motors over a USB or CAN bus. It
+      reads joint angles and writes target positions every loop iteration.
+      You don't usually touch it directly; the CLI scripts use it for you.
+    </p>
+
+    <h3>What's a LeRobotDataset?</h3>
+    <p>
+      A folder of recorded demos saved as Parquet tables (the numeric data:
+      joint angles, actions, timestamps) plus MP4 videos (the camera frames),
+      with a small JSON index that ties them together. It uploads cleanly to
+      the Hugging Face Hub.
+    </p>
+
+    <h3>What ties it together?</h3>
+    <p>
+      The CLI scripts (<code>lerobot-record</code>, <code>lerobot-train</code>,
+      <code>lerobot-eval</code>) and a set of <em>config dataclasses</em>
+      &mdash; plain Python classes whose fields become CLI flags. Almost every
+      flag you've ever passed is documented as one of those fields, so
+      <code>--help</code> works on everything.
+    </p>
+
+    <h2>How you actually use it</h2>
+
+    <p>The three CLI commands you'll hit most:</p>
+
+    <div class="workflow">
+<span class="wf-prompt"></span>lerobot-record    <span class="wf-comment"># Capture demos using a teleop + a robot</span>
+<span class="wf-prompt"></span>lerobot-train     <span class="wf-comment"># Train a policy on a recorded dataset</span>
+<span class="wf-prompt"></span>lerobot-eval      <span class="wf-comment"># Run a trained policy and measure success</span>
+    </div>
+
+    <p>
+      A typical SO-101 session: record 50 episodes &rarr; push the dataset to
+      the Hub &rarr; fine-tune an ACT or Diffusion checkpoint on it &rarr;
+      load the fine-tuned policy back and run <code>lerobot-eval</code>. All
+      five Lego pieces, in order.
+    </p>
+
+    <h2>Things to know</h2>
+
+    <div class="callout callout-info">
+      <div class="callout-title">First-party hardware support</div>
+      <p>
+        LeRobot ships drivers for SO-100/101, Koch v1.0/v1.1, ALOHA-style
+        bimanual setups, OpenManipulator-X, OpenArm, LeKiwi, Reachy 2, Hope
+        Jr., and Unitree G1. If you're on SO-101, you're on the most
+        well-trodden path.
+      </p>
+    </div>
+
+    <div class="callout callout-info">
+      <div class="callout-title">Every flag is documented</div>
+      <p>
+        Pretty much every CLI flag corresponds to a field on a config
+        dataclass. <code>--help</code> on any <code>lerobot-*</code> command
+        will print the full set of options for the type you've selected
+        (e.g. <code>--policy.type=act</code> swaps in the ACT-specific flags).
+      </p>
+    </div>
+
+    <div class="callout callout-new">
+      <div class="callout-title">0.5.0 didn't add or remove any of those pieces</div>
+      <p>
+        Same five Lego pieces, same five subdirectories, same CLI commands.
+        The structural changes are: one new shared backbone file for the
+        &pi;-family policies, the Unitree G1 driver split into smaller
+        modules, and a single new training-config field for deterministic
+        cuDNN. If you're an SO-101 user, none of that touches your workflow.
+      </p>
+    </div>
+
+    <div class="section-divider">Optional: under the hood</div>
+
+    <details class="deep-dive">
+      <summary>Show the 18 subpackages and what each owns</summary>
+
+      <p>
+        18 subpackages, identical roster in v0.4.4 and v0.5.0. <em>Vendor</em>
+        means code copied from an upstream model repo (HF Transformers /
+        OpenPI / Florence-2) and patched in-tree.
+      </p>
+
+      <div class="table-wrap">
+        <table>
+          <thead>
+            <tr>
+              <th style="width: 16%;">Package</th>
+              <th style="width: 10%;">Kind</th>
+              <th>Owns / responsibility</th>
+              <th style="width: 12%;">&Delta; 0.4.4 &rarr; 0.5.0</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td><code>async_inference/</code></td>
+              <td>first-party</td>
+              <td>gRPC async-inference pipeline: <code>policy_server.py</code>, <code>robot_client.py</code>, helpers (<code>make_lerobot_observation</code> at <span class="file-ref">src/lerobot/async_inference/helpers.py:135</span>).</td>
+              <td>5-line import block in <code>robot_client.py</code></td>
+            </tr>
+            <tr>
+              <td><code>cameras/</code></td>
+              <td>first-party</td>
+              <td>Camera ABC at <span class="file-ref">src/lerobot/cameras/camera.py:26</span>; backends <code>opencv/</code>, <code>realsense/</code>, <code>reachy2_camera/</code>, <code>zmq/</code>; factory <code>make_cameras_from_configs</code> at <span class="file-ref">src/lerobot/cameras/utils.py:25</span>.</td>
+              <td><code>zmq/image_server.py</code> adds CaptureThread</td>
+            </tr>
+            <tr>
+              <td><code>configs/</code></td>
+              <td>first-party</td>
+              <td>Top-level dataclass configs (<code>TrainPipelineConfig</code>, <code>EvalPipelineConfig</code>, <code>PreTrainedConfig</code>), the draccus-based CLI parser, shared enums.</td>
+              <td>+1 field (<code>cudnn_deterministic</code>)</td>
+            </tr>
+            <tr>
+              <td><code>data_processing/</code></td>
+              <td>first-party</td>
+              <td>Single helper module <code>sarm_annotations/subtask_annotation.py</code> for SARM (Subtask-Annotation Reward Model) labels.</td>
+              <td>unchanged</td>
+            </tr>
+            <tr>
+              <td><code>datasets/</code></td>
+              <td>first-party</td>
+              <td><code>LeRobotDataset</code> + <code>MultiLeRobotDataset</code> (<span class="file-ref">src/lerobot/datasets/lerobot_dataset.py:566,1722</span>); metadata at <code>:86</code>; v2.1&rarr;v3.0 migration in <code>v30/</code>; streaming, online buffer, stats, transforms.</td>
+              <td>cosmetic (PEP 695, <code>pd.Index</code> name)</td>
+            </tr>
+            <tr>
+              <td><code>envs/</code></td>
+              <td>first-party</td>
+              <td>Gym env config + factory: <code>make_env</code> at <span class="file-ref">src/lerobot/envs/factory.py:102</span>; Libero + Metaworld wrappers; EnvHub support.</td>
+              <td>unchanged</td>
+            </tr>
+            <tr>
+              <td><code>model/</code></td>
+              <td>first-party</td>
+              <td>Currently a single file: <code>kinematics.py</code>. Used by Unitree G1 and <code>so_follower</code>.</td>
+              <td>unchanged</td>
+            </tr>
+            <tr>
+              <td><code>motors/</code></td>
+              <td>first-party</td>
+              <td>Motor-bus abstractions (<code>motors_bus.py</code>), backends <code>dynamixel/</code>, <code>feetech/</code>, <code>damiao/</code>, <code>robstride/</code>, <code>calibration_gui.py</code>.</td>
+              <td>cosmetic (<code>TypeAlias</code> &rarr; <code>type</code>)</td>
+            </tr>
+            <tr>
+              <td><code>optim/</code></td>
+              <td>first-party</td>
+              <td>Optimizer + LR-scheduler dataclass configs and factory <code>make_optimizer_and_scheduler</code> at <span class="file-ref">src/lerobot/optim/factory.py:25</span>.</td>
+              <td>byte-identical</td>
+            </tr>
+            <tr>
+              <td><code>policies/</code></td>
+              <td>mixed</td>
+              <td>Per-policy folders (<code>act/</code>, <code>diffusion/</code>, <code>tdmpc/</code>, <code>vqbet/</code>, <code>sac/</code>, <code>smolvla/</code>, <code>pi0/</code>, <code>pi05/</code>, <code>pi0_fast/</code>, <code>groot/</code>, <code>xvla/</code>, <code>wall_x/</code>, <code>sarm/</code>, <code>rtc/</code>); base <code>PreTrainedPolicy</code> at <span class="file-ref">src/lerobot/policies/pretrained.py:44</span>; central <code>factory.py</code>.</td>
+              <td><strong>+ <code>pi_gemma.py</code></strong></td>
+            </tr>
+            <tr>
+              <td><code>processor/</code></td>
+              <td>first-party</td>
+              <td>Pipeline ABC + step registry. The thing that makes training policy-agnostic: each policy folder ships a <code>processor_&lt;name&gt;.py</code> that builds a pre/post pair from these steps.</td>
+              <td>cosmetic (PEP 695)</td>
+            </tr>
+            <tr>
+              <td><code>rl/</code></td>
+              <td>first-party</td>
+              <td>HIL-SERL / online-RL stack: <code>actor.py</code>, <code>learner.py</code>, <code>buffer.py</code>, <code>gym_manipulator.py</code>, <code>learner_service.py</code> (gRPC), <code>wandb_utils.py</code>.</td>
+              <td>unchanged</td>
+            </tr>
+            <tr>
+              <td><code>robots/</code></td>
+              <td>first-party</td>
+              <td>Robot ABC at <span class="file-ref">src/lerobot/robots/robot.py:30</span>; per-platform packages (<code>koch_follower/</code>, <code>so_follower/</code>, <code>bi_so_follower/</code>, <code>lekiwi/</code>, <code>reachy2/</code>, <code>unitree_g1/</code>, <code>hope_jr/</code>, <code>omx_follower/</code>, <code>openarm_follower/</code>, <code>bi_openarm_follower/</code>, <code>earthrover_mini_plus/</code>); factory <code>make_robot_from_config</code> at <span class="file-ref">src/lerobot/robots/utils.py:25</span>.</td>
+              <td><strong>G1 driver split</strong></td>
+            </tr>
+            <tr>
+              <td><code>scripts/</code></td>
+              <td>first-party</td>
+              <td>16 CLI entry-points (<code>lerobot-train</code>, <code>lerobot-eval</code>, <code>lerobot-record</code>, &hellip;).</td>
+              <td>body-level edits only</td>
+            </tr>
+            <tr>
+              <td><code>teleoperators/</code></td>
+              <td>first-party</td>
+              <td>Teleop ABC at <span class="file-ref">src/lerobot/teleoperators/teleoperator.py:29</span>; backends include <code>keyboard/</code>, <code>gamepad/</code>, <code>phone/</code>, <code>homunculus/</code>, leader arms (<code>koch_leader/</code>, <code>so_leader/</code>, <code>omx_leader/</code>, <code>openarm_leader/</code>, <code>bi_*_leader/</code>), <code>unitree_g1/</code>, <code>reachy2_teleoperator/</code>; factory <code>make_teleoperator_from_config</code> at <span class="file-ref">src/lerobot/teleoperators/utils.py:36</span>.</td>
+              <td>G1 RemoteController grew (dual-source joystick)</td>
+            </tr>
+            <tr>
+              <td><code>templates/</code></td>
+              <td>first-party</td>
+              <td>Single Jinja-style file <code>lerobot_modelcard_template.md</code> for HF Hub model cards.</td>
+              <td>unchanged</td>
+            </tr>
+            <tr>
+              <td><code>transport/</code></td>
+              <td>first-party</td>
+              <td>gRPC plumbing &mdash; <code>services.proto</code>, generated <code>services_pb2.py</code>, <code>services_pb2_grpc.py</code>, helpers in <code>utils.py</code>.</td>
+              <td>byte-identical</td>
+            </tr>
+            <tr>
+              <td><code>utils/</code></td>
+              <td>first-party</td>
+              <td>Cross-cutting helpers &mdash; <code>constants.py</code>, <code>hub.py</code> (HubMixin), <code>import_utils.py</code>, <code>logging_utils.py</code>, <code>random_utils.py</code>, <code>robot_utils.py</code>, <code>rotation.py</code>, <code>train_utils.py</code>, <code>transition.py</code>, <code>visualization_utils.py</code>, <code>errors.py</code>.</td>
+              <td>small content edits in <code>import_utils.py</code>, <code>io_utils.py</code></td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+
+      <p>
+        <code>src/lerobot/__init__.py</code> is <strong>byte-identical</strong>
+        between the two tags &mdash; the top-level module is intentionally
+        lightweight and exposes only string registries plus
+        <code>__version__</code>. There is no <code>make_*</code> symbol exposed
+        from the top of the package; factories must be imported from their
+        submodules.
+      </p>
+
+      <div class="callout callout-warn">
+        <div class="callout-title">Stale constant in both tags</div>
+        <p>
+          <code>available_policies</code> at
+          <span class="file-ref">src/lerobot/__init__.py:160</span> still lists
+          only <code>["act", "diffusion", "tdmpc", "vqbet"]</code>, even though
+          both tags ship <strong>14</strong> policy folders including pi0,
+          pi05, pi0_fast, smolvla, groot, xvla, wall_x, sac, sarm, rtc. The
+          real registry is the draccus <code>ChoiceRegistry</code> on
+          <code>PreTrainedConfig</code>
+          (<span class="file-ref">src/lerobot/configs/policies.py:41</span>) &mdash;
+          so <code>import lerobot; lerobot.available_policies</code> is a
+          misleading artifact. Don't trust it programmatically.
+        </p>
+      </div>
+    </details>
+
+    <details class="deep-dive">
+      <summary>Show the public factory functions (make_policy, make_dataset, &hellip;)</summary>
+
+      <p>
+        Every Lego piece is built by a small <code>make_*</code> factory.
+        These have to be imported from their submodules &mdash; nothing is
+        re-exported at the top level of the package.
+      </p>
+
+      <div class="table-wrap">
+        <table>
+          <thead>
+            <tr>
+              <th>Factory</th>
+              <th>Location</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td><code>make_policy(...)</code></td>
+              <td><span class="file-ref">src/lerobot/policies/factory.py:405</span> (v0.4.4: <code>:406</code>)</td>
+            </tr>
+            <tr>
+              <td><code>make_policy_config(policy_type, **kwargs)</code></td>
+              <td><span class="file-ref">src/lerobot/policies/factory.py:140</span></td>
+            </tr>
+            <tr>
+              <td><code>make_pre_post_processors(...)</code></td>
+              <td><span class="file-ref">src/lerobot/policies/factory.py:213</span></td>
+            </tr>
+            <tr>
+              <td><code>get_policy_class(name)</code></td>
+              <td><span class="file-ref">src/lerobot/policies/factory.py:60</span></td>
+            </tr>
+            <tr>
+              <td><code>make_dataset(cfg)</code></td>
+              <td><span class="file-ref">src/lerobot/datasets/factory.py:71</span></td>
+            </tr>
+            <tr>
+              <td><code>make_env(...)</code></td>
+              <td><span class="file-ref">src/lerobot/envs/factory.py:102</span></td>
+            </tr>
+            <tr>
+              <td><code>make_optimizer_and_scheduler(...)</code></td>
+              <td><span class="file-ref">src/lerobot/optim/factory.py:25</span></td>
+            </tr>
+            <tr>
+              <td><code>make_default_processors()</code></td>
+              <td><span class="file-ref">src/lerobot/processor/factory.py:58</span></td>
+            </tr>
+            <tr>
+              <td><code>make_robot_from_config(config)</code></td>
+              <td><span class="file-ref">src/lerobot/robots/utils.py:25</span></td>
+            </tr>
+            <tr>
+              <td><code>make_teleoperator_from_config(config)</code></td>
+              <td><span class="file-ref">src/lerobot/teleoperators/utils.py:36</span></td>
+            </tr>
+            <tr>
+              <td><code>make_cameras_from_configs(camera_configs)</code></td>
+              <td><span class="file-ref">src/lerobot/cameras/utils.py:25</span></td>
+            </tr>
+            <tr>
+              <td><code>make_robot_env(cfg)</code> (HIL-SERL gym wrapper)</td>
+              <td><span class="file-ref">src/lerobot/rl/gym_manipulator.py:303</span></td>
+            </tr>
+            <tr>
+              <td><code>make_lerobot_observation(...)</code> (async client)</td>
+              <td><span class="file-ref">src/lerobot/async_inference/helpers.py:135</span></td>
+            </tr>
+            <tr>
+              <td><code>make_locomotion_controller(name)</code> (G1)</td>
+              <td><span class="file-ref">src/lerobot/robots/unitree_g1/g1_utils.py:66</span> (<strong>v0.5.0 only</strong>)</td>
+            </tr>
+            <tr>
+              <td>Per-policy <code>make_&lt;name&gt;_pre_post_processors(...)</code></td>
+              <td>One per policy folder (act, diffusion, tdmpc, vqbet, sac, smolvla, groot, xvla, wall_x, pi0, pi05, pi0_fast, sarm)</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+
+      <div class="callout callout-warn">
+        <div class="callout-title">Naming asymmetry that will bite wrappers</div>
+        <p>
+          Device builders are named <code>make_&lt;X&gt;_from_config(config)</code>
+          and take an already-instantiated config object (cameras, robots,
+          teleoperators). Pipeline builders are named <code>make_&lt;X&gt;(cfg)</code>
+          and take the full pipeline config (<code>make_dataset(cfg)</code>,
+          <code>make_env(...)</code>, <code>make_policy(...)</code>).
+          <strong>There is no <code>make_robot("ur20", **kwargs)</code> sugar.</strong>
+          Anyone building a wrapper that expects that shape will rediscover
+          this every time.
+        </p>
+      </div>
+
+      <h4>Configuration is dataclass + draccus, not Hydra</h4>
+      <p>
+        <code>TrainPipelineConfig</code> at
+        <span class="file-ref">src/lerobot/configs/train.py:37</span> is a
+        single root dataclass that holds nested configs as typed fields (no
+        <code>defaults:</code> list, no merge logic). Polymorphic dispatch is
+        through draccus <code>ChoiceRegistry</code>:
+        <code>PreTrainedConfig</code> at
+        <span class="file-ref">src/lerobot/configs/policies.py:41</span> is the
+        registry every per-policy <code>*Config</code> subclasses, which is how
+        <code>--policy.type=act</code> selects the right one.
+      </p>
+    </details>
+
+    <details class="deep-dive">
+      <summary>Show the v0.5.0 anatomy delta (what moved, what was added)</summary>
+
+      <p>
+        <code>diff -rq</code> across <code>src/lerobot/</code> shows ~40 files
+        differ. Almost all are body-level edits inside policies and per-robot
+        drivers. The <strong>structural</strong> changes:
+      </p>
+
+      <div class="compare-cols">
+        <div class="col-v044">
+          <span class="col-tag">v0.4.4</span>
+          <h4 style="margin-top: 0.4em;">Removed in v0.5.0</h4>
+          <ul>
+            <li><span class="file-ref">src/lerobot/robots/unitree_g1/robot_kinematic_processor.py</span> (313 lines) &mdash; per-frame <code>WeightedMovingFilter</code> + IK pre-processor.</li>
+            <li><span class="file-ref">examples/unitree_g1/gr00t_locomotion.py</span> &mdash; promoted into the library.</li>
+            <li><span class="file-ref">examples/unitree_g1/holosoma_locomotion.py</span> &mdash; promoted into the library.</li>
+          </ul>
+          <h4>Constraints</h4>
+          <ul>
+            <li><code>requires-python = "&gt;=3.10"</code> (<span class="file-ref">pyproject.toml:32</span>)</li>
+            <li><code>transformers&gt;=4.57.1,&lt;5.0.0</code> (<span class="file-ref">pyproject.toml:102</span>)</li>
+            <li><code>cudnn.benchmark = True</code> unconditional in <span class="file-ref">scripts/lerobot_train.py:212-216</span></li>
+          </ul>
+        </div>
+        <div class="col-v050">
+          <span class="col-tag">v0.5.0</span>
+          <h4 style="margin-top: 0.4em;">Added (structural)</h4>
+          <ul>
+            <li><span class="file-ref">src/lerobot/policies/pi_gemma.py</span> (363 lines) &mdash; shared Gemma / PaliGemma backbone module; first-class AdaRMS via <code>PiGemmaRMSNorm</code>.</li>
+            <li><span class="file-ref">src/lerobot/robots/unitree_g1/g1_kinematics.py</span> (287 lines) &mdash; kinematics promoted to its own module.</li>
+            <li><span class="file-ref">src/lerobot/robots/unitree_g1/gr00t_locomotion.py</span> (205 lines) &mdash; NVIDIA GR00T-WBC ONNX adapter.</li>
+            <li><span class="file-ref">src/lerobot/robots/unitree_g1/holosoma_locomotion.py</span> (214 lines) &mdash; Amazon FAR Holosoma ONNX adapter.</li>
+            <li><span class="file-ref">tests/robots/test_unitree_g1.py</span> + teleoperator tests.</li>
+          </ul>
+          <h4>Constraints</h4>
+          <ul>
+            <li><code>requires-python = "&gt;=3.12"</code> (<span class="file-ref">pyproject.toml:32</span>)</li>
+            <li><code>transformers&gt;=5.3.0,&lt;6.0.0</code> (<span class="file-ref">pyproject.toml:102</span>)</li>
+            <li><code>huggingface_hub&gt;=1.0.0,&lt;2.0.0</code> &mdash; major bump, extras dropped</li>
+            <li>New <code>cudnn_deterministic</code> field gates cuDNN at <span class="file-ref">scripts/lerobot_train.py:212-216</span></li>
+            <li>New dep: <code>unitree-sdk2==1.0.1</code> (<span class="file-ref">pyproject.toml:122</span>)</li>
+          </ul>
+        </div>
+      </div>
+
+      <div class="callout callout-new">
+        <div class="callout-title">Key invariants of the upgrade</div>
+        <ul>
+          <li><strong>No subpackages added or removed.</strong> Same 18.</li>
+          <li><strong>No top-level public symbols added or removed</strong> in <code>lerobot/__init__.py</code>. Byte-identical file.</li>
+          <li><strong>No new entry-point scripts.</strong> Same 16.</li>
+          <li><strong>No restructuring</strong> of <code>configs/</code>, <code>processor/</code>, <code>transport/</code>, <code>datasets/</code>, <code>policies/factory.py</code>, <code>envs/factory.py</code>, or <code>optim/factory.py</code>.</li>
+          <li><strong>No dataset schema change</strong> &mdash; both tags emit <code>CODEBASE_VERSION = "v3.0"</code> (<span class="file-ref">src/lerobot/datasets/lerobot_dataset.py:83</span>).</li>
+        </ul>
+      </div>
+
+      <p>
+        For a UR20 + ACT/Diffusion stack, the only one of these changes that
+        actually matters is the Python 3.12 floor. Everything else is internal
+        to the &pi;-family policies or the Unitree G1 driver.
+      </p>
+    </details>
+
+    <div class="next-up">
+      <strong>Where to go next &rarr;</strong>
+      <p>
+        <a href="teleop.html">Robots &amp; how you control them</a> &mdash;
+        the three teleop styles (leader arm, keyboard/gamepad, phone), what
+        hardware LeRobot ships drivers for, and the v0.5.0 Unitree G1 split
+        in detail.
+      </p>
+    </div>
+
+  </article>
+</main>
+
+<button id="to-top" aria-label="Back to top" title="Back to top">&uarr;</button>
+
+<footer class="site-footer">
+  <div>Built 2026-05-08 &middot; pinned tags
+    <a href="https://github.com/huggingface/lerobot/tree/v0.4.4" target="_blank" rel="noopener">v0.4.4</a>
+    /
+    <a href="https://github.com/huggingface/lerobot/tree/v0.5.0" target="_blank" rel="noopener">v0.5.0</a>
+    &middot; <a href="https://github.com/huggingface/lerobot/compare/v0.4.4...v0.5.0" target="_blank" rel="noopener">compare</a>
+  </div>
+</footer>
+
+</body>
+</html>

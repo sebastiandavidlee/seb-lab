@@ -1,0 +1,86 @@
+<!doctype html>
+<html lang="en" data-theme="dark">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>{{TITLE}} — LeRobot Study</title>
+  <link rel="stylesheet" href="shared/styles.css" />
+  <script defer src="shared/site.js"></script>
+</head>
+<body>
+
+<header class="site-header">
+  <h1><a href="index.html">LeRobot Study</a></h1>
+  <div class="subtitle">A pedagogical tour for SO-101 hobbyists</div>
+</header>
+
+<main class="page-grid">
+  <aside id="site-nav" aria-label="Site navigation">
+    <!-- injected by site.js from shared/nav.html -->
+  </aside>
+
+  <article class="page-content">
+    <div class="reading-order" role="navigation" aria-label="Reading order">
+      <a href="{{PREV}}">&larr; prev</a>
+      <span class="sep">·</span>
+      <span>{{TITLE}}</span>
+      <span class="sep">·</span>
+      <a href="{{NEXT}}">next &rarr;</a>
+    </div>
+
+    <!-- BLOCK: EYEBROW (1-2 words, ALL CAPS area, e.g. "TRAINING") -->
+    <div class="eyebrow">{{EYEBROW}}</div>
+
+    <!-- BLOCK: H1 (page title — plain English, no jargon) -->
+    <h1>{{TITLE}}</h1>
+
+    <!-- BLOCK: READ TIME + PERSONA TAG (e.g. "6 min read") + persona pill -->
+    <p class="read-time">{{READ_TIME}} &middot; <span class="persona-tag">{{PERSONA_TAG}}</span></p>
+
+    <!-- BLOCK: TLDR (1-2 plain sentences, no jargon, the verdict) -->
+    <section class="tldr">
+      {{TLDR}}
+    </section>
+
+    <!-- BLOCK: WHAT THIS MEANS FOR YOU (italic lead, max ~50 words, why-should-I-care) -->
+    <p class="what-this-means">
+      {{WHAT_THIS_MEANS}}
+    </p>
+
+    <!-- BLOCK: MENTAL MODEL (one analogy or ASCII diagram in .mental-model) -->
+    {{MENTAL_MODEL_BLOCK}}
+
+    <!-- BLOCK: BASICS (h2 "The basics" + 3-5 short subsections, plain language) -->
+    {{BASICS_SECTION}}
+
+    <!-- BLOCK: WORKFLOWS (h2 "How you actually use it" + .workflow CLI examples) -->
+    {{WORKFLOWS_SECTION}}
+
+    <!-- BLOCK: GOTCHAS (h2 "Things to know" + concise warnings/tips) -->
+    {{GOTCHAS_SECTION}}
+
+    <!-- BLOCK: DEEP DIVE (h2 "Under the hood (optional)" + 2-3 <details class="deep-dive">) -->
+    <div class="section-divider">Optional: under the hood</div>
+    {{DEEP_DIVE_DETAILS}}
+
+    <!-- BLOCK: NEXT UP (one-line recommendation linking to next page) -->
+    <div class="next-up">
+      <strong>Where to go next &rarr;</strong>
+      {{NEXT_UP}}
+    </div>
+
+  </article>
+</main>
+
+<button id="to-top" aria-label="Back to top" title="Back to top">&uarr;</button>
+
+<footer class="site-footer">
+  <div>Built {{BUILD_DATE}} &middot; pinned tags
+    <a href="https://github.com/huggingface/lerobot/tree/v0.4.4" target="_blank" rel="noopener">v0.4.4</a>
+    /
+    <a href="https://github.com/huggingface/lerobot/tree/v0.5.0" target="_blank" rel="noopener">v0.5.0</a>
+  </div>
+</footer>
+
+</body>
+</html>

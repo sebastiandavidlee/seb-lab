@@ -1,0 +1,184 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>&pi;&#x2080; Workshop &mdash; Page 5: &pi;&#x2080;.5 — What Changed</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+  <header class="page-header">
+    <nav class="page-nav">
+      <a href="index.html">index</a>
+      <a href="page1.html">1. Substrate</a>
+      <a href="page2.html">2. &pi;&#x2080;</a>
+      <a href="page3.html">3. FAST</a>
+      <a href="page4.html">4. KI</a>
+      <a href="page5.html">5. &pi;&#x2080;.5</a>
+    </nav>
+    <div class="arc-progress" aria-label="page progress">
+      <span class="dot" title="1. Substrate"></span>
+      <span class="dot" title="2. &pi;&#x2080;"></span>
+      <span class="dot" title="3. FAST"></span>
+      <span class="dot" title="4. KI"></span>
+      <span class="dot" title="5. &pi;&#x2080;.5"></span>
+      <span class="label">page 5 of 5 &middot; the payoff</span>
+    </div>
+    <h1>Page 5 &mdash; &pi;&#x2080;.5: What Actually Changed</h1>
+  </header>
+
+  <main>
+    <section class="page-intro">
+      <p><strong>Where you are.</strong> The payoff page. You have the substrate (Page 1), the architecture (Page 2), the surviving tokenizer (Page 3), and the co-training recipe (Page 4). This page assembles them into &pi;&#x2080;.5 and asks the honest question: how much of the open-world generalization claim survives PI's own ablations?</p>
+      <p>&pi;&#x2080;.5 keeps &pi;&#x2080;'s runtime architecture almost unchanged. It bolts on a discrete FAST-token pretraining objective, a heterogeneous co-training data mix (web VQA, cross-embodiment teleop, ~400 hours of mobile-manipulator demos across 104 homes), a hierarchical &ldquo;predict-then-act&rdquo; inference loop where the VLM emits a natural-language subtask before the action expert runs, and the gradient-isolation recipe formalized one month later as Knowledge Insulation. The headline claim is open-world generalization to unseen homes; the honest framing is co-training curriculum, not architecture novelty. <span class="cite">[&pi;&#x2080;.5 paper, arXiv 2504.16054]</span></p>
+      <aside class="callout-quote">
+        <strong>What you'll see:</strong> a five-axis side-by-side comparison table (no JS &mdash; HTML/CSS only) and a stacked-bar of the &pi;&#x2080; vs &pi;&#x2080;.5 data mixture. After that, what's <em>not</em> new, the open-world result honestly framed, and a final FAQ.
+      </aside>
+      <p class="cite">Sources: &pi;&#x2080;.5 paper (arXiv 2504.16054); KI paper (arXiv 2505.23705); fast_deep_dive_2026-04-14.md.</p>
+    </section>
+
+    <!-- ============================== Comparison table — inline HTML/CSS ============================== -->
+    <article class="viz-section">
+      <header>
+        <h2>The five-axis diff &mdash; same architecture, new recipe</h2>
+        <p class="purpose">Green rows changed; grey rows stayed the same. Read both columns &mdash; that's the whole story.</p>
+      </header>
+      <div class="viz-body">
+        <table class="cmp-table">
+          <thead>
+            <tr>
+              <th class="col-axis">Axis</th>
+              <th class="col-pi0">&pi;&#x2080; (Oct 2024)</th>
+              <th class="col-pi05">&pi;&#x2080;.5 (Apr 2025)</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <th>Backbone</th>
+              <td class="same">PaliGemma (SigLIP-So400m + Gemma-2B), ~3.0B params, end-to-end fine-tuned. <span class="note">Crown-jewel parameter mass.</span></td>
+              <td class="same">Same PaliGemma backbone. Protected from flow-loss gradient by stop-gradient (formalized in KI a month later). <span class="note">No backbone swap, no architecture novelty.</span></td>
+            </tr>
+            <tr>
+              <th>Action head</th>
+              <td class="same">~300M flow-matching action expert, mixture-of-transformer-experts attention with the VLM. 10 Euler steps at &delta;=0.1 to denoise a chunk. <span class="note">[&pi;&#x2080; &sect;IV]</span></td>
+              <td class="same">Same ~300M flow-matching expert at runtime. Identical Euler-step inference. <span class="note">The runtime is unchanged.</span></td>
+            </tr>
+            <tr>
+              <th>Training objective</th>
+              <td class="changed">Single objective: flow-matching velocity-prediction loss on continuous action chunks. No FAST-token aux. No stop-gradient. <span class="note">[&pi;&#x2080; &sect;IV]</span></td>
+              <td class="changed">Two-piece: continuous flow-matching loss on the action expert <em>plus</em> FAST-token cross-entropy auxiliary on the VLM head. Flow gradient stop-gradient'd at the VLM boundary. KI later unifies these into one simultaneous loop. <span class="note">[&pi;&#x2080;.5 &sect;3; KI &sect;3]</span></td>
+            </tr>
+            <tr>
+              <th>Data mixture</th>
+              <td class="changed">~10k hours teleop across 7 robot configs / 68 tasks, plus the OXE Magic Soup subset. <span class="note">[&pi;&#x2080; &sect;V-A]</span></td>
+              <td class="changed">All of &pi;&#x2080;'s data <em>plus</em>: ~400 hours mobile-manipulator across 104 homes; web VQA / OCR / detection; high-level subtask-language annotations (~11% of HL data); more cross-embodiment teleop. Heterogeneous co-training. <span class="note">[&pi;&#x2080;.5 &sect;3]</span></td>
+            </tr>
+            <tr>
+              <th>Inference path</th>
+              <td class="changed">Single-pass: VLM forward &rarr; 10 flow steps through action expert &rarr; continuous chunk. <span class="note">[&pi;&#x2080; &sect;D]</span></td>
+              <td class="changed">Hierarchical &ldquo;predict-then-act&rdquo;: VLM first emits a high-level subtask string (&ldquo;pick up the sponge&rdquo;) by autoregressive language decode, then conditions the action expert on that linguistic intermediate to emit the next chunk. Same flow-matching runtime, with a coarse-rate language pass on top. <span class="note">[&pi;&#x2080;.5 &sect;3]</span></td>
+            </tr>
+            <tr>
+              <th>Generalization claim</th>
+              <td class="changed">Strong on in-distribution dexterous tasks (laundry, table bussing, grocery bagging). No claim of unseen-home generalization. <span class="note">[&pi;&#x2080; &sect;V-C]</span></td>
+              <td class="changed">&ldquo;Open-world&rdquo; generalization to <strong>3 unseen homes</strong> for long-horizon mobile manipulation. Honest reframe: better than 3-home pretraining baseline; eval is narrow; prompt-rewording can swing 0&rarr;100%. <span class="note">[&pi;&#x2080;.5 &sect;4; Penn GRASP independent eval]</span></td>
+            </tr>
+          </tbody>
+        </table>
+
+        <p style="max-width:1100px; margin: 14px auto 0; font-size:13px; color:var(--muted);">
+          <strong>Read this as:</strong> two grey rows (architecture &amp; runtime &mdash; unchanged); four green rows (training, data, inference loop, generalization claim &mdash; the actual diff).
+        </p>
+      </div>
+    </article>
+
+    <!-- ============================== Data mixture stacked bar ============================== -->
+    <article class="viz-section">
+      <header>
+        <h2>Data mixture &mdash; lab to web, in two bars</h2>
+        <p class="purpose">&pi;&#x2080; was lab-only. &pi;&#x2080;.5 is heterogeneous. Where each slice helps (and where it doesn't, per PI's own ablations).</p>
+      </header>
+      <div class="viz-body wrap wrap--wide">
+        <div class="viz-section" id="viz-data-mixture" data-viz="data-mixture"></div>
+      </div>
+      <div class="viz-explanation">
+        <p><strong>What &pi;&#x2080; saw:</strong> ~10k hours of in-house teleop across 7 robot configurations / 68 tasks, plus the OXE Magic Soup subset. Lab-distribution. <strong>What &pi;&#x2080;.5 added on top:</strong> ~400 hours of mobile-manipulator demos across 104 homes, web VQA / OCR / object-detection batches, broader cross-embodiment teleop, and ~11% of the high-level data carrying explicit subtask-language annotations. Same training step sees a heterogeneous batch. Three honest caveats follow from &pi;&#x2080;.5's own ablations and from independent evaluations.</p>
+        <ul>
+          <li><strong>Web data is not the active ingredient.</strong> PI's own paper reports the &ldquo;no web-data&rdquo; ablation is not statistically significant on the main tasks. The dominant generalization levers are <em>cross-embodiment teleop</em> and <em>subtask-language annotations</em> (~11% of HL data), <em>not</em> the web VQA / OCR / detection co-training data &mdash; even though &ldquo;we add web data and generalization emerges&rdquo; is the easiest-to-pitch reading. Defensible explanation: web data preserves the VLM's language-conditioning capability rather than directly teaching manipulation. <span class="cite">[&pi;&#x2080;.5 &sect;4 ablation table]</span></li>
+          <li><strong>Embodiment diversity matters; data scale alone doesn't.</strong> 104-home pretraining vastly outperforms a 3-home baseline on unseen-home generalization. The slope is steep enough that PI uses it as evidence of a scene-/embodiment-diversity scaling law inside this regime. The claim is real against the prior baseline.</li>
+          <li><strong>The eval is narrow.</strong> Three homes. Penn GRASP's independent in-the-wild evaluation reported 0% success on novel glass and unseen backgrounds; prompt rewording can swing results 0&rarr;100% on &pi;&#x2080; (and likely &pi;&#x2080;.5). LeRobot's pi05_libero weight port hit 0% out of the box until preprocessing was fixed (HF issue #2533). The contribution is real; the &ldquo;open-world&rdquo; framing is stronger than the eval supports. <span class="cite">[fast_deep_dive_2026-04-14.md &sect;5]</span></li>
+        </ul>
+        <aside class="callout-quote">
+          <strong>What the viz shows:</strong> two stacked bars &mdash; &pi;&#x2080; (lab teleop only) and &pi;&#x2080;.5 (lab + cross-embodiment + web + subtask language). Mouseover slice shows the source dataset and the ablation status (active / inert per &pi;&#x2080;.5 paper).
+        </aside>
+        <p class="cite">Sources: &pi;&#x2080;.5 paper &sect;3 (data mixture), &sect;4 (ablations); Penn GRASP independent eval; fast_deep_dive_2026-04-14.md.</p>
+      </div>
+    </article>
+
+    <!-- ============================== What's NOT new ============================== -->
+    <section class="rails-section">
+      <h2>What is <em>not</em> new in &pi;&#x2080;.5</h2>
+      <div class="callout-quote">
+        <strong>The architecture barely moved. The recipe and the data did all the work.</strong>
+        <ul style="margin-top:8px;">
+          <li><strong>Still a transformer.</strong> PaliGemma + action expert with mixture-of-transformer-experts attention. No new backbone family, no new attention variant.</li>
+          <li><strong>Still flow at runtime.</strong> Continuous output, ~10 Euler steps, identical to &pi;&#x2080;. FAST tokens are training-only.</li>
+          <li><strong>Still chunked actions.</strong> H = 50 timesteps, D = 18 (zero-padded). Half-chunk replanning cadence carried over from &pi;&#x2080;.</li>
+          <li><strong>Still PaliGemma backbone.</strong> SigLIP-So400m + Gemma-2B, end-to-end fine-tuned. No swap.</li>
+          <li><strong>Still the prefix-LM mask.</strong> Three-block causal layout from Page 2. The hierarchical predict-then-act layer sits <em>on top of</em> this; the underlying mask is unchanged.</li>
+        </ul>
+      </div>
+    </section>
+
+    <!-- ============================== FAQ ============================== -->
+    <section class="faq-section">
+      <h2>FAQ &mdash; five things you didn't know you didn't know</h2>
+
+      <div class="faq-item">
+        <p class="q">Q. Are &pi;&#x2080;-FAST and &pi;&#x2080;.5 the same model?</p>
+        <p class="a">No. &pi;&#x2080;-FAST (Jan 2025) is a sister architecture that <em>drops the action expert entirely</em> and lets the VLM autoregressively emit FAST tokens at runtime. It was retired by PI by May 2025 because of latency. &pi;&#x2080;.5 keeps &pi;&#x2080;'s flow-matching action expert and uses FAST tokens as a training-time auxiliary target only. Different models, same tokenizer, very different fates. <span class="cite">[FAST &sect;5; KI paper]</span></p>
+      </div>
+
+      <div class="faq-item">
+        <p class="q">Q. Is the hierarchy a learned latent or natural-language tokens?</p>
+        <p class="a">Natural-language tokens. The high-level &ldquo;subtask&rdquo; bottleneck is a short text emission (&ldquo;pick up the sponge&rdquo;) that the same VLM autoregressively decodes before conditioning the action expert. This buys compositional generalization for free (the VLM's language head already knows how to combine concepts) at the cost of an extra autoregressive decode at chunk boundaries. It is the same Hi Robot-style System-2 / System-1 split, applied inside a single VLA. <span class="cite">[&pi;&#x2080;.5 &sect;3]</span></p>
+      </div>
+
+      <div class="faq-item">
+        <p class="q">Q. Does the high-level decode run on every control step?</p>
+        <p class="a">No &mdash; it runs at chunk boundaries, not at control rate. Concretely: a new subtask emits at the start of each chunk (~every 50 timesteps at 50&nbsp;Hz, so ~1 Hz), or when the prior subtask is detected as complete. The low-level action expert runs every chunk. So the rates are coarse: HL ~1&ndash;2 Hz, LL chunk-emission ~10&ndash;50 Hz, control loop ~50 Hz with interpolation. <span class="cite">[Hi Robot precedent; &pi;&#x2080;.5 &sect;3]</span></p>
+      </div>
+
+      <div class="faq-item">
+        <p class="q">Q. Why is RTC compatible with &pi;&#x2080; / &pi;&#x2080;.5 but not &pi;&#x2080;-FAST?</p>
+        <p class="a">Real-Time Chunking (arXiv 2506.07339) treats the seam between consecutive chunks as a <em>diffusion inpainting</em> problem &mdash; freeze the tail of the previous chunk as known context, use masked diffusion to inpaint a smooth start to the next. This is mathematically possible only on continuous diffusion / flow heads. Autoregressive token streams have no &ldquo;partially denoised chunk&rdquo; for the inpainter to operate on. LeRobot's RTC implementation (PR #1698, Nov 2025) explicitly supports &pi;&#x2080;, &pi;&#x2080;.5, SmolVLA &mdash; not &pi;&#x2080;-FAST. So even if AR-FAST inference were fast, RTC would still force a flow head at runtime for any deployment that cares about latency tolerance.</p>
+      </div>
+
+      <div class="faq-item">
+        <p class="q">Q. Is KI uniquely necessary, or could LoRA do the same job?</p>
+        <p class="a">Unsettled. The KI paper does <em>not</em> include a LoRA-only or adapter-only ablation. VLM2VLA directly rebuts with &ldquo;simpler LoRA works.&rdquo; KI's principled argument (discrete categorical aux target stabilizes a continuous generative backbone, in the spirit of BERT MLM / VQ-VAE commitment loss) is real, but the head-to-head with PEFT recipes is open public business. The honest read: KI is <em>a</em> solution; whether it is <em>uniquely necessary</em> is not yet shown.</p>
+      </div>
+    </section>
+
+    <!-- ============================== Closing ============================== -->
+    <section class="page-intro" style="margin-top: 32px;">
+      <h2 style="font-size:18px;">What you actually walked away with</h2>
+      <p>Six months between papers. The architecture barely moved &mdash; same backbone, same flow head, same attention layout, same chunked output. What moved was the training recipe (KI: stop-gradient + FAST cross-entropy auxiliary), the data mixture (lab teleop + 104 homes + cross-embodiment + web VQA + subtask language), and the inference loop (a hierarchical language pass on top of an unchanged action expert). The result is a policy that, against the prior 3-home baseline, sometimes works in unseen homes &mdash; and an honest reframe that the &ldquo;open-world&rdquo; framing is stronger than the eval supports.</p>
+      <div class="callout-quote" style="font-size:15px;">
+        <strong>One-line landing:</strong> &pi;&#x2080;.5 = &pi;&#x2080; architecture + Knowledge Insulation co-training + a heterogeneous data mixture. Inference is unchanged. Open-world generalization is a data + recipe result, not an architecture result.
+      </div>
+      <p style="margin-top: 14px;">If you read all five pages, you should be able to answer three questions cold: what is in the action chunk and how does it get there (Page 2), what survived from FAST and what didn't (Page 3), and what does &ldquo;the gradient stops here&rdquo; mean (Page 4). The rest is data and patience. Back to <a href="index.html">index &rarr;</a></p>
+    </section>
+  </main>
+
+  <footer>
+    <div class="footer-stop"><b>If you stop here, you walked away with:</b> &pi;&#x2080;.5 = &pi;&#x2080; architecture + KI co-training recipe + heterogeneous data mixture. The architecture barely moved; the recipe and the data did all the work. Open-world generalization is a real result against the 3-home baseline and narrower than the marketing.</div>
+    <p>&pi;&#x2080; / &pi;&#x2080;.5 Workshop &middot; Page 5 of 5 &middot; Sources: <a href="https://arxiv.org/abs/2410.24164">arXiv 2410.24164</a> (&pi;&#x2080;) &middot; <a href="https://arxiv.org/abs/2501.09747">arXiv 2501.09747</a> (FAST) &middot; <a href="https://arxiv.org/abs/2504.16054">arXiv 2504.16054</a> (&pi;&#x2080;.5) &middot; <a href="https://arxiv.org/abs/2505.23705">arXiv 2505.23705</a> (KI) &middot; <a href="https://arxiv.org/abs/2506.07339">arXiv 2506.07339</a> (RTC)</p>
+    <p>Back to: <a href="index.html">index</a> &middot; Companion: <a href="../fast_workshop/index.html">FAST Tokenizer Workshop</a></p>
+  </footer>
+
+  <script src="data.js"></script>
+  <script src="shared.js"></script>
+  <script src="viz_data_mixture.js"></script>
+</body>
+</html>

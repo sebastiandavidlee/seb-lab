@@ -1,0 +1,36 @@
+<section class="viz" id="viz-2" data-viz="2">
+  <h3 class="viz-title">Viz 2 &mdash; Naive per-cell tokenization fails</h3>
+
+  <div class="slider-row">
+    <label>num_bins:</label>
+    <input class="js-bins" type="range" min="0" max="4" step="1" value="3">
+    <span class="bins-readout js-bins-readout">256</span>
+  </div>
+  <div class="counter js-counter">...</div>
+
+  <div class="dual">
+    <div class="sub-panel">
+      <h3>Original chunk (same colormap as Viz 1)</h3>
+      <canvas class="js-heatmap-orig heatmap" width="500" height="70"></canvas>
+      <div class="axis-x">timestep (0 &rarr; 49)</div>
+    </div>
+    <div class="sub-panel">
+      <h3>Naive tokens &mdash; integer bin IDs <span class="js-bins-subtitle" style="font-weight:normal; color:var(--muted);">(256 bins)</span></h3>
+      <canvas class="js-heatmap-tok heatmap" width="500" height="70"></canvas>
+      <canvas class="js-heatmap-ident heatmap" width="500" height="70" title="yellow bar = token[t] == token[t+1]"></canvas>
+      <div class="axis-x">yellow bar over (t, t+1) where token IDs are identical</div>
+    </div>
+  </div>
+
+  <div class="pullquote">
+    &ldquo;Highly correlated action tokens diminish the effectiveness of the next token prediction objective&hellip;
+    low token prediction loss can often be achieved with trivial mappings like simply copying the most recent action token.&rdquo;
+    <span class="src">&mdash; FAST &sect;2</span>
+  </div>
+  <div class="viz-caption">
+    Per-cell uniform binning: each (t, d) scalar mapped independently to a bin index.
+    Adjacent cells in time are nearly equal in value, so they end up in the <em>same bin</em> &mdash;
+    next-token prediction reduces to copying the previous token.
+    <span class="cite">[FAST &sect;2, &sect;4] [fast_deep_dive_2026-04-14.md &sect;1]</span>
+  </div>
+</section>

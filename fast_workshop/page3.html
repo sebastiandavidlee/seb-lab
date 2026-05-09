@@ -1,0 +1,399 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>FAST Workshop &mdash; Page 3: FAST in Context</title>
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+  <header class="page-header">
+    <nav class="page-nav">
+      <a href="index.html">Home</a>
+      <a href="page1.html">1. Problem</a>
+      <a href="page2.html">2. Pipeline</a>
+      <a href="page3.html" class="active">3. Context</a>
+    </nav>
+    <h1>Page 3 &mdash; FAST in Context</h1>
+  </header>
+
+  <main>
+    <section class="page-intro">
+      <p>Pages 1 and 2 explained what FAST does and how. This page is why the workshop exists.</p>
+      <p>One-line thesis: <strong>FAST-the-architecture retired; FAST-the-tokenizer is load-bearing.</strong> &pi;&#x2080;-FAST &mdash; the AR VLA that ships discrete tokens at runtime &mdash; is dormant inside PI. But the DCT + quantize + BPE tokenizer survived: as the pretraining objective in &pi;&#x2080;.5, and as the auxiliary discrete target that makes Knowledge Insulation work. Every PI paper after May 2025 assumes a split: <strong>discrete tokens at training, continuous flow at runtime.</strong> RTC, &pi;&#x2080;.5's co-training recipe, &pi;&#x204A;&#x2080;.6 &mdash; all downstream of that split.</p>
+      <p>Most FAST talks stop at "JPEG for actions, 5&times; speedup, neat." This page is the differentiator: the honest evolution, the structural incompatibility with RTC, and the organizing principle FAST left behind. <span class="citation">(fast_deep_dive_2026-04-14.md &sect;5.)</span></p>
+    </section>
+
+    <!-- ============================== VIZ 8 ============================== -->
+    <article class="viz-section">
+      <header>
+        <h2>Viz 8 &mdash; PI stack + FAST-role timeline</h2>
+        <p class="purpose">Where FAST sits inside PI's runtime architecture (training-time aux head, not at deployment), and how its role migrated from Oct 2024 through Dec 2025.</p>
+      </header>
+      <div class="viz-body wrap wrap--wide">
+        <section class="viz" id="viz-8" data-viz="8">
+          <div class="section-head">Viz 8 &middot; PI stack + FAST-role timeline</div>
+
+          <div class="panel">
+            <h2 class="viz-title">The PI stack (Knowledge Insulation architecture)</h2>
+            <div class="axis-note">Four boxes, two gradient paths. Solid blue arrows = forward pass. Red "||" = stop-gradient. Dashed yellow = FAST-token CE loss (training-time only, auxiliary head). Green dot = RTC inpainting attachment point on the continuous head. <span class="cite">fast_deep_dive &sect;4.1 / &sect;4.3</span></div>
+
+            <svg viewBox="0 0 900 460" width="100%" style="max-width:900px; display:block; margin:10px auto 0;" aria-label="PI stack diagram">
+              <defs>
+                <marker id="v8ArrowBlue" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+                  <path d="M 0 0 L 10 5 L 0 10 z" fill="#3a6ea5"/>
+                </marker>
+                <marker id="v8ArrowYellow" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+                  <path d="M 0 0 L 10 5 L 0 10 z" fill="#b3791d"/>
+                </marker>
+              </defs>
+
+              <rect x="260" y="30" width="380" height="80" rx="6" fill="#e8f0fe" stroke="#3a6ea5" stroke-width="2"/>
+              <text x="450" y="62" text-anchor="middle" font-size="16" font-weight="600" fill="#1a3a66">VLM backbone &mdash; PaliGemma</text>
+              <text x="450" y="82" text-anchor="middle" font-size="12" fill="#3a5a80">3B params &middot; frozen-ish, gradient-protected via stop-grad</text>
+              <text x="450" y="100" text-anchor="middle" font-size="11" fill="#555" font-family="SF Mono, Menlo, monospace">[KI arxiv 2505.23705]</text>
+
+              <rect x="260" y="210" width="380" height="80" rx="6" fill="#fdf3e0" stroke="#b3791d" stroke-width="2"/>
+              <text x="450" y="242" text-anchor="middle" font-size="16" font-weight="600" fill="#6b4a10">Action expert &mdash; flow matching</text>
+              <text x="450" y="262" text-anchor="middle" font-size="12" fill="#7a5a20">~300M params &middot; continuous velocity field &middot; runtime inference</text>
+              <text x="450" y="280" text-anchor="middle" font-size="11" fill="#555" font-family="SF Mono, Menlo, monospace">~10 Euler steps / chunk</text>
+
+              <rect x="340" y="370" width="220" height="60" rx="6" fill="#eee" stroke="#555" stroke-width="2"/>
+              <text x="450" y="400" text-anchor="middle" font-size="15" font-weight="600" fill="#222">Real robot</text>
+              <text x="450" y="418" text-anchor="middle" font-size="11" fill="#555">50 Hz continuous action stream</text>
+
+              <line x1="360" y1="110" x2="360" y2="210" stroke="#3a6ea5" stroke-width="2" marker-end="url(#v8ArrowBlue)"/>
+              <text x="242" y="165" font-size="12" fill="#3a6ea5">forward features</text>
+
+              <text x="368" y="158" font-size="20" font-weight="900" fill="#c0392b" font-family="SF Mono, Menlo, monospace">||</text>
+              <text x="384" y="162" font-size="12" fill="#c0392b" font-weight="600">stop_grad</text>
+
+              <rect x="700" y="60" width="160" height="50" rx="5" fill="#fff9e6" stroke="#b3791d" stroke-dasharray="5,3" stroke-width="2"/>
+              <text x="780" y="82" text-anchor="middle" font-size="12" font-weight="600" fill="#6b4a10">Aux head</text>
+              <text x="780" y="100" text-anchor="middle" font-size="11" fill="#7a5a20">FAST-token CE loss</text>
+
+              <line x1="640" y1="70" x2="700" y2="85" stroke="#b3791d" stroke-width="2" stroke-dasharray="6,4" marker-end="url(#v8ArrowYellow)"/>
+              <text x="648" y="55" font-size="11" fill="#b3791d" font-style="italic">training-time only</text>
+
+              <line x1="450" y1="290" x2="450" y2="370" stroke="#3a6ea5" stroke-width="2" marker-end="url(#v8ArrowBlue)"/>
+              <text x="460" y="335" font-size="12" fill="#3a6ea5">continuous actions</text>
+
+              <circle cx="640" cy="250" r="9" fill="#2ecc71" stroke="#1e874b" stroke-width="2"/>
+              <line x1="648" y1="250" x2="720" y2="250" stroke="#1e874b" stroke-width="1.5"/>
+              <text x="726" y="247" font-size="12" font-weight="600" fill="#124a2a">RTC inpainting attaches here</text>
+              <text x="726" y="262" font-size="11" fill="#124a2a" font-style="italic">(continuous head only)</text>
+              <text x="726" y="278" font-size="11" fill="#555" font-family="SF Mono, Menlo, monospace">[LeRobot PR #1698]</text>
+
+              <text x="20" y="70" font-size="12" fill="#6b4a10" font-weight="600">FAST = aux target</text>
+              <text x="20" y="88" font-size="11" fill="#555">Discrete CE loss</text>
+              <text x="20" y="102" font-size="11" fill="#555">&rarr; variance reduction</text>
+              <text x="20" y="116" font-size="11" fill="#555">for VLM backbone</text>
+
+              <g transform="translate(20,380)">
+                <line x1="0" y1="0" x2="28" y2="0" stroke="#3a6ea5" stroke-width="2"/>
+                <text x="34" y="4" font-size="11" fill="#333">forward pass</text>
+                <line x1="0" y1="18" x2="28" y2="18" stroke="#b3791d" stroke-width="2" stroke-dasharray="6,4"/>
+                <text x="34" y="22" font-size="11" fill="#333">aux CE loss (training)</text>
+                <text x="0" y="42" font-size="14" font-weight="900" fill="#c0392b" font-family="SF Mono, Menlo, monospace">||</text>
+                <text x="14" y="42" font-size="11" fill="#333">stop-gradient</text>
+                <circle cx="8" cy="58" r="6" fill="#2ecc71" stroke="#1e874b" stroke-width="1.5"/>
+                <text x="20" y="62" font-size="11" fill="#333">RTC attach point</text>
+              </g>
+            </svg>
+
+            <div class="thesis-box">
+              Architecturally: FAST tokens enter only through the <b>auxiliary head</b> at training time. They do not exist at deployment. RTC inpainting plugs into the <b>continuous action expert</b> &mdash; which is the only head that produces a denoisable chunk. This is the structural reason RTC cannot rescue &pi;&#x2080;-FAST. <span class="cite">[fast_deep_dive &sect;4.5]</span>
+            </div>
+          </div>
+
+          <div class="panel">
+            <h2 class="viz-title">FAST's role through PI's research timeline</h2>
+            <div class="axis-note">Each node is a paper; the colored chip above it is FAST's role at that moment. The chronology shows FAST migrating from <i>output head</i> (Jan 2025) to <i>aux target / pretraining tokenizer</i> (Apr-May 2025) to <i>not at runtime</i> (Jun 2025 onward).</div>
+
+            <div class="role-legend">
+              <span class="role-chip role-output">FAST = output head</span>
+              <span class="role-chip role-aux">FAST = aux target / pretraining</span>
+              <span class="role-chip role-retired">FAST = retired at runtime</span>
+            </div>
+
+            <div class="timeline-wrap">
+              <svg viewBox="0 0 1220 260" width="100%" style="display:block;" aria-label="FAST role timeline">
+                <line x1="60" y1="170" x2="1180" y2="170" stroke="#555" stroke-width="2"/>
+
+                <g transform="translate(110,0)">
+                  <rect x="-80" y="28" width="160" height="30" rx="4" fill="#dff5e4" stroke="#1e874b"/>
+                  <text x="0" y="47" text-anchor="middle" font-size="11" font-weight="600" fill="#124a2a">FAST not yet &middot; flow matching</text>
+                  <line x1="0" y1="60" x2="0" y2="170" stroke="#aaa" stroke-dasharray="3,3"/>
+                  <circle cx="0" cy="170" r="8" fill="#3a6ea5" stroke="#1a3a66" stroke-width="2"/>
+                  <text x="0" y="195" text-anchor="middle" font-size="13" font-weight="600">Oct 2024</text>
+                  <text x="0" y="212" text-anchor="middle" font-size="13" font-weight="600">&pi;&#x2080;</text>
+                  <text x="0" y="228" text-anchor="middle" font-size="11" fill="#555">continuous flow matching</text>
+                  <text x="0" y="244" text-anchor="middle" font-size="10" fill="#666" font-family="SF Mono, Menlo, monospace">arxiv 2410.24164</text>
+                </g>
+
+                <g transform="translate(295,0)">
+                  <rect x="-80" y="28" width="160" height="30" rx="4" fill="#fde2e1" stroke="#c0392b"/>
+                  <text x="0" y="47" text-anchor="middle" font-size="11" font-weight="600" fill="#6b1a14">FAST = output head</text>
+                  <line x1="0" y1="60" x2="0" y2="170" stroke="#aaa" stroke-dasharray="3,3"/>
+                  <circle cx="0" cy="170" r="8" fill="#c0392b" stroke="#6b1a14" stroke-width="2"/>
+                  <text x="0" y="195" text-anchor="middle" font-size="13" font-weight="600">Jan 2025</text>
+                  <text x="0" y="212" text-anchor="middle" font-size="13" font-weight="600">&pi;&#x2080;-FAST</text>
+                  <text x="0" y="228" text-anchor="middle" font-size="11" fill="#555">AR on FAST tokens</text>
+                  <text x="0" y="244" text-anchor="middle" font-size="10" fill="#666" font-family="SF Mono, Menlo, monospace">arxiv 2501.09747</text>
+                </g>
+
+                <g transform="translate(500,0)">
+                  <rect x="-80" y="28" width="160" height="30" rx="4" fill="#fcf1cf" stroke="#b3791d"/>
+                  <text x="0" y="47" text-anchor="middle" font-size="11" font-weight="600" fill="#6b4a10">FAST = aux target</text>
+                  <line x1="0" y1="60" x2="0" y2="170" stroke="#aaa" stroke-dasharray="3,3"/>
+                  <circle cx="0" cy="170" r="8" fill="#b3791d" stroke="#6b4a10" stroke-width="2"/>
+                  <text x="0" y="195" text-anchor="middle" font-size="13" font-weight="600">Apr 2025</text>
+                  <text x="0" y="212" text-anchor="middle" font-size="13" font-weight="600">&pi;&#x2080;.5</text>
+                  <text x="0" y="228" text-anchor="middle" font-size="11" fill="#555">FAST tokens for pretraining</text>
+                  <text x="0" y="244" text-anchor="middle" font-size="10" fill="#666" font-family="SF Mono, Menlo, monospace">arxiv 2504.16054</text>
+                </g>
+
+                <g transform="translate(700,0)">
+                  <rect x="-85" y="28" width="170" height="30" rx="4" fill="#fcf1cf" stroke="#b3791d"/>
+                  <text x="0" y="47" text-anchor="middle" font-size="11" font-weight="600" fill="#6b4a10">FAST = aux target</text>
+                  <line x1="0" y1="60" x2="0" y2="170" stroke="#aaa" stroke-dasharray="3,3"/>
+                  <circle cx="0" cy="170" r="8" fill="#b3791d" stroke="#6b4a10" stroke-width="2"/>
+                  <text x="0" y="195" text-anchor="middle" font-size="13" font-weight="600">May 2025</text>
+                  <text x="0" y="212" text-anchor="middle" font-size="13" font-weight="600">KI &middot; Knowledge Insulation</text>
+                  <text x="0" y="228" text-anchor="middle" font-size="11" fill="#555">CE loss + stop-grad</text>
+                  <text x="0" y="244" text-anchor="middle" font-size="10" fill="#666" font-family="SF Mono, Menlo, monospace">arxiv 2505.23705</text>
+                </g>
+
+                <g transform="translate(915,0)">
+                  <rect x="-85" y="28" width="170" height="30" rx="4" fill="#dff5e4" stroke="#1e874b"/>
+                  <text x="0" y="47" text-anchor="middle" font-size="11" font-weight="600" fill="#124a2a">FAST = retired at runtime</text>
+                  <line x1="0" y1="60" x2="0" y2="170" stroke="#aaa" stroke-dasharray="3,3"/>
+                  <circle cx="0" cy="170" r="8" fill="#1e874b" stroke="#0e5229" stroke-width="2"/>
+                  <text x="0" y="195" text-anchor="middle" font-size="13" font-weight="600">Jun 2025</text>
+                  <text x="0" y="212" text-anchor="middle" font-size="13" font-weight="600">RTC</text>
+                  <text x="0" y="228" text-anchor="middle" font-size="11" fill="#555">real-time chunking &middot; flow-only</text>
+                  <text x="0" y="244" text-anchor="middle" font-size="10" fill="#666" font-family="SF Mono, Menlo, monospace">arxiv 2506.07339</text>
+                </g>
+
+                <g transform="translate(1110,0)">
+                  <rect x="-85" y="28" width="170" height="30" rx="4" fill="#dff5e4" stroke="#1e874b"/>
+                  <text x="0" y="47" text-anchor="middle" font-size="11" font-weight="600" fill="#124a2a">FAST = retired at runtime</text>
+                  <line x1="0" y1="60" x2="0" y2="170" stroke="#aaa" stroke-dasharray="3,3"/>
+                  <circle cx="0" cy="170" r="8" fill="#1e874b" stroke="#0e5229" stroke-width="2"/>
+                  <text x="0" y="195" text-anchor="middle" font-size="13" font-weight="600">Dec 2025</text>
+                  <text x="0" y="212" text-anchor="middle" font-size="13" font-weight="600">&pi;&#x204A;&#x2080;.6 &middot; FASTer &middot; TT-RTC</text>
+                  <text x="0" y="228" text-anchor="middle" font-size="11" fill="#555">flow matching at runtime</text>
+                  <text x="0" y="244" text-anchor="middle" font-size="10" fill="#666" font-family="SF Mono, Menlo, monospace">arxiv 2512.04952</text>
+                </g>
+              </svg>
+            </div>
+
+            <div class="pull">
+              FAST-the-tokenizer survived PI's research program and became one of its organizing principles. FAST-the-runtime-architecture did not. The right framing for FAST is <b>the move that made discrete-tokens-at-training, continuous-flow-at-runtime a viable recipe</b>. <span class="cite">&mdash; fast_deep_dive &sect;5</span>
+            </div>
+          </div>
+        </section>
+      </div>
+      <div class="viz-explanation">
+        <aside class="callout-quote">
+          <strong>What the viz shows:</strong> PI architecture block-diagram (VLM backbone &rarr; stop-gradient &rarr; flow-matching action expert at runtime, FAST-token CE loss as aux head off the backbone), overlaid on a chronological strip from &pi;&#x2080; to &pi;&#x204A;&#x2080;.6 annotating FAST's role in each release.
+        </aside>
+
+        <h3 style="margin:16px 0 8px; font-size:15px; font-weight:600;">Architecture</h3>
+        <p>Runtime stack (&pi;&#x2080;.5 / KI / &pi;&#x204A;&#x2080;.6): <strong>PaliGemma-class VLM backbone</strong> feeding a small <strong>flow-matching action expert</strong> (~10 Euler steps, ~100 ms/chunk). Two gradient paths touch the backbone:</p>
+        <ol>
+          <li><strong>Stop-gradient from the action expert.</strong> Expert reads features through <code>stop_gradient</code>; noisy flow-matching gradients never propagate into the backbone &mdash; the "insulation." <span class="citation">(KI &sect;3, arxiv 2505.23705.)</span></li>
+          <li><strong>FAST-token CE loss as aux head.</strong> Cheap discrete head trained with cross-entropy on the FAST-tokenized chunk. Gradients <em>do</em> flow back &mdash; low-variance, categorical, action-aware. Same move as BERT MLM / MaskGIT. <span class="citation">(fast_deep_dive &sect;4.3.)</span></li>
+        </ol>
+
+        <h3 style="margin:16px 0 8px; font-size:15px; font-weight:600;">Timeline</h3>
+        <ul>
+          <li><strong>&pi;&#x2080; (Oct 2024, arxiv 2410.24164)</strong> &mdash; continuous flow matching; no FAST.</li>
+          <li><strong>&pi;&#x2080;-FAST (Jan 2025, arxiv 2501.09747)</strong> &mdash; FAST as <em>output head</em>. AR VLA emits DCT+BPE tokens.</li>
+          <li><strong>&pi;&#x2080;.5 (Apr 2025, arxiv 2504.16054)</strong> &mdash; FAST as <em>pretraining tokenizer</em>. Pertsch (X): "Training with discrete FAST action tokenization now powers all of our pre-training in &pi;-0.5!" Post-train uses a flow expert.</li>
+          <li><strong>KI (May 2025, arxiv 2505.23705, NeurIPS Spotlight)</strong> &mdash; FAST as <em>aux CE target</em>. Not at runtime. Per the synthesis in fast_deep_dive &sect;4.3, removing the aux loss appears to drop OOD performance more than removing either stop-gradient or co-training data &mdash; attribution from the multi-agent discussion synthesis, not directly a KI paper table <span class="citation">[fast_deep_dive &sect;4.3]</span>.</li>
+          <li><strong>RTC (Jun 2025, arxiv 2506.07339)</strong> &mdash; builds on the continuous runtime. Incompatible with AR FAST (Viz 9).</li>
+          <li><strong>&pi;&#x204A;&#x2080;.6 / Recap / RLT</strong> &mdash; inherits KI; FAST remains pretraining/aux signal; runtime flow.</li>
+        </ul>
+        <p><strong>Role across time: output head &rarr; aux target / pretraining tokenizer &rarr; not at runtime.</strong></p>
+      </div>
+    </article>
+
+    <!-- ============================== VIZ 9 ============================== -->
+    <article class="viz-section">
+      <header>
+        <h2>Viz 9 &mdash; AR vs flow + RTC incompatibility</h2>
+        <p class="purpose">Side-by-side runtime decode. The LeRobot RTC support matrix and the structural reason it rules out AR FAST.</p>
+      </header>
+      <div class="viz-body wrap wrap--wide">
+        <section class="viz" id="viz-9" data-viz="9">
+          <div class="section-head">Viz 9 &middot; AR vs flow runtime, and RTC compatibility</div>
+
+          <div class="panel">
+            <h2 class="viz-title">How each runtime decodes one action chunk</h2>
+            <div class="axis-note">AR decodes 60 tokens serially (~12 ms each &rarr; ~750 ms). Flow matching denoises the whole chunk in ~10 parallel ODE steps (~100 ms). Run both side-by-side to see the ~7.5&times; gap. <span class="cite">[FAST &sect;VI-D]</span> <span class="cite">[KI arxiv 2505.23705]</span></div>
+
+            <div class="controls">
+              <button class="primary js-run-btn">&#9654; Replay animation</button>
+              <span class="note">Starts both columns simultaneously. AR will still be decoding when flow is done.</span>
+            </div>
+
+            <div class="two-col">
+              <div>
+                <h3>Autoregressive (&pi;&#x2080;-FAST)</h3>
+                <div class="note" style="margin-bottom:6px;">60 sequential token boxes appear left-to-right, one per ~12 ms.</div>
+                <div class="ar-grid js-ar-grid" aria-label="AR token grid"></div>
+                <div class="timer">TIME: <b class="js-ar-timer">0</b> ms &nbsp;&middot;&nbsp; tokens: <b class="js-ar-count">0</b>/60</div>
+                <div class="pull" style="margin-top:14px; font-size:13px;">
+                  AR decodes serially. 30-60 tokens &times; ~12 ms/token through the 3B VLM. PI's own measurement: <b>~750 ms/chunk</b> <span class="cite">[FAST &sect;VI-D]</span>. FASTer measured <b>197-556 ms on LIBERO</b>; <b>1100-3000 ms on R1Lite whole-body</b> <span class="cite">[FASTer arxiv 2512.04952]</span>.
+                </div>
+              </div>
+
+              <div>
+                <h3>Flow matching (&pi;&#x2080; / &pi;&#x2080;.5 / SmolVLA)</h3>
+                <div class="note" style="margin-bottom:6px;">Whole chunk denoised in 10 parallel ODE steps (~10 ms each).</div>
+                <div class="flow-canvas-holder">
+                  <canvas class="js-flow-canvas" width="520" height="200"></canvas>
+                </div>
+                <div class="timer">TIME: <b class="js-flow-timer">0</b> ms &nbsp;&middot;&nbsp; steps: <b class="js-flow-step">0</b>/10</div>
+                <div class="pull" style="margin-top:14px; font-size:13px;">
+                  Flow matching denoises the <b>whole chunk</b> in ~10 parallel ODE steps. PI's measurement: <b>~100 ms/chunk</b> <span class="cite">[KI arxiv 2505.23705]</span> <span class="cite">[fast_deep_dive &sect;4.2]</span>. Rectified-flow-style near-straight trajectories converge in few Euler steps.
+                </div>
+              </div>
+            </div>
+
+            <h3 style="margin-top:22px;">RTC compatibility</h3>
+            <div class="axis-note">LeRobot RTC PR #1698 support matrix (merged Nov 2025).</div>
+            <div class="compat-row">
+              <div class="compat yes">
+                <div class="mark">&#10003;</div>
+                <div class="name">&pi;&#x2080;</div>
+                <div class="note">RTC compatible</div>
+              </div>
+              <div class="compat yes">
+                <div class="mark">&#10003;</div>
+                <div class="name">&pi;&#x2080;.5</div>
+                <div class="note">RTC compatible</div>
+              </div>
+              <div class="compat yes">
+                <div class="mark">&#10003;</div>
+                <div class="name">SmolVLA</div>
+                <div class="note">RTC compatible</div>
+              </div>
+              <div class="compat no">
+                <div class="mark">&#10007;</div>
+                <div class="name">&pi;&#x2080;-FAST</div>
+                <div class="note">RTC INCOMPATIBLE</div>
+              </div>
+            </div>
+
+            <div class="pull" style="margin-top:16px;">
+              Why? RTC inpainting is a <b>denoising operation on continuous action values</b> &mdash; it exploits the compositional property of score-based models, so you can condition on a frozen chunk prefix without retraining. AR token decoding has no <i>"partially denoised chunk"</i> to smooth between; its output is a sequence of categorical tokens followed by a non-differentiable decode back to continuous actions. <span class="cite">[LeRobot PR #1698]</span> <span class="cite">[fast_deep_dive &sect;4.5]</span>
+            </div>
+          </div>
+        </section>
+      </div>
+      <div class="viz-explanation">
+        <aside class="callout-quote">
+          <strong>What the viz shows:</strong> Side-by-side &mdash; left, flow matching denoises a continuous chunk that can be masked and inpainted at the boundary (RTC); right, an AR token stream has no partial-chunk state to smooth between. Below, LeRobot PR #1698 support matrix: &pi;&#x2080; &#10003;, &pi;&#x2080;.5 &#10003;, SmolVLA &#10003;, &pi;&#x2080;-FAST &#10007;.
+        </aside>
+        <p>RTC (arxiv 2506.07339) solves a deployment problem: if inference runs 100&ndash;300 ms behind real time, chunk transitions stitch jerkily. The trick: treat the boundary as a <strong>diffusion inpainting problem</strong> &mdash; freeze the previous chunk's tail as known context, masked flow/diffusion inpaints a smooth start to the next. No retraining.</p>
+        <p>Structurally impossible on an AR FAST head <span class="citation">(fast_deep_dive &sect;4.5)</span>:</p>
+        <ul>
+          <li><strong>RTC inpainting is denoising on continuous values.</strong> Exploits the compositional property of score-based models &mdash; &nabla;log p(x | c1, c2) decomposes into a sum of conditional scores &mdash; so prefixes condition without retraining.</li>
+          <li><strong>AR decoding has no such composition.</strong> You can prefix-condition an AR model, but you cannot <em>inpaint a continuous trajectory</em> through it. Output is categorical tokens followed by a non-differentiable decode. No partially-denoised chunk to smooth between.</li>
+          <li><strong>The pathology is documented.</strong> STABLE-FAST (OpenReview 0XQSa9CjR7): FAST produces "high variance in inference time and significant physical action instability, causing pauses and jerky motions." BPE yields variable-length token streams for fixed-length chunks &mdash; exactly what RTC would smooth, if RTC could touch AR.</li>
+          <li><strong>Confirmed in code.</strong> LeRobot's RTC (PR #1698, merged Nov 2025) supports &pi;&#x2080;, &pi;&#x2080;.5, SmolVLA &mdash; all flow-matching. &pi;&#x2080;-FAST explicitly unsupported.</li>
+        </ul>
+        <p><strong>Deployment-level reason PI runs continuous flow at runtime</strong> &mdash; beyond inference speed, whether the rest of the stack (smoothing, latency compensation, chunk stitching) exists for you at all. Discrete-at-train + continuous-at-runtime isn't a compromise; it's the only configuration where the full PI toolkit is available.</p>
+      </div>
+    </article>
+
+    <!-- ============================ HONEST FRAMING RAILS ============================ -->
+    <section class="rails-section">
+      <h2>Honest-Framing Rails &mdash; Workshop Cheat Sheet</h2>
+
+      <h3>Claims to state confidently</h3>
+      <ul>
+        <li>DCT + uniform quantization + BPE is a coherent, effective pipeline for converting smooth action chunks into VLM-compatible tokens <span class="citation">(FAST &sect;3)</span>.</li>
+        <li>FAST made autoregressive VLAs competitive with flow-matching VLAs on dexterous tasks at <strong>training time</strong> &mdash; the first tokenizer to do so <span class="citation">(FAST &sect;5; &pi;&#x2080;-FAST matched &pi;&#x2080; on laundry / table bussing / grocery bagging)</span>.</li>
+        <li>FAST tokens have become the <strong>standard auxiliary pretraining target</strong> in PI's current architecture (&pi;&#x2080;.5 pretraining; KI aux head; inherited by &pi;&#x204A;&#x2080;.6). Pertsch confirmed this on X, Apr 2025.</li>
+        <li>Per the synthesis in fast_deep_dive &sect;4.3, removing the FAST-token auxiliary loss appears to drop &pi;&#x2080;.5's OOD performance more than removing either the stop-gradient or the co-training data &mdash; though this attribution comes from the multi-agent discussion synthesis, not directly a KI paper ablation table <span class="citation">[fast_deep_dive &sect;4.3]</span>.</li>
+        <li>The JPEG analogy is <strong>not a metaphor</strong> &mdash; it is the literal design. DCT + scalar quantization + entropy coding, applied to a time axis instead of a spatial axis <span class="citation">(FAST &sect;3)</span>.</li>
+        <li>Structural incompatibility between AR token decoding and RTC inpainting is real, and PI's stack is arranged around it <span class="citation">(LeRobot PR #1698 support matrix)</span>.</li>
+      </ul>
+
+      <h3>Claims to soften</h3>
+      <ul>
+        <li>"5&times; speedup" &rarr; <strong>"5&times; <em>training</em> speedup."</strong> Inference is ~2&times; slower than flow-matched &pi;&#x2080;. KI paper (arxiv 2505.23705): <em>"An autoregressive VLA (&pi;0-FAST) requires twice the amount of time to solve the task."</em></li>
+        <li>"10&times; compression" &rarr; <strong>"10&times; compression, with ~48% codebook utilization."</strong> FASTer (arxiv 2512.04952) shows a single dominant token accounts for ~10% of all activations.</li>
+        <li>"Universal cross-embodiment tokenizer" &rarr; <strong>"Cross-embodiment without retraining, but it is debated whether fixed geometric priors limit transfer quality."</strong> (ActionCodec critique.)</li>
+        <li>"FAST fundamentally solves action tokenization" &rarr; <strong>"FAST opened the problem; FASTer, VQ-VLA, ActionCodec all beat it on reconstruction, codebook usage, or inference speed."</strong></li>
+      </ul>
+
+      <h3>Claims to drop</h3>
+      <ul>
+        <li>Any suggestion that <strong>DCT specifically is proven optimal.</strong> Paper explicitly states (&sect;VI-D): <em>"alternatives [to DCT] could be used instead, but we leave this investigation for future work."</em> BPE ablation shows most of the win is discretization + frequency-domain compression in general; DCT-vs-wavelets/Haar/learned never tested.</li>
+        <li>Any suggestion that <strong>FAST is a good runtime architecture choice going forward.</strong> PI retired it. LeRobot deprecated Pi0FAST after community reproductions hit 3% LIBERO (HF issue #955).</li>
+        <li><strong>LIBERO numbers from community ports</strong> quoted without marking them as non-PI-stack. Quote PI's own numbers; note ports separately.</li>
+        <li>Any framing that positions FAST as <strong>replacing flow matching.</strong> That framing died in May 2025 with KI.</li>
+      </ul>
+
+      <div class="arc-pull">"FAST opened the door, then the field walked through it."</div>
+    </section>
+
+    <!-- ============================== FAQ ============================== -->
+    <section class="faq-section">
+      <h2>FAQ</h2>
+
+      <div class="faq-item">
+        <p class="q">Q: Why not just downsample the action chunk?</p>
+        <p class="a">A: Downsampling throws energy away <strong>uniformly in time.</strong> DCT throws it away <strong>by frequency</strong> &mdash; which is the correct basis for smooth signals. Action chunks have most of their energy in the low-frequency DCT coefficients; discarding high-frequency ones (via coarse quantization) loses noise, not signal. Uniform time-domain downsampling loses structure indiscriminately. <span class="citation">(pi_workshop_study_guide &sect;2.1 FAQs; fast_deep_dive &sect;1.)</span></p>
+      </div>
+
+      <div class="faq-item">
+        <p class="q">Q: Why not a learned tokenizer like VQ-VAE?</p>
+        <p class="a">A: FAST is <strong>universal and non-learned</strong> &mdash; trained once on 1M trajectories, reused across embodiments as a deterministic preprocessor. VQ-VAE codes are dataset-specific and require retraining when the embodiment changes, which breaks the "one backbone, many robots" story. The relevant comparison is VQ-VLA (arxiv 2507.01016), which does scale better with data but pays the retraining cost. FAST trades quality for portability. <span class="citation">(pi_workshop_study_guide &sect;2.1; fast_deep_dive &sect;1.)</span></p>
+      </div>
+
+      <div class="faq-item">
+        <p class="q">Q: Has FAST held up?</p>
+        <p class="a">A: <strong>In training pipelines, yes. At runtime, no.</strong> PI themselves moved FAST out of the runtime path in May 2025. The KI paper (arxiv 2505.23705) states plainly: <em>"An autoregressive VLA (&pi;0-FAST) requires twice the amount of time to solve the task."</em> LeRobot deprecated Pi0FAST after community reproductions hit 3% LIBERO (HF issue #955). The tokenizer survived as an auxiliary pretraining target in KI and &pi;&#x2080;.5; the runtime architecture did not. <span class="citation">(fast_deep_dive &sect;&sect;3, 5.)</span></p>
+      </div>
+
+      <div class="faq-item">
+        <p class="q">Q: Why can't I deploy &pi;&#x2080;-FAST on my UR20 with RTC?</p>
+        <p class="a">A: RTC smooths chunk boundaries by <strong>inpainting a continuous action trajectory</strong> &mdash; masking the tail/head and denoising through a score-based model. AR token decoding produces a categorical token stream followed by a non-differentiable decode; there is no "partially denoised chunk" to smooth between. LeRobot's RTC (PR #1698, merged Nov 2025) supports &pi;&#x2080;, &pi;&#x2080;.5, and SmolVLA &mdash; <strong>not &pi;&#x2080;-FAST</strong>, by construction. You would also hit STABLE-FAST's variable-length-token pathology: <em>"high variance in inference time and significant physical action instability, causing pauses and jerky motions."</em> <span class="citation">(fast_deep_dive &sect;4.5.)</span></p>
+      </div>
+
+      <div class="faq-item">
+        <p class="q">Q: What survived from FAST?</p>
+        <p class="a">A: <strong>FAST tokens as an auxiliary discrete prediction target.</strong> In KI, a stop-gradient insulates the VLM backbone from the flow-matching action expert's noisy gradients; a CE loss predicting FAST tokens flows into the backbone and keeps it action-aware with low-variance signal. In &pi;&#x2080;.5, FAST-tokenized action prediction is the main pretraining objective across the heterogeneous data mix (Pertsch, X, Apr 2025: <em>"Training with discrete FAST action tokenization now powers all of our pre-training in &pi;-0.5!"</em>). FAST+ (1M trajectories) remains the de facto universal action vocabulary inside PI. <span class="citation">(fast_deep_dive &sect;&sect;4.3, 4.4, 5.)</span></p>
+      </div>
+
+      <div class="faq-item">
+        <p class="q">Q: Is DCT specifically the right choice?</p>
+        <p class="a">A: <strong>The paper never ablated it.</strong> FAST &sect;VI-D is explicit: <em>"alternatives [to DCT] could be used instead, but we leave this investigation for future work."</em> The BPE ablation shows that even <strong>without</strong> BPE the pipeline still outperforms naive tokenization &mdash; meaning the load-bearing ingredient is <strong>discretization + frequency-domain energy compaction</strong>, with DCT chosen for simplicity and well-understood behavior rather than proven optimality. Wavelets, Haar transforms, or learned transforms could plausibly match or beat it; the experiment has not been run. <span class="citation">(fast_deep_dive &sect;3; pi_workshop_study_guide &sect;1.1.)</span></p>
+      </div>
+
+      <div class="faq-item">
+        <p class="q">Q: What's the 48% codebook utilization about?</p>
+        <p class="a">A: FASTer (arxiv 2512.04952) reports FAST uses only <strong>48% of its 2,048-token vocabulary</strong>, with a <strong>single dominant token accounting for ~10% of all activations</strong>. FASTer's learned tokenizer uses 100% of a 4,096-token vocabulary. FASTer also notes FAST exhibits <em>"significant shortcomings in reconstruction accuracy &mdash; even on in-distribution datasets."</em> The interpretation: BPE's greedy frequency merging is a mediocre match for the quantized-DCT distribution, and much of the apparent compression win is DCT doing the work while BPE largely run-length-encodes zeros. Quote the 10&times; compression claim with the 48% caveat attached. <span class="citation">(fast_deep_dive &sect;3; pi_workshop_study_guide &sect;1.1.)</span></p>
+      </div>
+    </section>
+  </main>
+
+  <footer>
+    <p>FAST Workshop Artifact &middot; Page 3 of 3 &middot; Sources: <a href="https://arxiv.org/abs/2501.09747">arXiv 2501.09747</a> (FAST) &middot; <a href="https://arxiv.org/abs/2505.23705">arXiv 2505.23705</a> (KI) &middot; <a href="https://arxiv.org/abs/2504.16054">arXiv 2504.16054</a> (&pi;&#x2080;.5) &middot; <a href="https://arxiv.org/abs/2506.07339">arXiv 2506.07339</a> (RTC) &middot; <a href="https://arxiv.org/abs/2512.04952">arXiv 2512.04952</a> (FASTer)</p>
+  </footer>
+
+  <script src="data.js"></script>
+  <script src="shared.js"></script>
+  <script src="viz_8_9.js"></script>
+  <script>
+    document.addEventListener('DOMContentLoaded', function () {
+      Viz8.init(document.getElementById('viz-8'));
+      Viz9.init(document.getElementById('viz-9'));
+    });
+  </script>
+</body>
+</html>

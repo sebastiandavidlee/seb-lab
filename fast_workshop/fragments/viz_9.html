@@ -1,0 +1,66 @@
+<section class="viz" id="viz-9" data-viz="9">
+  <div class="section-head">Viz 9 &middot; AR vs flow runtime, and RTC compatibility</div>
+
+  <div class="panel">
+    <h2 class="viz-title">How each runtime decodes one action chunk</h2>
+    <div class="axis-note">AR decodes 60 tokens serially (~12 ms each &rarr; ~750 ms). Flow matching denoises the whole chunk in ~10 parallel ODE steps (~100 ms). Run both side-by-side to see the ~7.5&times; gap. <span class="cite">[FAST &sect;VI-D]</span> <span class="cite">[KI arxiv 2505.23705]</span></div>
+
+    <div class="controls">
+      <button class="primary js-run-btn">&#9654; Replay animation</button>
+      <span class="note">Starts both columns simultaneously. AR will still be decoding when flow is done.</span>
+    </div>
+
+    <div class="two-col">
+      <div>
+        <h3>Autoregressive (&pi;&#x2080;-FAST)</h3>
+        <div class="note" style="margin-bottom:6px;">60 sequential token boxes appear left-to-right, one per ~12 ms.</div>
+        <div class="ar-grid js-ar-grid" aria-label="AR token grid"></div>
+        <div class="timer">TIME: <b class="js-ar-timer">0</b> ms &nbsp;&middot;&nbsp; tokens: <b class="js-ar-count">0</b>/60</div>
+        <div class="pull" style="margin-top:14px; font-size:13px;">
+          AR decodes serially. 30-60 tokens &times; ~12 ms/token through the 3B VLM. PI's own measurement: <b>~750 ms/chunk</b> <span class="cite">[FAST &sect;VI-D]</span>. FASTer measured <b>197-556 ms on LIBERO</b>; <b>1100-3000 ms on R1Lite whole-body</b> <span class="cite">[FASTer arxiv 2512.04952]</span>.
+        </div>
+      </div>
+
+      <div>
+        <h3>Flow matching (&pi;&#x2080; / &pi;&#x2080;.5 / SmolVLA)</h3>
+        <div class="note" style="margin-bottom:6px;">Whole chunk denoised in 10 parallel ODE steps (~10 ms each).</div>
+        <div class="flow-canvas-holder">
+          <canvas class="js-flow-canvas" width="520" height="200"></canvas>
+        </div>
+        <div class="timer">TIME: <b class="js-flow-timer">0</b> ms &nbsp;&middot;&nbsp; steps: <b class="js-flow-step">0</b>/10</div>
+        <div class="pull" style="margin-top:14px; font-size:13px;">
+          Flow matching denoises the <b>whole chunk</b> in ~10 parallel ODE steps. PI's measurement: <b>~100 ms/chunk</b> <span class="cite">[KI arxiv 2505.23705]</span> <span class="cite">[fast_deep_dive &sect;4.2]</span>. Rectified-flow-style near-straight trajectories converge in few Euler steps.
+        </div>
+      </div>
+    </div>
+
+    <h3 style="margin-top:22px;">RTC compatibility</h3>
+    <div class="axis-note">LeRobot RTC PR #1698 support matrix (merged Nov 2025).</div>
+    <div class="compat-row">
+      <div class="compat yes">
+        <div class="mark">&#10003;</div>
+        <div class="name">&pi;&#x2080;</div>
+        <div class="note">RTC compatible</div>
+      </div>
+      <div class="compat yes">
+        <div class="mark">&#10003;</div>
+        <div class="name">&pi;&#x2080;.5</div>
+        <div class="note">RTC compatible</div>
+      </div>
+      <div class="compat yes">
+        <div class="mark">&#10003;</div>
+        <div class="name">SmolVLA</div>
+        <div class="note">RTC compatible</div>
+      </div>
+      <div class="compat no">
+        <div class="mark">&#10007;</div>
+        <div class="name">&pi;&#x2080;-FAST</div>
+        <div class="note">RTC INCOMPATIBLE</div>
+      </div>
+    </div>
+
+    <div class="pull" style="margin-top:16px;">
+      Why? RTC inpainting is a <b>denoising operation on continuous action values</b> &mdash; it exploits the compositional property of score-based models, so you can condition on a frozen chunk prefix without retraining. AR token decoding has no <i>"partially denoised chunk"</i> to smooth between; its output is a sequence of categorical tokens followed by a non-differentiable decode back to continuous actions. <span class="cite">[LeRobot PR #1698]</span> <span class="cite">[fast_deep_dive &sect;4.5]</span>
+    </div>
+  </div>
+</section>

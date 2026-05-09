@@ -1,0 +1,160 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>&pi;&#x2080; Workshop &mdash; Page 2: &pi;&#x2080; Architecture</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+  <header class="page-header">
+    <nav class="page-nav">
+      <a href="index.html">index</a>
+      <a href="page1.html">1. Substrate</a>
+      <a href="page2.html">2. &pi;&#x2080;</a>
+      <a href="page3.html">3. FAST</a>
+      <a href="page4.html">4. KI</a>
+      <a href="page5.html">5. &pi;&#x2080;.5</a>
+    </nav>
+    <div class="arc-progress" aria-label="page progress">
+      <span class="dot" title="1. Substrate"></span>
+      <span class="dot" title="2. &pi;&#x2080;"></span>
+      <span class="dot" title="3. FAST"></span>
+      <span class="dot" title="4. KI"></span>
+      <span class="dot" title="5. &pi;&#x2080;.5"></span>
+      <span class="label">page 2 of 5</span>
+    </div>
+    <h1>Page 2 &mdash; &pi;&#x2080;: A VLM with a Flow-Matching Action Head</h1>
+  </header>
+
+  <main>
+    <section class="page-intro">
+      <p><strong>Where you are.</strong> Page 1 handed you the substrate: multi-head attention, mixture-of-transformer-experts routing, the prefix-LM mask, KV cache. This page builds &pi;&#x2080; out of those parts. You will see one transformer, two sets of MLP weights, a shared self-attention layer, and a 300M action expert reading PaliGemma features through that shared layer to emit a continuous action chunk via flow matching.</p>
+      <p>&pi;&#x2080; is a 3.3B-parameter VLA. Two-thirds of that mass is a PaliGemma VLM (SigLIP-So400m vision encoder &plus; Gemma-2B language model, ~3.0B params total); the rest is a 300M action expert trained from scratch. <span class="cite">[&pi;&#x2080; paper, arXiv 2410.24164]</span> The two are not separate transformers with cross-attention. They are <em>two sets of weights inside one transformer</em> with token-wise routing &mdash; image/text tokens flow through the PaliGemma weights, state and action tokens through the action-expert weights, and the two interact only inside the shared self-attention layer. The runtime output is a 50-step continuous action chunk produced by 10 Euler steps of a flow-matching ODE.</p>
+      <aside class="callout-quote">
+        <strong>What you'll see:</strong> how an image becomes patch tokens (P1), the block-causal attention mask that wires VLM tokens to action tokens (P2), the &pi;&#x2080; architecture in one SVG (D1), the flow-matching head denoising a chunk over 10 steps (F1), and a side-by-side of the AR and continuous-flow VLA families (CMP).
+      </aside>
+      <p class="cite">Sources: &pi;&#x2080; paper (arXiv 2410.24164); FAST paper (arXiv 2501.09747).</p>
+    </section>
+
+    <!-- ============================== P1 — image patch tokens ============================== -->
+    <article class="viz-section">
+      <header>
+        <h2>P1 &mdash; Pixels become tokens (PaliGemma)</h2>
+        <p class="purpose">A 224&times;224 image becomes a sequence of patch tokens; text tokens get appended; the LM sees a flat sequence.</p>
+      </header>
+      <div class="viz-body wrap wrap--wide">
+        <div class="viz-section" id="viz-image_patch_tokens" data-viz="image_patch_tokens"></div>
+      </div>
+      <div class="viz-explanation">
+        <p>SigLIP-So400m takes the image, gridded into <code>14&times;14 = 196</code> patch tokens at the default 224-pixel input. Each patch is projected to the LM's embedding dimension by a linear projector. The text prompt (&ldquo;pick up the red cube&rdquo;) tokenizes into a handful of word-piece chips. They concatenate into one flat sequence, and the LM never knows which tokens were originally pixels.</p>
+        <p>Two practical details. First, image tokens dominate the prefix length &mdash; 196 image tokens to maybe 6&ndash;12 text tokens. Second, both groups are <em>bidirectional</em> with each other under PaliGemma's prefix-LM mask. A pixel patch in the bottom-left can attend to the word &ldquo;cube&rdquo; and vice versa. That's why you needed M1 from Page 1 in your head before now.</p>
+        <aside class="callout-quote">
+          <strong>What the viz shows:</strong> hover a patch on the image &rarr; its tile in the flattened sequence highlights with its sequence index. Patch-size slider rebuilds the sequence count.
+        </aside>
+        <p class="cite">Sources: PaliGemma technical report; &pi;&#x2080; paper &sect;B (image encoder = SigLIP-So400m).</p>
+      </div>
+    </article>
+
+    <!-- ============================== P2 — block-causal mask ============================== -->
+    <article class="viz-section">
+      <header>
+        <h2>P2 &mdash; The block-causal attention mask in &pi;&#x2080;</h2>
+        <p class="purpose">Three blocks, in order: <span class="role-chip role-vlm">[image, text]</span> &rarr; <span class="role-chip role-expert">[state]</span> &rarr; <span class="role-chip role-flow">[action]</span>. Bidirectional within, causal between.</p>
+      </header>
+      <div class="viz-body wrap wrap--wide">
+        <div class="viz-section" id="viz-prefix_lm_attention_pi0" data-viz="prefix_lm_attention_pi0"></div>
+      </div>
+      <div class="viz-explanation">
+        <p>Three blocks in sequence. Within each block: full bidirectional attention. Between blocks: causal &mdash; later block attends to earlier, earlier cannot attend to later. The VLM block sits first, so PaliGemma's pretraining distribution is preserved (no future-context leakage). State <code>q<sub>t</sub></code> is its own block so its KV cache survives all 10 flow-matching steps without recomputation. The action block <code>A<sup>t</sup><sub>&tau;</sub></code> attends to everything earlier &mdash; this is how the action expert &ldquo;reads&rdquo; VLM features. <span class="cite">[&pi;&#x2080; &sect;B, &ldquo;Attention mask&rdquo;]</span></p>
+        <p>The right margin tells you which expert each token belongs to. Image and text tokens flow through the PaliGemma weights; state and action tokens flow through the action-expert weights. <em>The mixing happens inside the shared attention layer, not in a separate cross-attention.</em> When an action token computes its query, it uses action-expert <code>W<sub>Q</sub></code>; when it reads VLM keys/values, those K and V were produced by PaliGemma <code>W<sub>K</sub></code>, <code>W<sub>V</sub></code>. One Q&middot;K&middot;V product, two parameter sets touching it.</p>
+        <blockquote>&ldquo;&pi;&#x2080; is implemented as a single transformer with two sets of weights (also known as experts), where each token is routed to one of the experts; the weights interact only through the transformer's self-attention layers.&rdquo; <span class="cite">[&pi;&#x2080; &sect;B, &ldquo;Action expert&rdquo;]</span></blockquote>
+        <aside class="callout-quote">
+          <strong>What the viz shows:</strong> three colored regions on the N&times;N grid; hover any row to highlight what that query attends to and which expert produced its query weights. The action chunk length H is a slider.
+        </aside>
+        <p class="cite">Sources: &pi;&#x2080; paper &sect;B (mixture-of-experts attention).</p>
+      </div>
+    </article>
+
+    <!-- ============================== D1 — pi0 block diagram ============================== -->
+    <article class="viz-section">
+      <header>
+        <h2>D1 &mdash; &pi;&#x2080; architecture, one page</h2>
+        <p class="purpose">The full pipeline: image &plus; text &rarr; PaliGemma backbone &rarr; action expert &rarr; flow head &rarr; action chunk.</p>
+      </header>
+      <div class="viz-body wrap wrap--wide">
+        <div class="viz-section" id="viz-pi0_block_diagram" data-viz="pi0_block_diagram"></div>
+      </div>
+      <div class="viz-explanation">
+        <p>The two experts share depth (18 layers), head count (18), and head dimension (256), because attention is shared and the heads have to align. They <em>differ</em> in width and MLP dim: PaliGemma is <code>width = 2048, mlp_dim = 16384</code>; the action expert is <code>width = 1024, mlp_dim = 4096</code>. <span class="cite">[&pi;&#x2080; &sect;B]</span> The down-sized expert is a deliberate choice. Inference re-runs the action expert once per Euler step (10 times per chunk), so the per-step compute matters more than for the VLM, which only forwards the prefix once and caches.</p>
+        <p>State <code>q<sub>t</sub></code> is zero-padded to the largest configuration in the dataset (<code>D = 18</code>: two arms &times; 7 DOF + 2 grippers + mobile base + torso). Smaller robots get padded; the model always operates on width-18 vectors. <span class="cite">[&pi;&#x2080; &sect;V-A]</span> Each noisy action <code>a<sup>t&prime;</sup><sub>&tau;</sub></code> embeds via a 3-layer MLP that mixes the action vector with a sinusoidal encoding of the flow-matching timestep <code>&tau;</code> &mdash; so &tau; arrives <em>per-token through the input MLP</em>, not via AdaLN.</p>
+        <aside class="callout-quote">
+          <strong>What the viz shows:</strong> hover any box for shapes and a one-sentence role description. Click an action token in this diagram to highlight its attention region in P2 above (cross-viz linking).
+        </aside>
+        <p class="cite">Sources: &pi;&#x2080; paper &sect;IV, &sect;B (architecture and parameter counts).</p>
+      </div>
+    </article>
+
+    <!-- ============================== F1 — flow matching ============================== -->
+    <article class="viz-section">
+      <header>
+        <h2>F1 &mdash; From noise to action chunk</h2>
+        <p class="purpose">Flow matching denoises a Gaussian sample into a clean action chunk over 10 small ODE steps along a learned vector field.</p>
+      </header>
+      <div class="viz-body wrap wrap--wide">
+        <div class="viz-section" id="viz-flow_matching_denoise" data-viz="flow_matching_denoise"></div>
+      </div>
+      <div class="viz-explanation">
+        <p>The training objective is conditional flow matching with the optimal-transport / linear-Gaussian probability path:</p>
+        <blockquote><code>L<sub>&tau;</sub>(&theta;) = E &Vert; v<sub>&theta;</sub>(A<sup>t</sup><sub>&tau;</sub>, o<sub>t</sub>) &minus; (A<sub>t</sub> &minus; &epsilon;) &Vert;<sup>2</sup></code>, with <code>A<sup>t</sup><sub>&tau;</sub> = &tau; A<sub>t</sub> + (1 &minus; &tau;) &epsilon;</code>, <code>&epsilon; ~ N(0, I)</code> <span class="cite">[&pi;&#x2080; &sect;IV]</span></blockquote>
+        <p>In one breath: sample noise the shape of an action chunk, then take 10 small Euler steps along a learned vector field to morph it into a real action chunk conditioned on what the robot sees and the language command. <strong>This is not diffusion score matching</strong> &mdash; the target is a constant-velocity straight line between noise and data, not a noise-schedule gradient. Same family, simpler regression target, fewer steps at inference. The integration is forward Euler with <code>&delta; = 0.1</code>, ten steps. <span class="cite">[&pi;&#x2080; &sect;IV, &sect;D]</span></p>
+        <p>One small idiosyncrasy worth flagging: &pi;&#x2080;'s training-time &tau; sampling is not uniform. They use <code>p(&tau;) = Beta((s &minus; &tau;)/s; &alpha;=1.5, &beta;=1)</code> with <code>s = 0.999</code>, which emphasizes <em>noisier</em> (lower-&tau;) timesteps. This is the <em>opposite</em> of Stable Diffusion 3, which emphasizes the middle. The argument: action prediction is harder at high noise because the observation already constrains the answer at low noise, so the gradient should be spent on the hard part. <span class="cite">[&pi;&#x2080; &sect;B]</span></p>
+        <aside class="callout-quote">
+          <strong>What the viz shows:</strong> the chunk's seven joint traces start as pure Gaussian noise on the left (&tau;=0) and resolve into smooth curves on the right (&tau;=1) as you scrub. A 2-D PCA projection shows arrows pointing toward the data manifold. Synthetic dynamics; arrows are schematic.
+        </aside>
+        <p class="cite">Sources: &pi;&#x2080; paper &sect;IV, &sect;B (flow-matching loss, &tau;-sampling).</p>
+      </div>
+    </article>
+
+    <!-- ============================== CMP — VLA family side-by-side ============================== -->
+    <article class="viz-section">
+      <header>
+        <h2>CMP &mdash; The two VLA families, side by side</h2>
+        <p class="purpose">Discretize and AR-decode (RT-2, OpenVLA, &pi;&#x2080;-FAST) versus keep continuous and flow-match (&pi;&#x2080;, &pi;&#x2080;.5).</p>
+      </header>
+      <div class="viz-body wrap wrap--wide">
+        <div class="viz-section" id="viz-vla_family_sidebyside" data-viz="vla_family_sidebyside"></div>
+      </div>
+      <div class="viz-explanation">
+        <p>Two design choices for &ldquo;how does a VLM emit actions.&rdquo; The discrete branch tokenizes actions and reuses the LM head: predict tokens one at a time. The continuous branch keeps actions as floats and adds a separate head &mdash; diffusion or flow matching. &pi;&#x2080; lives on the continuous side. The discrete branch gets its tokenizer on Page 3.</p>
+        <p>Latency on RTX 4090 with 3 cameras (&pi;&#x2080; paper &sect;D, Table I): SigLIP image encoders 14 ms, prefix forward pass 32 ms, 10 action-expert forward passes 27 ms (~2.7 ms each), network latency 13 ms. Total on-board: <strong>73 ms per chunk</strong>. <span class="cite">[&pi;&#x2080; &sect;D]</span> The flow-matching cost (27 ms) is not the bottleneck &mdash; image encoding plus prefix forward dominate. The autoregressive equivalent (&pi;&#x2080;-FAST, Page 3) is closer to <strong>~750 ms per chunk</strong> per the FAST paper, ~10&times; slower at chunk-level latency.</p>
+        <aside class="callout-quote">
+          <strong>What the viz shows:</strong> click the left card for an AR mini-viz (60 tokens streaming through the VLM); click the right for an inline F1 replay. The numbers are measured (&pi;&#x2080; &sect;D Table I, FAST &sect;VI-D), not schematic.
+        </aside>
+        <p class="cite">Sources: &pi;&#x2080; paper &sect;D Table I (latency); FAST paper &sect;VI-D (AR latency); fast_deep_dive_2026-04-14.md.</p>
+      </div>
+    </article>
+
+    <!-- ============================== Bridge ============================== -->
+    <section class="page-intro">
+      <aside class="callout-quote">
+        <strong>Bridge to Page 3.</strong> &pi;&#x2080; uses continuous flow at runtime. But there is a sister system that tried discrete tokens &mdash; tokenize the action chunk, reuse the LM head, decode autoregressively. It almost worked. It shipped. It died at deployment. And what survived from it is exactly what makes &pi;&#x2080;.5 possible. <a href="page3.html">Page 3 &rarr;</a>
+      </aside>
+    </section>
+  </main>
+
+  <footer>
+    <div class="footer-stop"><b>If you stop here, you walked away with:</b> &pi;&#x2080; is one transformer with two MLP weight sets sharing the attention layer; the action head emits 50-step continuous chunks via 10 ODE steps. The VLM and action expert are co-located, not cross-attended; flow matching denoises in parallel within each step. Sufficient if you only care about the original system.</div>
+    <p>&pi;&#x2080; / &pi;&#x2080;.5 Workshop &middot; Page 2 of 5 &middot; Sources: <a href="https://arxiv.org/abs/2410.24164">arXiv 2410.24164</a> (&pi;&#x2080;) &middot; <a href="https://arxiv.org/abs/2501.09747">arXiv 2501.09747</a> (FAST background)</p>
+    <p>Next: <a href="page3.html">Page 3 &mdash; FAST: When Discrete Tokens Help (and When They Don't) &rarr;</a></p>
+  </footer>
+
+  <script src="data.js"></script>
+  <script src="shared.js"></script>
+  <script src="viz_image_patch_tokens.js"></script>
+  <script src="viz_prefix_lm_attention_pi0.js"></script>
+  <script src="viz_pi0_block_diagram.js"></script>
+  <script src="viz_flow_matching_denoise.js"></script>
+  <script src="viz_vla_family_sidebyside.js"></script>
+</body>
+</html>

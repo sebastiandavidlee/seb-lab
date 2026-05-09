@@ -1,0 +1,1222 @@
+/* π₀ / π₀.5 Workshop — visual stylesheet (v2: dark chrome + light viz cards).
+ *
+ * Architecture:
+ *   1. Tokens          — color, type scale, spacing, radius, shadow
+ *   2. Reset & base    — html/body, system font stacks
+ *   3. Typography      — heading scale, prose, code, cite pills
+ *   4. Layout          — wraps, reading-width discipline
+ *   5. Page chrome     — header, nav, arc-progress, footer
+ *   6. Hero & landing  — index page card grid
+ *   7. Viz primitives  — sections, captions, mounts, controls, canvas
+ *   8. Callouts        — pullquote, callout-quote, role-chips, footer-stop
+ *   9. Comparison kit  — table, KI summary cells
+ *  10. Per-viz palette — palette tokens preserved (contractual w/ JS)
+ *  11. Responsive
+ *
+ * Motion: see motion.css (loaded alongside this file is OK; this file works alone).
+ *
+ * Contract: viz JS files render their own canvases/SVGs with hard-coded light
+ * backgrounds. Treat the .viz-section as a "light card" floating on the dark
+ * page background. Do NOT recolor --vlm-purple/--expert-amber/--flow-teal/
+ * --ar-coral/--frozen-steel/--trained-lime — the JS reads them.
+ */
+
+/* =============================================================
+   1. TOKENS
+   ============================================================= */
+:root {
+  /* --- Page chrome (dark) ----------------------------------- */
+  --bg:            #0f1115;   /* page background */
+  --bg-elev-1:     #14171d;   /* sticky nav, cards on dark */
+  --bg-elev-2:     #1a1e26;   /* hover, faint surface */
+  --fg:            #e6e8ec;   /* primary text on dark */
+  --fg-soft:       #c0c4cc;   /* body prose on dark */
+  --muted:         #8a909a;   /* secondary text */
+  --dim:           #5d626c;   /* tertiary, hairlines */
+  --rule:          #232831;   /* 1px separators on dark */
+  --rule-strong:   #2c323d;   /* hovered separators */
+
+  /* --- Reading surface (light card on dark) ----------------- */
+  --paper:         #fafaf7;   /* light card body — viz + prose */
+  --paper-soft:    #f3f3ef;   /* tinted regions inside paper */
+  --ink:           #1a1a1a;   /* primary text on paper */
+  --ink-soft:      #333;
+  --ink-muted:     #555;
+  --ink-dim:       #777;
+  --paper-rule:    #e2e0d8;   /* 1px separators on paper */
+  --paper-border:  #d6d3c9;
+
+  /* --- Accent (one) ----------------------------------------- */
+  --accent:        #1abc9c;   /* interactive: link hover, current step, focus ring */
+  --accent-soft:   #2bd0ad;   /* lighter on dark */
+  --accent-dim:    rgba(26, 188, 156, 0.14);
+
+  /* --- Type scale (1.250 modular, body 17px) ---------------- */
+  --fs-xs:    11px;     /* meta, cite pills, axis labels */
+  --fs-sm:    13px;     /* captions, controls, cite paragraphs */
+  --fs-base:  17px;     /* body prose */
+  --fs-md:    19px;     /* lead paragraphs, intro */
+  --fs-lg:    22px;     /* h3 / viz-title */
+  --fs-xl:    27px;     /* h2 */
+  --fs-2xl:   34px;     /* h1 */
+  --fs-3xl:   clamp(36px, 4.4vw, 52px); /* hero h1 */
+
+  --lh-tight: 1.25;
+  --lh-snug:  1.45;
+  --lh-prose: 1.7;
+  --lh-loose: 1.78;
+
+  /* --- Spacing (8px grid) ----------------------------------- */
+  --space-1:   4px;
+  --space-2:   8px;
+  --space-3:   12px;
+  --space-4:   16px;
+  --space-5:   24px;
+  --space-6:   32px;
+  --space-7:   48px;
+  --space-8:   72px;
+
+  /* --- Radius / shadow -------------------------------------- */
+  --radius-sm: 4px;
+  --radius:    8px;
+  --radius-lg: 12px;
+
+  --shadow-card:      0 1px 2px rgba(0, 0, 0, 0.35), 0 8px 28px rgba(0, 0, 0, 0.32);
+  --shadow-card-hover:0 1px 2px rgba(0, 0, 0, 0.4),  0 14px 40px rgba(0, 0, 0, 0.42);
+  --shadow-pop:       0 2px 8px rgba(0, 0, 0, 0.5);
+
+  /* --- Reading widths --------------------------------------- */
+  --width-prose:  680px;   /* ~70ch body width */
+  --width-card:   1100px;  /* viz card body */
+  --width-wide:   1400px;  /* full-bleed canvas */
+
+  /* --- Fonts ------------------------------------------------ */
+  --font-sans: ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto,
+               "Helvetica Neue", Arial, sans-serif;
+  --font-serif: "Iowan Old Style", "Charter", "Source Serif Pro", "Georgia",
+                "Times New Roman", serif;
+  --font-mono: "JetBrains Mono", "Fira Code", "SF Mono", "Menlo",
+               "Consolas", ui-monospace, monospace;
+
+  /* =========================================================
+     PRESERVED — contractual viz palette tokens (do not edit).
+     JS files reference these via getComputedStyle for SVG/Canvas.
+     ========================================================= */
+  --joint-0: #e41a1c; --joint-1: #377eb8; --joint-2: #4daf4a;
+  --joint-3: #984ea3; --joint-4: #ff7f00; --joint-5: #a65628;
+  --joint-6: #f781bf;
+
+  --vlm-purple:   #6a3d9a;
+  --expert-amber: #ff8c1a;
+  --flow-teal:    #1abc9c;
+  --ar-coral:     #c0392b;
+  --frozen-steel: #6c7a89;
+  --trained-lime: #7ee787;
+  --noise-grey:   #888;
+  --clean-ink:    #111;
+  --flow-arrow:   #b07c2c;
+  --mask-shadow:  rgba(0, 0, 0, 0.55);
+
+  --vlm-purple-bg:   #efe6f7;
+  --expert-amber-bg: #fff1de;
+  --flow-teal-bg:    #e2f8f3;
+  --ar-coral-bg:     #fbe6e2;
+  --frozen-steel-bg: #ecf0f3;
+  --trained-lime-bg: #e7f8d8;
+
+  --quote-bg:     #f1f1ec;
+  --quote-border: #b7a84a;
+
+  /* legacy aliases — used by viz JS */
+  --accent-warm: #f5d516;
+  --accent-blue: #2a5aa8;
+  --border:      var(--paper-border);   /* JS reads this for in-card borders */
+  --panel:       var(--paper);
+  --stage-bg:    var(--paper-soft);
+  --mono:        var(--font-mono);
+}
+
+/* =============================================================
+   2. RESET & BASE
+   ============================================================= */
+*,
+*::before,
+*::after { box-sizing: border-box; }
+
+html {
+  font-size: 16px;
+  -webkit-text-size-adjust: 100%;
+  text-rendering: optimizeLegibility;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  scroll-behavior: smooth;
+}
+
+body {
+  margin: 0;
+  padding: 0;
+  background: var(--bg);
+  color: var(--fg-soft);
+  font-family: var(--font-sans);
+  font-size: var(--fs-base);
+  line-height: var(--lh-prose);
+  font-feature-settings: "kern", "liga", "calt";
+}
+
+::selection { background: var(--accent-dim); color: var(--fg); }
+
+a {
+  color: var(--fg);
+  text-decoration: none;
+  border-bottom: 1px solid var(--rule-strong);
+  transition: color 120ms ease, border-color 120ms ease;
+}
+a:hover { color: var(--accent-soft); border-bottom-color: var(--accent); }
+a:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 3px;
+  border-radius: 2px;
+}
+
+img, svg, canvas { max-width: 100%; }
+
+/* =============================================================
+   3. TYPOGRAPHY
+   ============================================================= */
+h1, h2, h3, h4, h5, h6 {
+  font-family: var(--font-sans);
+  color: var(--fg);
+  font-weight: 600;
+  line-height: var(--lh-tight);
+  letter-spacing: -0.01em;
+  margin: 0;
+}
+
+h1 { font-size: var(--fs-2xl); letter-spacing: -0.02em; }
+h2 { font-size: var(--fs-xl); letter-spacing: -0.015em; }
+h3 { font-size: var(--fs-lg); }
+h4 { font-size: var(--fs-base); font-weight: 700; letter-spacing: 0.02em; text-transform: uppercase; color: var(--ink); }
+
+p { margin: 0 0 var(--space-4) 0; }
+strong, b { color: var(--fg); font-weight: 600; }
+em, i { color: inherit; }
+
+hr {
+  border: 0;
+  height: 1px;
+  background: var(--rule);
+  margin: var(--space-6) 0;
+}
+
+/* code & mono — feel like CODE, not prose */
+code, kbd, samp, pre {
+  font-family: var(--font-mono);
+  font-feature-settings: "calt" 0;
+  font-size: 0.88em;
+}
+code {
+  background: rgba(255, 255, 255, 0.06);
+  color: var(--fg);
+  padding: 0.12em 0.42em;
+  border-radius: 3px;
+  border: 1px solid var(--rule);
+  white-space: nowrap;
+}
+/* code inside light cards inverts */
+.viz-explanation code,
+.page-intro code,
+.landing-hero code,
+.faq-item code,
+.rails-section code,
+.cmp-table code,
+.ki-summary code {
+  background: var(--paper-soft);
+  color: var(--ink);
+  border-color: var(--paper-rule);
+}
+
+/* tensor-shape pill — small caps, monospace, restrained */
+.shape-pill {
+  display: inline-block;
+  background: #1a1a1a;
+  color: #fff;
+  font-family: var(--font-mono);
+  font-variant-numeric: tabular-nums;
+  font-size: var(--fs-xs);
+  padding: 0.16em 0.5em;
+  border-radius: 3px;
+  margin: 0 2px;
+  vertical-align: 1px;
+  letter-spacing: 0.02em;
+  white-space: nowrap;
+}
+
+/* cite pill — small caps, mono, faint background */
+.cite {
+  font-family: var(--font-mono);
+  font-size: var(--fs-xs);
+  color: var(--ink-muted);
+  font-style: normal;
+  letter-spacing: 0.04em;
+}
+.cite--mono { font-family: var(--font-mono); font-style: normal; }
+
+/* inline cite chip when wrapped in <span class="cite">[π₀ §B]</span> */
+.viz-explanation .cite,
+.page-intro .cite,
+.faq-item .cite,
+.cmp-table .cite {
+  display: inline-block;
+  background: rgba(0, 0, 0, 0.045);
+  color: var(--ink-muted);
+  padding: 0.08em 0.55em;
+  border-radius: 999px;
+  border: 1px solid var(--paper-rule);
+  font-size: 10.5px;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  vertical-align: 1px;
+  white-space: nowrap;
+}
+
+/* prose-paragraph cite (a sources line at bottom of section) stays plain */
+p.cite {
+  display: block;
+  background: none;
+  border: none;
+  padding: 0;
+  text-transform: none;
+  letter-spacing: 0.02em;
+  font-size: var(--fs-sm);
+  color: var(--ink-muted);
+  margin-top: var(--space-4);
+  border-radius: 0;
+}
+
+/* =============================================================
+   4. LAYOUT
+   ============================================================= */
+.wrap            { max-width: var(--width-card); margin: 0 auto; padding: 0 var(--space-5); }
+.wrap--wide      { max-width: var(--width-wide);  }
+.wrap--narrow    { max-width: var(--width-prose); }
+
+main {
+  max-width: var(--width-wide);
+  margin: 0 auto;
+  padding: 0 var(--space-5) var(--space-7);
+}
+
+/* =============================================================
+   5. PAGE CHROME — header, nav, arc-progress, footer
+   ============================================================= */
+.page-header {
+  position: relative;
+  background:
+    radial-gradient(ellipse at top, rgba(26, 188, 156, 0.06), transparent 60%),
+    var(--bg);
+  border-bottom: 1px solid var(--rule);
+  padding: var(--space-4) var(--space-5) var(--space-3);
+  margin-bottom: var(--space-6);
+}
+.page-header h1 {
+  max-width: var(--width-wide);
+  margin: var(--space-4) auto 0;
+  padding: 0;
+  font-size: var(--fs-xl);
+  font-weight: 600;
+  color: var(--fg);
+  letter-spacing: -0.015em;
+}
+
+.page-nav {
+  max-width: var(--width-wide);
+  margin: 0 auto;
+  display: flex;
+  gap: var(--space-5);
+  font-family: var(--font-mono);
+  font-size: var(--fs-sm);
+  flex-wrap: wrap;
+  align-items: center;
+}
+.page-nav a {
+  color: var(--muted);
+  text-decoration: none;
+  padding: var(--space-1) 0;
+  border-bottom: 1px solid transparent;
+  letter-spacing: 0.02em;
+  transition: color 140ms ease, border-color 140ms ease;
+}
+.page-nav a:hover { color: var(--accent-soft); border-bottom-color: var(--accent); }
+.page-nav a.active,
+.page-nav a[aria-current="page"] {
+  color: var(--fg);
+  border-bottom-color: var(--accent);
+  font-weight: 600;
+}
+
+/* 5-dot arc-progress strip */
+.arc-progress {
+  max-width: var(--width-wide);
+  margin: var(--space-3) auto 0;
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  padding: 0;
+  font-family: var(--font-mono);
+  font-size: var(--fs-xs);
+  color: var(--muted);
+  letter-spacing: 0.04em;
+}
+.arc-progress .dot {
+  width: 9px;
+  height: 9px;
+  border-radius: 50%;
+  background: transparent;
+  border: 1.5px solid var(--rule-strong);
+  display: inline-block;
+  transition: background 200ms ease, border-color 200ms ease, box-shadow 200ms ease;
+}
+.arc-progress .dot.done {
+  background: var(--muted);
+  border-color: var(--muted);
+}
+.arc-progress .dot.active {
+  background: var(--accent);
+  border-color: var(--accent);
+  box-shadow: 0 0 0 4px var(--accent-dim);
+}
+.arc-progress .label { color: var(--muted); margin-left: var(--space-2); }
+.arc-progress .sep   { color: var(--rule-strong); margin: 0 var(--space-1); }
+
+/* footer */
+footer {
+  max-width: var(--width-wide);
+  margin: var(--space-7) auto 0;
+  padding: var(--space-5) var(--space-5) var(--space-6);
+  border-top: 1px solid var(--rule);
+  font-size: var(--fs-sm);
+  color: var(--muted);
+}
+footer p { margin: 0 0 var(--space-3); }
+footer a { color: var(--fg-soft); border-bottom-color: var(--rule-strong); }
+footer a:hover { color: var(--accent-soft); border-bottom-color: var(--accent); }
+
+/* "If you stop here..." chip — visually distinct stopping-point */
+footer .footer-stop {
+  margin: 0 0 var(--space-4);
+  padding: var(--space-4) var(--space-5);
+  background: linear-gradient(180deg, rgba(26, 188, 156, 0.10), rgba(26, 188, 156, 0.04));
+  border: 1px solid rgba(26, 188, 156, 0.28);
+  border-left: 3px solid var(--accent);
+  border-radius: var(--radius);
+  color: var(--fg);
+  font-size: var(--fs-sm);
+  font-style: normal;
+  line-height: var(--lh-snug);
+  position: relative;
+}
+footer .footer-stop::before {
+  content: "STOP";
+  position: absolute;
+  top: -10px;
+  left: var(--space-4);
+  background: var(--bg);
+  color: var(--accent-soft);
+  font-family: var(--font-mono);
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.18em;
+  padding: 0 var(--space-2);
+}
+footer .footer-stop b { color: var(--fg); font-weight: 700; }
+
+/* =============================================================
+   6. HERO & LANDING — index page
+   ============================================================= */
+.landing-hero {
+  max-width: 880px;
+  margin: var(--space-7) auto var(--space-6);
+  padding: 0 var(--space-2);
+}
+.landing-hero h1 {
+  font-size: var(--fs-3xl);
+  font-weight: 700;
+  line-height: 1.05;
+  margin: 0 0 var(--space-4);
+  color: var(--fg);
+  letter-spacing: -0.025em;
+}
+.landing-hero .tagline {
+  font-size: var(--fs-md);
+  line-height: 1.45;
+  color: var(--fg);
+  margin: 0 0 var(--space-5);
+  font-weight: 400;
+  max-width: 720px;
+}
+.landing-hero p {
+  font-size: var(--fs-base);
+  line-height: var(--lh-prose);
+  color: var(--fg-soft);
+  margin: 0 0 var(--space-4);
+  max-width: 720px;
+}
+.landing-hero .cite {
+  display: block;
+  margin-top: var(--space-5);
+  padding-top: var(--space-4);
+  border-top: 1px solid var(--rule);
+  background: none;
+  border-radius: 0;
+  text-transform: none;
+  letter-spacing: 0.02em;
+  font-size: var(--fs-sm);
+  color: var(--muted);
+}
+
+.nav-cards {
+  max-width: 1180px;
+  margin: var(--space-6) auto 0;
+  padding: 0 var(--space-2);
+  display: grid;
+  grid-template-columns: repeat(5, 1fr);
+  gap: var(--space-4);
+}
+@media (max-width: 1100px) { .nav-cards { grid-template-columns: repeat(3, 1fr); } }
+@media (max-width: 720px)  { .nav-cards { grid-template-columns: 1fr; } }
+
+.nav-card {
+  display: block;
+  padding: var(--space-5);
+  background: var(--bg-elev-1);
+  border: 1px solid var(--rule);
+  border-radius: var(--radius);
+  text-decoration: none;
+  color: var(--fg);
+  position: relative;
+  overflow: hidden;
+  transition: transform 200ms ease, border-color 200ms ease,
+              background 200ms ease, box-shadow 200ms ease;
+}
+.nav-card::before {
+  content: "";
+  position: absolute;
+  inset: 0 0 auto 0;
+  height: 2px;
+  background: var(--rule-strong);
+  transition: background 200ms ease, height 200ms ease;
+}
+.nav-card:hover {
+  border-color: var(--rule-strong);
+  background: var(--bg-elev-2);
+  transform: translateY(-2px);
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.35);
+}
+.nav-card:hover::before { height: 3px; }
+.nav-card .num {
+  font-family: var(--font-mono);
+  font-size: 10.5px;
+  color: var(--muted);
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+}
+.nav-card h3 {
+  margin: var(--space-2) 0 var(--space-3);
+  font-size: var(--fs-lg);
+  font-weight: 600;
+  color: var(--fg);
+  line-height: 1.25;
+  letter-spacing: -0.01em;
+}
+.nav-card p {
+  margin: 0;
+  font-size: var(--fs-sm);
+  color: var(--muted);
+  line-height: var(--lh-snug);
+}
+/* per-card top accent (uses contractual palette tokens) */
+.nav-card.card-substrate::before { background: var(--vlm-purple); }
+.nav-card.card-pi0::before       { background: var(--expert-amber); }
+.nav-card.card-fast::before      { background: var(--ar-coral); }
+.nav-card.card-ki::before        { background: var(--frozen-steel); }
+.nav-card.card-pi05::before      { background: var(--flow-teal); }
+
+/* rails / faq sections on index */
+.rails-section,
+.faq-section {
+  max-width: 880px;
+  margin: var(--space-7) auto 0;
+  padding: var(--space-6) 0 0;
+  border-top: 1px solid var(--rule);
+}
+.rails-section h2,
+.faq-section h2 {
+  font-size: var(--fs-xl);
+  font-weight: 600;
+  margin: 0 0 var(--space-3);
+  color: var(--fg);
+  letter-spacing: -0.015em;
+}
+.rails-section h3 {
+  font-size: var(--fs-base);
+  font-weight: 600;
+  margin: var(--space-5) 0 var(--space-2);
+  color: var(--fg);
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  font-family: var(--font-mono);
+}
+.rails-section p,
+.faq-section p {
+  font-size: var(--fs-base);
+  line-height: var(--lh-prose);
+  color: var(--fg-soft);
+  margin: 0 0 var(--space-3);
+}
+.rails-section ul,
+.faq-section ul {
+  padding-left: var(--space-5);
+  margin: 0 0 var(--space-4);
+}
+.rails-section li,
+.faq-section li {
+  margin-bottom: var(--space-2);
+  line-height: var(--lh-prose);
+  color: var(--fg-soft);
+}
+
+.faq-item {
+  margin: var(--space-4) 0;
+  padding: var(--space-4) var(--space-5);
+  background: var(--bg-elev-1);
+  border-radius: var(--radius);
+  border: 1px solid var(--rule);
+  transition: border-color 160ms ease, background 160ms ease;
+}
+.faq-item:hover { border-color: var(--rule-strong); background: var(--bg-elev-2); }
+.faq-item .q {
+  font-weight: 600;
+  color: var(--fg);
+  margin: 0 0 var(--space-2);
+  font-size: var(--fs-base);
+}
+.faq-item .a {
+  margin: 0;
+  font-size: var(--fs-base);
+  line-height: var(--lh-prose);
+  color: var(--fg-soft);
+}
+
+/* =============================================================
+   7. PROSE & VIZ SECTIONS
+   ============================================================= */
+.page-intro {
+  max-width: var(--width-prose);
+  margin: 0 auto var(--space-6);
+  font-size: var(--fs-md);
+  line-height: var(--lh-prose);
+  color: var(--fg-soft);
+  padding: 0 var(--space-2);
+}
+.page-intro p { margin: 0 0 var(--space-4); }
+.page-intro p.cite {
+  font-size: var(--fs-sm);
+  color: var(--muted);
+  border-radius: 0;
+  background: none;
+  border: none;
+  padding: 0;
+  text-transform: none;
+  letter-spacing: 0.02em;
+}
+
+/* viz-section: big card on dark */
+.viz-section {
+  max-width: var(--width-wide);
+  margin: 0 auto var(--space-7);
+  background: var(--paper);
+  color: var(--ink);
+  border-radius: var(--radius-lg);
+  padding: var(--space-5) var(--space-5) var(--space-6);
+  box-shadow: var(--shadow-card);
+  border: 1px solid var(--rule);
+  /* set up motion target — animation defined in motion.css */
+  opacity: 1;
+}
+
+/* viz-section nested inside another viz-section is a viz mount, not a card */
+.viz-section .viz-section {
+  background: transparent;
+  box-shadow: none;
+  border: none;
+  padding: 0;
+  margin: 0;
+  border-radius: 0;
+}
+
+.viz-section > header {
+  max-width: 880px;
+  margin: 0 auto var(--space-4);
+  padding-bottom: var(--space-3);
+  border-bottom: 1px solid var(--paper-rule);
+}
+.viz-section > header h2 {
+  margin: 0 0 var(--space-2);
+  font-size: var(--fs-xl);
+  font-weight: 600;
+  color: var(--ink);
+  letter-spacing: -0.015em;
+}
+.viz-section > header .purpose {
+  margin: 0;
+  color: var(--ink-muted);
+  font-size: var(--fs-base);
+  font-style: italic;
+  line-height: var(--lh-snug);
+}
+
+.viz-body { margin: var(--space-4) auto; }
+.viz-body.wrap--wide { max-width: var(--width-wide); }
+
+/* empty viz mount placeholder */
+.viz-section[data-viz]:empty,
+.viz-mount-empty {
+  min-height: 220px;
+  background: repeating-linear-gradient(
+    45deg,
+    var(--paper-soft),
+    var(--paper-soft) 8px,
+    #ebe9e0 8px,
+    #ebe9e0 16px
+  );
+  border: 1px dashed var(--paper-border);
+  border-radius: var(--radius);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--ink-muted);
+  font-family: var(--font-mono);
+  font-size: var(--fs-sm);
+}
+.viz-section[data-viz]:empty::before {
+  content: "viz mount: " attr(id) "  —  build agent will populate";
+}
+
+/* viz-explanation — readable prose at ~70ch */
+.viz-explanation {
+  max-width: var(--width-prose);
+  margin: var(--space-5) auto 0;
+  font-size: var(--fs-base);
+  line-height: var(--lh-prose);
+  color: var(--ink-soft);
+}
+.viz-explanation p { margin: 0 0 var(--space-3); }
+.viz-explanation blockquote {
+  border-left: 3px solid var(--accent);
+  margin: var(--space-4) 0;
+  padding: var(--space-2) var(--space-4);
+  color: var(--ink);
+  font-style: italic;
+  background: var(--paper-soft);
+  border-radius: 0 var(--radius-sm) var(--radius-sm) 0;
+}
+.viz-explanation .callout-quote { margin: var(--space-4) 0; }
+
+/* viz titles, captions, axis labels — used by viz JS */
+.viz-container { margin-bottom: var(--space-5); }
+.viz-title {
+  font-size: var(--fs-lg);
+  margin: 0 0 var(--space-1);
+  font-weight: 600;
+  color: var(--ink);
+}
+.viz-purpose,
+.viz-caption {
+  color: var(--ink-soft);
+  font-size: var(--fs-sm);
+  line-height: var(--lh-snug);
+  margin-top: var(--space-3);
+  background: var(--paper-soft);
+  padding: var(--space-2) var(--space-3);
+  border-left: 3px solid var(--ink-dim);
+  border-radius: 0 var(--radius-sm) var(--radius-sm) 0;
+}
+.axis-note { color: var(--ink-muted); font-size: var(--fs-sm); margin-bottom: var(--space-3); }
+.axis-x, .axis-y { font-size: var(--fs-xs); color: var(--ink-muted); }
+.axis-x { display: block; text-align: center; margin-top: var(--space-1); }
+.axis-y { writing-mode: vertical-rl; transform: rotate(180deg); }
+
+/* citation under figure */
+.citation {
+  font-family: var(--font-mono);
+  font-size: var(--fs-xs);
+  color: var(--ink-muted);
+  font-style: italic;
+}
+
+/* =============================================================
+   8. CONTROLS, BUTTONS, SLIDERS, MONO READOUTS
+   (live inside paper cards, so light theme)
+   ============================================================= */
+.viz-controls,
+.controls {
+  display: flex;
+  gap: var(--space-3);
+  align-items: center;
+  margin: var(--space-2) 0 var(--space-3) 0;
+  flex-wrap: wrap;
+}
+
+button {
+  background: #fff;
+  border: 1px solid var(--paper-border);
+  padding: 6px 12px;
+  cursor: pointer;
+  font-size: var(--fs-sm);
+  border-radius: var(--radius-sm);
+  font-family: var(--font-sans);
+  color: var(--ink);
+  transition: background 140ms ease, border-color 140ms ease, color 140ms ease;
+}
+button:hover { background: var(--paper-soft); border-color: var(--ink-dim); }
+button.active,
+button.on,
+button.primary {
+  background: var(--ink);
+  color: #fff;
+  border-color: var(--ink);
+}
+button.primary:hover { background: #000; }
+button:disabled { opacity: 0.4; cursor: default; }
+button:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+
+.slider-row {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  margin: var(--space-2) 0 var(--space-1) 0;
+  font-size: var(--fs-sm);
+  color: var(--ink-soft);
+  flex-wrap: wrap;
+}
+.slider-row input[type="range"] {
+  flex: 1;
+  max-width: 460px;
+  accent-color: var(--accent);
+}
+
+.mono,
+.readout,
+.counter,
+.bins-readout {
+  font-family: var(--font-mono);
+  font-variant-numeric: tabular-nums;
+}
+.counter {
+  display: inline-block;
+  background: var(--ink);
+  color: #fff;
+  padding: 4px 10px;
+  border-radius: var(--radius-sm);
+  font-size: var(--fs-sm);
+  margin: 6px 10px 6px 0;
+  letter-spacing: 0.02em;
+}
+
+canvas {
+  display: block;
+  background: #fff;
+  border: 1px solid var(--paper-rule);
+}
+canvas.heatmap {
+  image-rendering: pixelated;
+  image-rendering: -moz-crisp-edges;
+  border: 1px solid var(--paper-border);
+}
+
+/* =============================================================
+   9. CALLOUTS — pullquote, callout-quote, role-chip, panel
+   ============================================================= */
+.panel {
+  background: var(--paper);
+  color: var(--ink);
+  border: 1px solid var(--paper-border);
+  border-radius: var(--radius);
+  padding: var(--space-4) var(--space-5);
+  margin-bottom: var(--space-5);
+}
+
+.pullquote,
+.callout-quote {
+  background: var(--quote-bg);
+  border-left: 4px solid var(--quote-border);
+  padding: var(--space-3) var(--space-4);
+  font-style: italic;
+  margin: var(--space-4) 0 var(--space-2);
+  font-size: var(--fs-sm);
+  line-height: var(--lh-snug);
+  border-radius: 0 var(--radius-sm) var(--radius-sm) 0;
+  color: var(--ink-soft);
+  transition: border-color 160ms ease, background 160ms ease;
+}
+.pullquote:hover,
+.callout-quote:hover { border-left-color: var(--accent); }
+.pullquote .src,
+.callout-quote .src {
+  font-style: normal;
+  color: var(--ink-muted);
+  font-size: var(--fs-xs);
+  margin-left: var(--space-2);
+}
+.pullquote strong,
+.callout-quote strong { color: var(--ink); font-style: normal; }
+
+/* page-intro callout-quote (sits on dark page background) */
+.page-intro .callout-quote {
+  background: var(--bg-elev-1);
+  border-left-color: var(--accent);
+  color: var(--fg-soft);
+  margin: var(--space-4) 0;
+  padding: var(--space-4) var(--space-5);
+  border-radius: 0 var(--radius) var(--radius) 0;
+  font-size: var(--fs-base);
+  font-style: normal;
+  border-top: 1px solid var(--rule);
+  border-right: 1px solid var(--rule);
+  border-bottom: 1px solid var(--rule);
+}
+.page-intro .callout-quote strong { color: var(--fg); }
+.page-intro .callout-quote em { color: var(--fg); font-style: italic; }
+
+.rails-section .callout-quote {
+  background: var(--bg-elev-1);
+  border-left-color: var(--accent);
+  color: var(--fg-soft);
+  margin: var(--space-5) 0 0;
+  padding: var(--space-4) var(--space-5);
+  border-radius: 0 var(--radius) var(--radius) 0;
+  font-size: var(--fs-base);
+  font-style: normal;
+  border-top: 1px solid var(--rule);
+  border-right: 1px solid var(--rule);
+  border-bottom: 1px solid var(--rule);
+}
+.rails-section .callout-quote strong { color: var(--fg); }
+
+/* accent (teal) "pull" — fast_workshop legacy */
+.pull {
+  margin-top: var(--space-5);
+  padding: var(--space-4) var(--space-5);
+  background: var(--flow-teal-bg);
+  border: 1px solid #bde6da;
+  border-left: 4px solid var(--accent);
+  border-radius: var(--radius);
+  font-size: var(--fs-base);
+  line-height: var(--lh-snug);
+  font-style: italic;
+  color: #1a3a33;
+}
+.pull::before {
+  content: "\201C";
+  font-size: 28px;
+  color: var(--accent);
+  line-height: 0;
+  vertical-align: -8px;
+  margin-right: 4px;
+}
+
+.annotation {
+  margin-top: var(--space-4);
+  padding: var(--space-4) var(--space-5);
+  background: var(--paper);
+  border: 1px solid var(--paper-border);
+  border-left: 4px solid var(--accent);
+  border-radius: var(--radius-sm);
+  font-size: var(--fs-base);
+  color: var(--ink-soft);
+}
+.annotation .emph { font-weight: 600; color: var(--ink); }
+
+/* legend */
+.legend {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2) var(--space-4);
+  font-size: var(--fs-xs);
+  margin-top: var(--space-2);
+  color: var(--ink-muted);
+}
+.legend .dot {
+  display: inline-block;
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  margin-right: var(--space-1);
+  vertical-align: middle;
+}
+.legend .sw {
+  display: inline-block;
+  width: 10px;
+  height: 10px;
+  border-radius: 2px;
+  margin-right: var(--space-1);
+  vertical-align: middle;
+  border: 1px solid #0002;
+}
+
+/* role-token chips */
+.role-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-1);
+  padding: 2px 8px;
+  border-radius: 999px;
+  font-family: var(--font-mono);
+  font-size: 10.5px;
+  letter-spacing: 0.04em;
+  border: 1px solid transparent;
+  vertical-align: 1px;
+  white-space: nowrap;
+  transition: transform 140ms ease, box-shadow 140ms ease;
+}
+.role-chip:hover { transform: translateY(-1px); box-shadow: 0 2px 6px rgba(0,0,0,0.12); }
+.role-vlm     { background: var(--vlm-purple-bg);   color: #3a1f5a; border-color: var(--vlm-purple); }
+.role-expert  { background: var(--expert-amber-bg); color: #6a3a05; border-color: var(--expert-amber); }
+.role-flow    { background: var(--flow-teal-bg);    color: #134d44; border-color: var(--flow-teal); }
+.role-ar      { background: var(--ar-coral-bg);     color: #6b1a14; border-color: var(--ar-coral); }
+.role-frozen  { background: var(--frozen-steel-bg); color: #354048; border-color: var(--frozen-steel); }
+.role-trained { background: var(--trained-lime-bg); color: #2a4a1f; border-color: #4ea53a; }
+
+/* =============================================================
+   10. COMPARISON TABLE & KI SUMMARY
+   ============================================================= */
+.cmp-table {
+  width: 100%;
+  max-width: 1100px;
+  margin: 0 auto;
+  border-collapse: separate;
+  border-spacing: 0;
+  font-size: var(--fs-sm);
+  background: #fff;
+  border: 1px solid var(--paper-border);
+  border-radius: var(--radius);
+  overflow: hidden;
+}
+.cmp-table thead th {
+  background: #1a1a1a;
+  color: #fff;
+  text-align: left;
+  padding: var(--space-3) var(--space-4);
+  font-weight: 600;
+  font-size: var(--fs-sm);
+  letter-spacing: 0.02em;
+}
+.cmp-table thead th.col-pi0   { background: var(--expert-amber); color: #1a1a1a; }
+.cmp-table thead th.col-pi05  { background: var(--flow-teal);    color: #0c2a25; }
+.cmp-table thead th.col-axis  { background: #2a2a2a; }
+.cmp-table tbody td,
+.cmp-table tbody th {
+  padding: var(--space-3) var(--space-4);
+  border-top: 1px solid var(--paper-rule);
+  vertical-align: top;
+  line-height: var(--lh-snug);
+  color: var(--ink-soft);
+}
+.cmp-table tbody th {
+  text-align: left;
+  font-weight: 600;
+  background: var(--paper-soft);
+  width: 18%;
+  color: var(--ink);
+  font-family: var(--font-mono);
+  font-size: var(--fs-xs);
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+.cmp-table tbody td.same {
+  background: var(--frozen-steel-bg);
+  color: #354048;
+}
+.cmp-table tbody td.changed {
+  background: var(--trained-lime-bg);
+  color: #2a4a1f;
+}
+.cmp-table tbody td .note {
+  display: block;
+  font-size: var(--fs-xs);
+  color: var(--ink-muted);
+  margin-top: var(--space-1);
+  font-style: italic;
+}
+
+/* KI gradient summary cards (page 4) */
+.ki-summary {
+  max-width: 980px;
+  margin: var(--space-4) auto var(--space-5);
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: var(--space-3);
+}
+@media (max-width: 820px) { .ki-summary { grid-template-columns: 1fr; } }
+.ki-summary .cell {
+  background: #fff;
+  border: 1px solid var(--paper-rule);
+  border-top: 3px solid var(--accent);
+  border-radius: var(--radius);
+  padding: var(--space-3) var(--space-4);
+  font-size: var(--fs-sm);
+  line-height: var(--lh-snug);
+  color: var(--ink-soft);
+  transition: transform 160ms ease, box-shadow 160ms ease;
+}
+.ki-summary .cell:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 6px 18px rgba(0, 0, 0, 0.08);
+}
+.ki-summary .cell.cell-vlm     { border-top-color: var(--vlm-purple); }
+.ki-summary .cell.cell-aux     { border-top-color: var(--accent-warm); }
+.ki-summary .cell.cell-expert  { border-top-color: var(--expert-amber); }
+.ki-summary .cell h4 {
+  margin: 0 0 var(--space-2);
+  font-family: var(--font-mono);
+  font-size: var(--fs-xs);
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--ink);
+}
+.ki-summary .cell .grad-tag {
+  display: inline-block;
+  font-family: var(--font-mono);
+  font-size: 10px;
+  padding: 1px 6px;
+  border-radius: 999px;
+  margin-left: 4px;
+  vertical-align: 1px;
+  letter-spacing: 0.04em;
+}
+.ki-summary .grad-tag.flow-grad { background: var(--ar-coral-bg);     color: #6b1a14; }
+.ki-summary .grad-tag.ce-grad   { background: var(--trained-lime-bg); color: #2a4a1f; }
+.ki-summary .grad-tag.no-grad   { background: var(--frozen-steel-bg); color: #354048; text-decoration: line-through; }
+
+/* data-mixture stacked bar mount */
+#viz-data-mixture { min-height: 140px; }
+
+/* =============================================================
+   11. RESPONSIVE
+   ============================================================= */
+@media (max-width: 960px) {
+  :root {
+    --fs-base: 16px;
+    --fs-md: 18px;
+    --fs-lg: 20px;
+    --fs-xl: 24px;
+    --fs-2xl: 30px;
+  }
+  .viz-section { padding: var(--space-4); }
+  .page-header { padding: var(--space-3) var(--space-4); }
+  main { padding: 0 var(--space-3) var(--space-6); }
+}
+
+@media (max-width: 720px) {
+  .page-nav { font-size: var(--fs-xs); gap: var(--space-3); }
+  .arc-progress { font-size: 10px; }
+  .cmp-table { font-size: var(--fs-xs); }
+  .cmp-table tbody th { width: auto; }
+  .landing-hero { margin-top: var(--space-5); }
+  .nav-card { padding: var(--space-4); }
+}
+
+/* =============================================================
+   12. MOTION
+   -----------------------------------------------------------------
+   Principles:
+     - Motion is invisible until missed.
+     - Decorative motion respects prefers-reduced-motion.
+     - Hover / focus state always responds (hovers are not "decorative",
+       they are affordance feedback) — but reduces from translate to
+       color-only when reduce is requested.
+     - Page-load animations are one-shot, short (<450ms), eased.
+   ============================================================= */
+
+/* --- viz-section fade-in on load (one-shot, staggered by source order) --- */
+@keyframes viz-rise {
+  from { opacity: 0; transform: translateY(8px); }
+  to   { opacity: 1; transform: translateY(0);   }
+}
+.viz-section {
+  animation: viz-rise 480ms cubic-bezier(0.2, 0.7, 0.2, 1) both;
+}
+/* nested viz mounts inside a .viz-section don't re-animate */
+.viz-section .viz-section { animation: none; }
+
+/* small staggered cascade for the first few sections per page */
+.viz-section:nth-of-type(1) { animation-delay: 60ms; }
+.viz-section:nth-of-type(2) { animation-delay: 120ms; }
+.viz-section:nth-of-type(3) { animation-delay: 180ms; }
+.viz-section:nth-of-type(4) { animation-delay: 240ms; }
+.viz-section:nth-of-type(5) { animation-delay: 300ms; }
+
+/* --- landing nav-card stagger ------------------------------------- */
+@keyframes card-rise {
+  from { opacity: 0; transform: translateY(6px); }
+  to   { opacity: 1; transform: translateY(0);   }
+}
+.nav-cards .nav-card {
+  animation: card-rise 380ms cubic-bezier(0.2, 0.7, 0.2, 1) both;
+}
+.nav-cards .nav-card:nth-child(1) { animation-delay:  60ms; }
+.nav-cards .nav-card:nth-child(2) { animation-delay: 120ms; }
+.nav-cards .nav-card:nth-child(3) { animation-delay: 180ms; }
+.nav-cards .nav-card:nth-child(4) { animation-delay: 240ms; }
+.nav-cards .nav-card:nth-child(5) { animation-delay: 300ms; }
+
+/* --- arc-progress dot fill cascade on load ------------------------ */
+@keyframes dot-pop {
+  from { transform: scale(0.6); opacity: 0; }
+  to   { transform: scale(1);   opacity: 1; }
+}
+.arc-progress .dot {
+  animation: dot-pop 320ms cubic-bezier(0.34, 1.56, 0.64, 1) both;
+}
+.arc-progress .dot:nth-child(1) { animation-delay:  80ms; }
+.arc-progress .dot:nth-child(2) { animation-delay: 160ms; }
+.arc-progress .dot:nth-child(3) { animation-delay: 240ms; }
+.arc-progress .dot:nth-child(4) { animation-delay: 320ms; }
+.arc-progress .dot:nth-child(5) { animation-delay: 400ms; }
+
+/* --- hero h1 entry --- */
+@keyframes hero-rise {
+  from { opacity: 0; transform: translateY(10px); }
+  to   { opacity: 1; transform: translateY(0);    }
+}
+.landing-hero h1       { animation: hero-rise 520ms cubic-bezier(0.2, 0.7, 0.2, 1) both;             animation-delay:  40ms; }
+.landing-hero .tagline { animation: hero-rise 520ms cubic-bezier(0.2, 0.7, 0.2, 1) both;             animation-delay: 140ms; }
+.landing-hero p        { animation: hero-rise 520ms cubic-bezier(0.2, 0.7, 0.2, 1) both;             animation-delay: 220ms; }
+.landing-hero .cite    { animation: hero-rise 520ms cubic-bezier(0.2, 0.7, 0.2, 1) both;             animation-delay: 320ms; }
+
+/* --- focus ring (for keyboard users) ------------------------------ */
+.nav-card:focus-visible,
+.faq-item:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 3px;
+}
+
+/* --- prefers-reduced-motion: kill all decorative motion ----------- */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.001ms !important;
+    animation-delay: 0ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.001ms !important;
+    scroll-behavior: auto !important;
+  }
+  .nav-card:hover     { transform: none; }
+  .role-chip:hover    { transform: none; }
+  .ki-summary .cell:hover { transform: none; }
+}

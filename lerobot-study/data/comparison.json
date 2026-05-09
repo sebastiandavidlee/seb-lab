@@ -1,0 +1,206 @@
+{
+  "tags": ["v0.4.4", "v0.5.0"],
+  "released": {
+    "v0.4.4": "2026-02-27",
+    "v0.5.0": "2026-03-09"
+  },
+  "compare_url": "https://github.com/huggingface/lerobot/compare/v0.4.4...v0.5.0",
+  "release_notes_v050": "https://github.com/huggingface/lerobot/releases/tag/v0.5.0",
+  "release_blog_v050": "https://huggingface.co/blog/lerobot-release-v050",
+  "prs_between_tags": 26,
+  "days_between_tags": 11,
+
+  "python_min": {
+    "v0.4.4": "3.10",
+    "v0.5.0": "3.12"
+  },
+  "transformers_dep": {
+    "v0.4.4": ">=4.57.1,<5.0.0",
+    "v0.5.0": ">=5.3.0,<6.0.0"
+  },
+  "huggingface_hub_dep": {
+    "v0.4.4": "[hf-transfer,cli]>=0.34.2,<0.36.0",
+    "v0.5.0": ">=1.0.0,<2.0.0"
+  },
+  "numpy_dep": {
+    "v0.4.4": "unknown",
+    "v0.5.0": ">=2.0.0,<2.3.0"
+  },
+  "placo_dep": {
+    "v0.4.4": "<0.10.0",
+    "v0.5.0": "<0.9.17"
+  },
+
+  "policies_native": [
+    "act",
+    "diffusion",
+    "vqbet",
+    "tdmpc",
+    "sac",
+    "pi0",
+    "pi0_fast",
+    "pi05",
+    "smolvla",
+    "groot",
+    "sarm",
+    "wall_x",
+    "xvla",
+    "rtc"
+  ],
+  "policies_added_in_050": [
+    "pi_gemma (shared backbone module, not a registered policy — refactor target for pi0/pi05)"
+  ],
+  "policies_removed_in_050": [],
+  "available_policies_constant": {
+    "v0.4.4": ["act", "diffusion", "tdmpc", "vqbet"],
+    "v0.5.0": ["act", "diffusion", "tdmpc", "vqbet"],
+    "note": "Constant in src/lerobot/__init__.py:160 is stale in both tags; the real registry is the draccus ChoiceRegistry on PreTrainedConfig."
+  },
+
+  "diff_totals": {
+    "files_added": 8,
+    "files_removed": 2,
+    "files_modified": 96,
+    "removed_includes_directory": "examples/unitree_g1/ (2 scripts inside) plus 1 file"
+  },
+
+  "files_added": [
+    "AI_POLICY.md",
+    "src/lerobot/policies/pi_gemma.py",
+    "src/lerobot/robots/unitree_g1/g1_kinematics.py",
+    "src/lerobot/robots/unitree_g1/gr00t_locomotion.py",
+    "src/lerobot/robots/unitree_g1/holosoma_locomotion.py",
+    "tests/robots/test_unitree_g1.py",
+    "tests/teleoperators/test_unitree_g1_teleoperator.py",
+    "examples/dataset/slurm_compute_rabc.py"
+  ],
+  "files_removed": [
+    "src/lerobot/robots/unitree_g1/robot_kinematic_processor.py",
+    "examples/unitree_g1/gr00t_locomotion.py",
+    "examples/unitree_g1/holosoma_locomotion.py"
+  ],
+  "files_modified_count": 96,
+
+  "breaking_changes": [
+    {
+      "area": "python",
+      "detail": "min 3.10 -> 3.12",
+      "ref": "pyproject.toml:32",
+      "severity": "high",
+      "note": "Conda envs pinned to 3.10/3.11 will not install."
+    },
+    {
+      "area": "transformers",
+      "detail": "4.57.1 -> 5.3+",
+      "ref": "pyproject.toml:102",
+      "severity": "high",
+      "note": "Major-version bump; locally fine-tuned VLA / SmolVLA / pi05 / pi0_fast checkpoints loaded via from_pretrained may break."
+    },
+    {
+      "area": "pi0/pi05 image norm",
+      "detail": "[-1,1] -> [0,1] silent",
+      "ref": "src/lerobot/policies/pi0/modeling_pi0.py:194,205; src/lerobot/policies/pi05/modeling_pi05.py:192,203",
+      "severity": "high",
+      "note": "Silently changes preprocessing semantics; verify before trusting fine-tuned pi0/pi05 weights."
+    },
+    {
+      "area": "huggingface CLI",
+      "detail": "huggingface-cli renamed to hf",
+      "ref": "pyproject.toml:65 (extras dropped)",
+      "severity": "medium",
+      "note": "Affects user shell scripts only."
+    },
+    {
+      "area": "policy config kwarg",
+      "detail": "torch_dtype= -> dtype= in pi0/pi05 (transformers v5 rename)",
+      "ref": "policies/pi0/modeling_pi0.py; policies/pi05/modeling_pi05.py",
+      "severity": "low"
+    },
+    {
+      "area": "processor pipeline",
+      "detail": "pad_vector(state, max_state_dim) removed from pi05/pi0_fast processors; padding moved into modeling_pi05.pad_vector at action-tensor build time",
+      "ref": "policies/pi05/processor_pi05.py:25-72; policies/pi0_fast/processor_pi0_fast.py:25-72; policies/pi05/modeling_pi05.py:1210",
+      "severity": "low",
+      "note": "Only affects custom processors that subclassed these."
+    },
+    {
+      "area": "SAC reward model",
+      "detail": "helper2424/resnet10 fails to load under transformers v5 (lacks self.post_init())",
+      "ref": "src/lerobot/policies/sac/reward_model/configuration_classifier.py:36",
+      "severity": "medium",
+      "note": "Heads-up for HIL-SERL users."
+    }
+  ],
+
+  "added_features": [
+    {
+      "name": "cudnn_deterministic",
+      "where": "TrainPipelineConfig",
+      "ref": "src/lerobot/configs/train.py:53-55; src/lerobot/scripts/lerobot_train.py:212-216",
+      "pr": 3102,
+      "default": false,
+      "cost": "~10-20% throughput slowdown when enabled"
+    },
+    {
+      "name": "Unitree G1 WBC implementation",
+      "ref": "src/lerobot/robots/unitree_g1/{g1_kinematics.py, gr00t_locomotion.py, holosoma_locomotion.py}",
+      "pr": 2876,
+      "deps_added": ["unitree-sdk2==1.0.1"]
+    },
+    {
+      "name": "SLURM SARM RA-BC progress-annotation example",
+      "ref": "examples/dataset/slurm_compute_rabc.py",
+      "pr": 3041
+    },
+    {
+      "name": "ICLR 2026 paper citation",
+      "ref": "README.md:148-164",
+      "arxiv": "2602.22818"
+    },
+    {
+      "name": "AI_POLICY.md",
+      "ref": "AI_POLICY.md",
+      "scope": "contributor policy, no runtime impact"
+    },
+    {
+      "name": "pi_gemma shared backbone",
+      "ref": "src/lerobot/policies/pi_gemma.py",
+      "pr": 2964,
+      "scope": "compat layer for transformers v5 pulled out of pi0/pi05"
+    }
+  ],
+
+  "type_system_modernization": {
+    "summary": "PEP 695 native generics replace typing.TypeVar / Generic / TypeAlias across many files. Non-breaking for callers but compile-time errors on Python <3.12.",
+    "examples": [
+      "src/lerobot/datasets/utils.py:1236 — class Backtrackable[T]",
+      "src/lerobot/processor/pipeline.py:254 — class DataProcessorPipeline[TInput, TOutput](HubMixin)",
+      "src/lerobot/motors/motors_bus.py:41-42 — type NameOrID = str | int",
+      "src/lerobot/utils/io_utils.py:34 — def deserialize_json_into_object[T: JsonLike](...)"
+    ]
+  },
+
+  "factories": {
+    "make_policy":              "src/lerobot/policies/factory.py:405",
+    "make_policy_config":       "src/lerobot/policies/factory.py:140",
+    "make_pre_post_processors": "src/lerobot/policies/factory.py:213",
+    "get_policy_class":         "src/lerobot/policies/factory.py:60",
+    "make_dataset":             "src/lerobot/datasets/factory.py:71",
+    "make_env":                 "src/lerobot/envs/factory.py:102",
+    "make_env_config":          "src/lerobot/envs/factory.py:31",
+    "make_env_pre_post_processors": "src/lerobot/envs/factory.py:42",
+    "make_optimizer_and_scheduler": "src/lerobot/optim/factory.py:25",
+    "make_default_processors":  "src/lerobot/processor/factory.py:58",
+    "make_robot_from_config":   "src/lerobot/robots/utils.py:25",
+    "make_teleoperator_from_config": "src/lerobot/teleoperators/utils.py:36",
+    "make_cameras_from_configs": "src/lerobot/cameras/utils.py:25",
+    "note": "Per-policy make_<name>_pre_post_processors lives in each policy folder."
+  },
+
+  "ur20_act_diffusion_verdict": {
+    "summary": "Stay on v0.4.4 unless you need pi-Gemma / pi0 changes or cudnn_deterministic. ACT and Diffusion code is untouched between tags.",
+    "act_diffusion_changes": "zero changes under src/lerobot/policies/act/ or src/lerobot/policies/diffusion/",
+    "g1_isolation": "All Unitree G1 work is gated by robot.name == 'unitree_g1'; UR20 path untouched.",
+    "dataset_schema_change": "No v0.4.4 -> v0.5.0 schema change; both produce v3.0 datasets. v21->v30 conversion script tweaked but output schema unchanged."
+  }
+}

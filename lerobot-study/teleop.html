@@ -1,0 +1,607 @@
+<!doctype html>
+<html lang="en" data-theme="dark">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Robots &amp; how you control them — LeRobot Study</title>
+  <link rel="stylesheet" href="shared/styles.css" />
+  <script defer src="shared/site.js"></script>
+</head>
+<body>
+
+<header class="site-header">
+  <h1><a href="index.html">LeRobot Study</a></h1>
+  <div class="subtitle">A friendly tour of LeRobot 0.4.4 &rarr; 0.5.0 for SO-101 hobbyists.</div>
+</header>
+
+<main class="page-grid">
+  <aside id="site-nav" aria-label="Site navigation">
+    <!-- injected by site.js from shared/nav.html -->
+  </aside>
+
+  <article class="page-content">
+    <div class="reading-order" role="navigation" aria-label="Reading order">
+      <a href="anatomy.html">&larr; prev</a>
+      <span class="sep">&middot;</span>
+      <span>Robots &amp; how you control them</span>
+      <span class="sep">&middot;</span>
+      <a href="training.html">next &rarr;</a>
+    </div>
+
+    <div class="eyebrow">Robots &amp; teleop</div>
+
+    <h1>Robots &amp; how you control them</h1>
+
+    <p class="read-time">6 min read &middot; <span class="persona-tag">for SO-101 users</span></p>
+
+    <section class="tldr">
+      LeRobot supports three ways to drive a robot during recording: a
+      <strong>leader arm</strong> that mirrors your hand (the standard SO-101
+      setup), a <strong>keyboard or gamepad</strong> for simple cases, and a
+      <strong>phone</strong> for 6-DoF tracking. The 0.5.0 release added
+      Unitree G1 humanoid support but did not change the SO-101 path.
+    </section>
+
+    <p class="what-this-means">
+      What this means for you: if you record demos with an SO-101 leader arm
+      today, nothing in the upgrade affects you. If you ever want to move to a
+      different teleop style &mdash; keyboard, gamepad, phone &mdash; there's
+      first-class support already in the box.
+    </p>
+
+    <section class="mental-model">
+<pre>  Joint-mirror (SO-101, the common case)
+
+    you grip ──▶ leader arm ──▶ identical follower arm ──▶ motors move
+    (every joint angle is copied 1-for-1)
+
+
+  IK-mapped (phone, or any unmatched leader)
+
+    phone pose ──▶ 6-DoF target ──▶ inverse kinematics ──▶ joint angles
+    (where should the hand be?)        (solve for joints)
+
+
+  Cartesian-EE-delta (keyboard, gamepad)
+
+    key press ──▶ "move 1cm right" ──▶ inverse kinematics ──▶ joint angles
+    (nudge the end-effector)            (solve for joints)</pre>
+    </section>
+
+    <h2>The basics</h2>
+
+    <h3>What is a leader arm?</h3>
+    <p>
+      A smaller, kinematically identical twin of the follower robot. You grip
+      it with your hand and move it through the demo; the follower mirrors
+      every joint. Because the two arms have the same shape, no math is
+      needed &mdash; just copy joint angles. SO-101 ships with a leader; so
+      do Koch, OpenManipulator-X, OpenArm, and the bimanual setups.
+    </p>
+
+    <h3>Three teleop styles</h3>
+    <p>
+      <strong>Joint-mirror</strong> when your input has the same shape as the
+      robot (SO-101 leader). <strong>IK-mapped</strong> &mdash; IK is
+      <em>inverse kinematics</em>, "given a target gripper pose, solve for
+      joint angles" &mdash; for 6-DoF inputs like a phone.
+      <strong>Cartesian-EE-delta</strong> (EE = <em>end-effector</em>, the
+      gripper tip) for nudge-style inputs like keyboard or gamepad.
+    </p>
+
+    <h3>Hardware LeRobot supports</h3>
+    <p>
+      First-party drivers for SO-100/101, Koch v1.0/v1.1, OpenManipulator-X,
+      OpenArm (single and bimanual), LeKiwi (mobile arm), Hope Jr., Reachy 2,
+      Unitree G1, and the Earthrover Mini Plus rover. Twelve robots and
+      fourteen teleoperators in v0.5.0.
+    </p>
+
+    <h3>Cameras</h3>
+    <p>
+      Four backends: USB webcams (OpenCV), Intel RealSense (color + depth),
+      ZMQ-streamed remote cameras, and Reachy 2's built-in SDK stream.
+    </p>
+
+    <h2>How you actually use it</h2>
+
+    <p>The standard first-time SO-101 flow:</p>
+
+    <div class="workflow">
+<span class="wf-comment"># 1. Find which USB serial port each arm is on</span>
+<span class="wf-prompt"></span>lerobot-find-port
+
+<span class="wf-comment"># 2. Set motor IDs and baud rates (one motor at a time)</span>
+<span class="wf-prompt"></span>lerobot-setup-motors <span class="wf-flag">--robot.type</span>=so101_follower
+<span class="wf-prompt"></span>lerobot-setup-motors <span class="wf-flag">--teleop.type</span>=so101_leader
+
+<span class="wf-comment"># 3. Calibrate (mid-range homing, then full-range sweep)</span>
+<span class="wf-prompt"></span>lerobot-calibrate <span class="wf-flag">--robot.type</span>=so101_follower <span class="wf-flag">--robot.id</span>=my_follower
+
+<span class="wf-comment"># 4. Drive the follower from the leader (no recording)</span>
+<span class="wf-prompt"></span>lerobot-teleoperate <span class="wf-flag">--robot.type</span>=so101_follower <span class="wf-flag">--teleop.type</span>=so101_leader
+
+<span class="wf-comment"># 5. Record episodes into a LeRobotDataset</span>
+<span class="wf-prompt"></span>lerobot-record <span class="wf-flag">--robot.type</span>=so101_follower <span class="wf-flag">--teleop.type</span>=so101_leader \
+               <span class="wf-flag">--dataset.repo_id</span>=youruser/your-task <span class="wf-flag">--dataset.num_episodes</span>=50
+    </div>
+
+    <p>
+      Calibration is saved under
+      <code>~/.cache/huggingface/lerobot/calibration/</code>, so you only do
+      it once per arm. The teleop loop itself is three lines:
+      <code>obs = robot.get_observation()</code>;
+      <code>action = teleop.get_action()</code>;
+      <code>robot.send_action(action)</code>.
+    </p>
+
+    <h2>Things to know</h2>
+
+    <div class="callout callout-warn">
+      <div class="callout-title">Force feedback is essentially unimplemented</div>
+      <p>
+        Of the 14 teleoperators in the tree, every <code>send_feedback()</code>
+        call raises <code>NotImplementedError</code> except the Unitree G1's,
+        which only forwards wireless-remote bytes. There is no force, torque,
+        or vibration channel anywhere in the codebase. If you wanted true
+        bilateral teleop on SO-101, you'd be writing the loop yourself.
+      </p>
+    </div>
+
+    <div class="callout callout-info">
+      <div class="callout-title">For arms with no matching leader: phone or gamepad</div>
+      <p>
+        For an arm that doesn't ship with a leader, the natural fits are the
+        phone teleop (6-DoF tracking through ARKit on iOS or WebXR on Android)
+        or the gamepad/keyboard EE-delta routes. Both feed a generic IK
+        solver downstream.
+      </p>
+    </div>
+
+    <div class="callout callout-new">
+      <div class="callout-title">v0.5.0 added Unitree G1, didn't change SO-101</div>
+      <p>
+        The big v0.5.0 hardware story is the Unitree G1 humanoid getting a
+        real driver split: arm IK in one file, two swappable RL locomotion
+        controllers (NVIDIA GR00T at 50 Hz, Amazon FAR Holosoma at 200 Hz) in
+        their own files, and a much smaller robot module that just glues
+        them together. None of it touches the SO-101 path.
+      </p>
+    </div>
+
+    <div class="section-divider">Optional: under the hood</div>
+
+    <details class="deep-dive">
+      <summary>Show the full teleop taxonomy (every concrete teleop class)</summary>
+
+      <p>
+        <code>Teleoperator</code> ABC at
+        <span class="file-ref">src/lerobot/teleoperators/teleoperator.py:29</span>
+        declares: <code>action_features</code>, <code>feedback_features</code>,
+        <code>is_connected</code>, <code>connect()</code>,
+        <code>is_calibrated</code>, <code>calibrate()</code>,
+        <code>configure()</code>, <code>get_action() -&gt; RobotAction</code>,
+        <code>send_feedback(dict)</code>, <code>disconnect()</code>.
+        Calibration is JSON-persisted via draccus to
+        <code>HF_LEROBOT_CALIBRATION/teleoperators/&lt;name&gt;/&lt;id&gt;.json</code>
+        (<span class="file-ref">teleoperator.py:47-53</span>).
+      </p>
+
+      <p>
+        <code>Robot</code> ABC at
+        <span class="file-ref">src/lerobot/robots/robot.py:30</span> mirrors
+        that, swapping <code>get_action</code>&rarr;<code>get_observation</code>
+        and <code>send_feedback</code>&rarr;<code>send_action</code>. Both ABCs
+        are bytewise identical between 0.4.4 and 0.5.0.
+      </p>
+
+      <div class="table-wrap">
+        <table>
+          <thead>
+            <tr>
+              <th>Teleop</th>
+              <th>Style</th>
+              <th>DoF</th>
+              <th>Pairs with</th>
+              <th>file:line</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td><code>so_leader</code> (SO-100/101)</td>
+              <td>Joint-mirror</td>
+              <td>6&times; <code>&lt;joint&gt;.pos</code></td>
+              <td><code>so_follower</code></td>
+              <td><span class="file-ref">teleoperators/so_leader/so_leader.py:33</span>; calib <span class="file-ref">:88</span>; <code>get_action</code> <span class="file-ref">:140</span></td>
+            </tr>
+            <tr>
+              <td><code>koch_leader</code> (Koch v1.0/v1.1)</td>
+              <td>Joint-mirror (gripper trigger w/ haptic)</td>
+              <td>6&times; <code>.pos</code></td>
+              <td><code>koch_follower</code></td>
+              <td><span class="file-ref">teleoperators/koch_leader/koch_leader.py:34</span>; gripper trick <span class="file-ref">:150</span></td>
+            </tr>
+            <tr>
+              <td><code>bi_so_leader</code></td>
+              <td>Joint-mirror (bimanual)</td>
+              <td>12&times; <code>&lt;side&gt;_&lt;joint&gt;.pos</code></td>
+              <td><code>bi_so_follower</code></td>
+              <td><span class="file-ref">teleoperators/bi_so_leader/bi_so_leader.py:30</span>, <span class="file-ref">:97</span></td>
+            </tr>
+            <tr>
+              <td><code>omx_leader</code> (OpenManipulator-X)</td>
+              <td>Joint-mirror</td>
+              <td>6&times; <code>.pos</code></td>
+              <td><code>omx_follower</code></td>
+              <td><span class="file-ref">teleoperators/omx_leader/omx_leader.py:34</span></td>
+            </tr>
+            <tr>
+              <td><code>openarm_leader</code> (Enactic OpenArm)</td>
+              <td>Joint-mirror (CAN MIT-mode; torque exposed)</td>
+              <td>per-motor <code>.pos</code>, <code>.vel</code>, <code>.torque</code></td>
+              <td><code>openarm_follower</code></td>
+              <td><span class="file-ref">teleoperators/openarm_leader/openarm_leader.py:32</span>, <span class="file-ref">:57</span>, <span class="file-ref">:73</span></td>
+            </tr>
+            <tr>
+              <td><code>bi_openarm_leader</code></td>
+              <td>Joint-mirror (bimanual)</td>
+              <td>2&times; pos/vel/torque</td>
+              <td><code>bi_openarm_follower</code></td>
+              <td><span class="file-ref">teleoperators/bi_openarm_leader/bi_openarm_leader.py</span></td>
+            </tr>
+            <tr>
+              <td><code>openarm_mini</code></td>
+              <td>Joint-mirror (Feetech bimanual)</td>
+              <td>14&ndash;16&times; <code>.pos</code></td>
+              <td>OpenArm Mini follower</td>
+              <td><span class="file-ref">teleoperators/openarm_mini/openarm_mini.py:35</span></td>
+            </tr>
+            <tr>
+              <td><code>homunculus_arm</code></td>
+              <td>Joint-mirror, EMA-filtered (&alpha; = 2/(N+1), N=50)</td>
+              <td>7&times; <code>.pos</code></td>
+              <td><code>hope_jr_arm</code></td>
+              <td><span class="file-ref">teleoperators/homunculus/homunculus_arm.py:34</span>, <span class="file-ref">:57-75</span></td>
+            </tr>
+            <tr>
+              <td><code>homunculus_glove</code></td>
+              <td>Joint-translated (per-side flip lists)</td>
+              <td>~15+ finger joints</td>
+              <td><code>hope_jr_hand</code></td>
+              <td><span class="file-ref">teleoperators/homunculus/homunculus_glove.py:60</span></td>
+            </tr>
+            <tr>
+              <td><code>phone</code></td>
+              <td>6-DoF SE(3) pose &rarr; IK</td>
+              <td><code>phone.pos(3,)</code>, <code>phone.rot</code>, <code>raw_inputs</code>, <code>enabled</code></td>
+              <td>any IK-capable follower</td>
+              <td><span class="file-ref">teleoperators/phone/teleop_phone.py:72</span> iOS, <span class="file-ref">:211</span> Android, <span class="file-ref">:358</span> dispatcher</td>
+            </tr>
+            <tr>
+              <td><code>keyboard</code> / <code>keyboard_ee</code></td>
+              <td>Cartesian EE deltas</td>
+              <td>per-key axis</td>
+              <td>any IK-capable follower</td>
+              <td><span class="file-ref">teleoperators/keyboard/teleop_keyboard.py:51</span>, <span class="file-ref">:145</span></td>
+            </tr>
+            <tr>
+              <td><code>gamepad</code></td>
+              <td>Cartesian EE deltas (HID/pygame; HID forced on macOS)</td>
+              <td><code>delta_x/y/z (+gripper)</code></td>
+              <td>any IK-capable follower</td>
+              <td><span class="file-ref">teleoperators/gamepad/teleop_gamepad.py:44</span>, <span class="file-ref">:80</span></td>
+            </tr>
+            <tr>
+              <td><code>reachy2_teleoperator</code></td>
+              <td>Joint-mirror via SDK</td>
+              <td>~16 joints (neck 3, antennae 2, arms 2&times;8, base 3 vel)</td>
+              <td><code>reachy2</code></td>
+              <td><span class="file-ref">teleoperators/reachy2_teleoperator/reachy2_teleoperator.py:38-75</span></td>
+            </tr>
+            <tr>
+              <td><code>unitree_g1</code></td>
+              <td>IK-mapped (exo FK &rarr; G1 IK) + voice/buttons</td>
+              <td>14 G1 arm <code>.q</code> + 4 axes + 16 buttons</td>
+              <td><code>unitree_g1</code> robot</td>
+              <td><span class="file-ref">teleoperators/unitree_g1/unitree_g1.py:45</span>, <span class="file-ref">:159</span></td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+
+      <div class="callout callout-info">
+        <div class="callout-title">Doc-only / not in tree</div>
+        <p>
+          ALOHA leader has no dedicated dir in either version &mdash; the
+          ALOHA-style bimanual loop is realized through <code>bi_so_leader</code>
+          + <code>bi_so_follower</code>. There is no <code>vr_teleoperator</code>;
+          <code>phone</code> covers the head-mount-style pose stream (ARKit on
+          iOS, WebXR on Android via the dispatcher at
+          <span class="file-ref">teleop_phone.py:358</span>).
+        </p>
+      </div>
+
+      <h4>The follower side (12 robots)</h4>
+      <p>
+        All "arm" followers expose <code>action_features = {&lt;motor&gt;.pos:
+        float}</code> and observation = <code>&lt;motor&gt;.pos</code> &cup;
+        camera tuples. Control is <strong>joint-position goal at the bus
+        rate</strong> &mdash; torque is followed implicitly by the motor's PID
+        inside each servo. <code>so_follower</code> at
+        <span class="file-ref">robots/so_follower/so_follower.py:37</span>;
+        <code>koch_follower</code> at
+        <span class="file-ref">robots/koch_follower/koch_follower.py:37</span>;
+        <code>openarm_follower</code> (CAN-FD Damiao) at
+        <span class="file-ref">robots/openarm_follower/openarm_follower.py:39</span>;
+        <code>lekiwi</code> at
+        <span class="file-ref">robots/lekiwi/lekiwi.py:41</span>;
+        <code>reachy2</code> (gRPC SDK, no local motor bus) at
+        <span class="file-ref">robots/reachy2/robot_reachy2.py:75</span>;
+        <code>unitree_g1</code> (29-DoF, 250 Hz default) at
+        <span class="file-ref">robots/unitree_g1/unitree_g1.py:110</span>.
+      </p>
+
+      <div class="callout callout-warn">
+        <div class="callout-title">No global hardware time-sync</div>
+        <p>
+          No PTP, no GenICam. Each camera stamps on receiver-side capture;
+          <code>read_latest(max_age_ms)</code> is a freshness gate, not
+          cross-camera alignment. For multi-RealSense bin picking, drive both
+          cams off one <code>Pipeline</code> upstream &mdash; do not rely on
+          ZMQ stamps or independent <code>RealSenseCamera</code> instances for
+          sub-frame alignment.
+        </p>
+      </div>
+    </details>
+
+    <details class="deep-dive">
+      <summary>Show the v0.5.0 G1 refactor (g1_kinematics, gr00t_locomotion, holosoma_locomotion)</summary>
+
+      <p>
+        In v0.4.4 the G1 robot was monolithic: joystick byte-parser as inner
+        <code>UnitreeG1.RemoteController</code> class
+        (<span class="file-ref">v0.4.4/.../unitree_g1.py:75-91</span>); IK
+        imported from <code>robot_kinematic_processor.py</code>; no RL
+        locomotion path. v0.5.0 splits this into three pluggable pieces behind
+        a <code>LocomotionController</code> Protocol at
+        <span class="file-ref">unitree_g1.py:69-75</span>
+        (<code>control_dt</code>, <code>run_step</code>, <code>reset</code>);
+        the robot picks one via
+        <code>make_locomotion_controller(config.controller)</code> at
+        <span class="file-ref">g1_utils.py:66</span> &mdash; a string &rarr;
+        <code>importlib.import_module</code> switch on
+        <code>"GrootLocomotionController"</code> /
+        <code>"HolosomaLocomotionController"</code>.
+      </p>
+
+      <div class="compare-cols">
+        <div class="col-v044">
+          <span class="col-tag">v0.4.4</span>
+          <h4 style="margin-top:0">Single file, all-in-one</h4>
+          <p>
+            One <code>robot_kinematic_processor.py</code>, <strong>313 lines</strong>.
+            Kinematics and robot wiring in the same module. Joystick parser is
+            an inner class inside <code>UnitreeG1</code>. No RL locomotion path.
+          </p>
+<pre><code>src/lerobot/robots/unitree_g1/
+  robot_kinematic_processor.py   313 lines
+  unitree_g1.py                  RemoteController inline (:75-91)</code></pre>
+          <p>
+            IK math: <code>G1_29_ArmIK</code> in casadi/pinocchio, IPOPT
+            max_iter=50, smooth-cost regularizer,
+            <code>WeightedMovingFilter</code> backed by a list with
+            <code>pop(0)</code>. Convergence-failure handling is two branches
+            at
+            <span class="file-ref">v0.4.4/.../robot_kinematic_processor.py:275-294</span>.
+          </p>
+        </div>
+        <div class="col-v050">
+          <span class="col-tag">v0.5.0</span>
+          <h4 style="margin-top:0">Three pluggable modules</h4>
+<pre><code>src/lerobot/robots/unitree_g1/
+  g1_kinematics.py        287 lines  IK only
+  gr00t_locomotion.py     205 lines  NEW — NVIDIA GR00T-WBC ONNX, 50 Hz
+  holosoma_locomotion.py  214 lines  NEW — Amazon FAR Holosoma ONNX, 200 Hz
+  unitree_g1.py                       thin DDS↔dict bridge</code></pre>
+          <ul>
+            <li>
+              <strong><code>g1_kinematics.py</code></strong> &mdash; same
+              casadi/pinocchio IPOPT IK as before. <code>solve_ik</code> at
+              <span class="file-ref">src/lerobot/robots/unitree_g1/g1_kinematics.py:232</span>.
+            </li>
+            <li>
+              <strong><code>gr00t_locomotion.py</code></strong> &mdash; loads
+              NVIDIA GR00T-WBC ONNX policies. 86-D obs (cmd, height_cmd,
+              orientation_cmd, gyro, gravity, scaled qj/dqj over 29 joints,
+              15-D previous action), stacks 6 frames &rarr; 516-D, runs
+              balance for <code>&Vert;cmd&Vert; &lt; 0.05</code> else walk,
+              returns <code>target_dof_pos[:15]</code>.
+              <code>control_dt = 0.02 s</code> (50 Hz).
+            </li>
+            <li>
+              <strong><code>holosoma_locomotion.py</code></strong> &mdash;
+              Amazon FAR Holosoma <code>fastsac</code>/<code>ppo</code> ONNX
+              policies. 100-D obs (last_action 29, ang_vel 3, cmd 3, sin/cos
+              phase 4, qj 29, dqj 29, gravity 3); 200 Hz
+              (<code>CONTROL_DT = 0.005</code>).
+            </li>
+          </ul>
+          <p>
+            Cleanups: <code>WeightedMovingFilter</code> uses
+            <code>deque(maxlen=window)</code> instead of list+<code>pop(0)</code>
+            (<span class="file-ref">g1_kinematics.py:32</span>); convolve-loop
+            replaced by <code>data_array.T @ self._weights</code>
+            (<span class="file-ref">:39</span>). Identical math, less LOC.
+          </p>
+        </div>
+      </div>
+
+      <div class="callout callout-new">
+        <div class="callout-title">The cleanest locomanipulation pattern in the repo</div>
+        <p>
+          <strong>Holosoma's "zero arm obs" trick.</strong> Inside
+          <code>run_step</code>, before policy inference, the controller
+          overwrites the arm-joint slots in <code>qj</code> / <code>dqj</code>
+          with <code>DEFAULT_ANGLES</code> and zeros at
+          <span class="file-ref">src/lerobot/robots/unitree_g1/holosoma_locomotion.py:161-163</span>.
+          Intentional: hides the teleop's arm motion from the locomotion
+          policy so the legs don't react when the operator drives the arms.
+          Whole-body teleop becomes additive &mdash; the legs balance the
+          body, the operator owns the arms.
+        </p>
+      </div>
+
+      <p>
+        Teleop-side complement: v0.4.4 had the joystick parser inside the
+        robot; v0.5.0 moves it into
+        <span class="file-ref">teleoperators/unitree_g1/unitree_g1.py:45</span>
+        &mdash; a bigger <code>RemoteController</code> handling both the
+        official wireless dongle (<code>set_from_wireless</code> parses
+        24-byte packets via <code>unitree_sdk2py.utils.joystick.Joystick</code>)
+        AND a 12-bit ADC exoskeleton-mounted joystick
+        (<code>set_from_exo</code>). Wireless takes priority when non-zero
+        (<span class="file-ref">:285-290</span>).
+        <span class="file-ref">scripts/lerobot_teleoperate.py:166</span> adds a
+        G1-specific <code>teleop.send_feedback(obs)</code> so wireless bytes
+        flow back to the teleop each loop &mdash; the only such backchannel in
+        the codebase.
+      </p>
+    </details>
+
+    <details class="deep-dive">
+      <summary>Show motor drivers and bus protocols (Dynamixel, Feetech, Damiao, Robstride)</summary>
+
+      <p>
+        Two layers under <code>src/lerobot/motors/</code>:
+        <code>MotorsBusBase</code> ABC at
+        <span class="file-ref">motors/motors_bus.py:47</span>
+        (<code>connect</code>, <code>read/write</code>,
+        <code>sync_read/sync_write</code>); <code>SerialMotorsBus</code>
+        concrete UART at
+        <span class="file-ref">motors/motors_bus.py:292</span> (handshake,
+        sync-read groups, <code>set_half_turn_homings</code>,
+        <code>record_ranges_of_motion</code>).
+      </p>
+
+      <div class="table-wrap">
+        <table>
+          <thead>
+            <tr>
+              <th>Driver</th>
+              <th>Inherits</th>
+              <th>Bus protocol</th>
+              <th>Used by</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td><code>FeetechMotorsBus</code> <span class="file-ref">motors/feetech/feetech.py:98</span></td>
+              <td><code>SerialMotorsBus</code></td>
+              <td>UART/RS-485 half-duplex via <code>pyserial</code> + Feetech SCS</td>
+              <td>so_*, bi_so_*, hope_jr_*, lekiwi, openarm_mini</td>
+            </tr>
+            <tr>
+              <td><code>DynamixelMotorsBus</code> <span class="file-ref">motors/dynamixel/dynamixel.py:102</span></td>
+              <td><code>SerialMotorsBus</code></td>
+              <td>Dynamixel 2.0 via <code>dynamixel_sdk</code></td>
+              <td>koch_*, omx_*</td>
+            </tr>
+            <tr>
+              <td><code>DamiaoMotorsBus</code> <span class="file-ref">motors/damiao/damiao.py:76</span></td>
+              <td><code>MotorsBusBase</code> directly (no serial)</td>
+              <td><strong>CAN(-FD)</strong> via <code>python-can</code>, MIT mode only</td>
+              <td>openarm_*, bi_openarm_*</td>
+            </tr>
+            <tr>
+              <td><code>RobstrideMotorsBus</code> <span class="file-ref">motors/robstride/robstride.py:67</span></td>
+              <td><code>MotorsBusBase</code></td>
+              <td>CAN MIT-mode</td>
+              <td><em>No shipped robot uses it</em> &mdash; available for custom integrations</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+
+      <p>
+        Calibration GUI <code>motors/calibration_gui.py</code> is used only by
+        Hope-Jr (<span class="file-ref">robots/hope_jr/hope_jr_arm.py:23</span>,
+        <code>RangeFinderGUI</code>); other arms use the text flow.
+        <code>motors_bus.py</code> is unchanged across versions except
+        <code>TypeAlias</code> &rarr; PEP 695 <code>type</code> at
+        <span class="file-ref">motors/motors_bus.py:41-42</span>.
+      </p>
+
+      <h4>Camera backends</h4>
+      <p>
+        <code>Camera</code> ABC at
+        <span class="file-ref">src/lerobot/cameras/camera.py:26</span>:
+        <code>read()</code>, <code>async_read(timeout_ms=200)</code>,
+        <code>read_latest(max_age_ms=...)</code>,
+        <code>connect/disconnect</code>. <code>OpenCVCamera</code>
+        (<span class="file-ref">cameras/opencv/camera_opencv.py:52</span>),
+        <code>RealSenseCamera</code>
+        (<span class="file-ref">cameras/realsense/camera_realsense.py:44</span>;
+        <code>read_depth</code> at <span class="file-ref">:323</span>;
+        depth+color hardware-aligned by RealSense pipeline),
+        <code>ZMQCamera</code>
+        (<span class="file-ref">cameras/zmq/camera_zmq.py:47</span>; receives
+        base64-JPEG + JSON metadata), <code>Reachy2Camera</code>
+        (SDK-managed gRPC stream).
+      </p>
+
+      <div class="callout callout-new">
+        <div class="callout-title">v0.5.0 ZMQ camera change</div>
+        <p>
+          At <span class="file-ref">src/lerobot/cameras/zmq/image_server.py:46</span>,
+          v0.5.0 adds a <code>CameraCaptureThread</code> that reads +
+          JPEG-encodes in the background so the publish socket isn't blocked
+          by encode latency. v0.4.4 encoded synchronously. This is the only
+          architectural camera change between versions.
+        </p>
+      </div>
+
+      <h4>Force feedback gap (the data path exists, the loop doesn't)</h4>
+      <p>
+        Across all 14 concrete teleops, every <code>send_feedback()</code>
+        raises <code>NotImplementedError</code> <em>except</em>
+        <code>unitree_g1.send_feedback</code> at
+        <span class="file-ref">teleoperators/unitree_g1/unitree_g1.py:295</span>,
+        which only forwards the wireless-remote raw bytes. There is no force,
+        torque, or vibration channel anywhere in the codebase.
+      </p>
+      <p>
+        The OpenArm leader is the closest thing to ready: it exposes
+        <code>.torque</code> in <code>action_features</code> at
+        <span class="file-ref">teleoperators/openarm_leader/openarm_leader.py:73</span>,
+        and the Damiao MIT-mode CAN driver
+        (<span class="file-ref">motors/damiao/damiao.py:76</span>) reads/writes
+        torque on the same bus. The data path exists; the bilateral loop does
+        not.
+      </p>
+    </details>
+
+    <div class="next-up">
+      <strong>Where to go next &rarr;</strong>
+      <p>
+        <a href="training.html">Training a policy</a> &mdash; what
+        <code>lerobot-train</code> actually does with the dataset you just
+        recorded, and the knobs that matter for SO-101.
+      </p>
+    </div>
+
+  </article>
+</main>
+
+<button id="to-top" aria-label="Back to top" title="Back to top">&uarr;</button>
+
+<footer class="site-footer">
+  <div>Built 2026-05-08 &middot; pinned tags
+    <a href="https://github.com/huggingface/lerobot/tree/v0.4.4" target="_blank" rel="noopener">v0.4.4</a>
+    /
+    <a href="https://github.com/huggingface/lerobot/tree/v0.5.0" target="_blank" rel="noopener">v0.5.0</a>
+    &middot; <a href="https://github.com/huggingface/lerobot/compare/v0.4.4...v0.5.0" target="_blank" rel="noopener">compare</a>
+  </div>
+</footer>
+
+</body>
+</html>

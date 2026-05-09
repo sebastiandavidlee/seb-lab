@@ -1,0 +1,271 @@
+<!doctype html>
+<html lang="en" data-theme="dark">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>LeRobot Study: 0.4.4 vs 0.5.0</title>
+  <link rel="stylesheet" href="shared/styles.css" />
+  <script defer src="shared/site.js"></script>
+</head>
+<body>
+
+<header class="site-header">
+  <h1><a href="index.html">LeRobot Study</a></h1>
+  <div class="subtitle">A friendly tour of LeRobot 0.4.4 &rarr; 0.5.0 for SO-101 hobbyists.</div>
+</header>
+
+<main class="page-grid">
+  <aside id="site-nav" aria-label="Site navigation">
+    <!-- injected by site.js from shared/nav.html -->
+  </aside>
+
+  <article class="page-content">
+
+    <div class="reading-order" role="navigation" aria-label="Reading order">
+      <a href="#">start</a>
+      <span class="sep">&middot;</span>
+      <span>Start here</span>
+      <span class="sep">&middot;</span>
+      <a href="anatomy.html">next &rarr;</a>
+    </div>
+
+    <!-- BLOCK: HERO -->
+    <section class="hero">
+      <span class="eyebrow">Start here</span>
+      <h1>LeRobot for SO-101 users</h1>
+      <p class="hero-sub">
+        A friendly tour of LeRobot 0.4.4 &rarr; 0.5.0 for hobbyists who use the
+        CLI but haven't dug into the code.
+      </p>
+      <p class="hero-verdict">
+        Pick a path below. Each card takes you to one focused page &mdash; no
+        wall of source-code references, no assumed Python deep-dive.
+      </p>
+    </section>
+
+    <!-- BLOCK: TLDR -->
+    <section class="tldr">
+      <p>
+        If you train ACT or Diffusion policies on your SO-101 today, your code
+        didn't change between 0.4.4 and 0.5.0 &mdash; it's byte-for-byte the
+        same. The upgrade asks you to rebuild your Python environment for
+        changes that won't help most hobbyists. <strong>Stay on 0.4.4 unless
+        you specifically want the &pi;0 / &pi;0.5 refactor.</strong>
+      </p>
+    </section>
+
+    <!-- BLOCK: HERO CARD GRID -->
+    <section class="hero-card-grid">
+
+      <a class="hero-card" href="anatomy.html">
+        <div class="eyebrow">New here</div>
+        <div class="hc-title">I'm new &mdash; what is LeRobot?</div>
+        <p class="hc-sub">
+          The 5 pieces you actually use, mapped in plain language. Start with
+          the big picture before any code.
+        </p>
+        <span class="hc-arrow">How LeRobot is organized &rarr;</span>
+      </a>
+
+      <a class="hero-card" href="training.html">
+        <div class="eyebrow">Just use the CLI</div>
+        <div class="hc-title">What does <code>lerobot-train</code> actually do?</div>
+        <p class="hc-sub">
+          A walkthrough of the training loop you've been kicking off, with the
+          knobs that actually matter for SO-101.
+        </p>
+        <span class="hc-arrow">Training a policy &rarr;</span>
+      </a>
+
+      <a class="hero-card" href="changelog.html">
+        <div class="eyebrow">Upgrade decision</div>
+        <div class="hc-title">Should I upgrade from 0.4.4?</div>
+        <p class="hc-sub">
+          What changed between 0.4.4 and 0.5.0, who should care, and the one
+          silent gotcha to watch for.
+        </p>
+        <span class="hc-arrow">Should I upgrade? &rarr;</span>
+      </a>
+
+      <a class="hero-card" href="rl-on-top.html">
+        <div class="eyebrow">Advanced</div>
+        <div class="hc-title">Can I add RL to my trained policy?</div>
+        <p class="hc-sub">
+          What "RL on top of imitation learning" means in LeRobot today, and
+          what would need to be built to get there.
+        </p>
+        <span class="hc-arrow">RL on top &rarr;</span>
+      </a>
+
+    </section>
+
+    <!-- BLOCK: AT-A-GLANCE -->
+    <section>
+      <h2>At a glance</h2>
+      <div class="table-wrap">
+        <table>
+          <tbody>
+            <tr>
+              <td><strong>Versions compared</strong></td>
+              <td>0.4.4 (Feb 27, 2026) &rarr; 0.5.0 (Mar 9, 2026), 26 PRs apart</td>
+            </tr>
+            <tr>
+              <td><strong>Policies you can train natively</strong></td>
+              <td>14 (ACT, Diffusion, SmolVLA, &pi;0, &pi;0.5, VQ-BeT, TDMPC, SAC, &hellip;)</td>
+            </tr>
+            <tr>
+              <td><strong>Hardware supported</strong></td>
+              <td>SO-100, SO-101, Koch, ALOHA, Reachy 2, Unitree G1, LeKiwi, OpenArm</td>
+            </tr>
+            <tr class="row-highlight">
+              <td><strong>Verdict for ACT / Diffusion users</strong></td>
+              <td>Stay on 0.4.4. Your training code is unchanged.</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </section>
+
+    <!-- BLOCK: TOPIC GUIDE -->
+    <section>
+      <h2>Topic guide</h2>
+      <p style="color: var(--text-soft); margin-top: 0.4em;">
+        Eight pages, one question each. Read in order or jump to what you need.
+      </p>
+      <div class="hero-card-grid">
+
+        <a class="hero-card" href="anatomy.html">
+          <div class="hc-title">How LeRobot is organized</div>
+          <p class="hc-sub">The 5 pieces you actually use &mdash; robots, teleop, datasets, policies, scripts.</p>
+          <span class="hc-arrow">Open &rarr;</span>
+        </a>
+
+        <a class="hero-card" href="teleop.html">
+          <div class="hc-title">Robots &amp; how you control them</div>
+          <p class="hc-sub">Leader-follower teleop, joint mirroring vs IK, and how little force feedback ships today.</p>
+          <span class="hc-arrow">Open &rarr;</span>
+        </a>
+
+        <a class="hero-card" href="training.html">
+          <div class="hc-title">Training a policy</div>
+          <p class="hc-sub">What <code>lerobot-train</code> actually does, plus the knobs worth tuning for SO-101.</p>
+          <span class="hc-arrow">Open &rarr;</span>
+        </a>
+
+        <a class="hero-card" href="data.html">
+          <div class="hc-title">Where your data lives</div>
+          <p class="hc-sub">Episodes, parquet, MP4s, and the index card that ties them together.</p>
+          <span class="hc-arrow">Open &rarr;</span>
+        </a>
+
+        <a class="hero-card" href="inference.html">
+          <div class="hc-title">Running a trained policy</div>
+          <p class="hc-sub">How real-time inference works on your robot &mdash; including the GPU-on-the-side setup.</p>
+          <span class="hc-arrow">Open &rarr;</span>
+        </a>
+
+        <a class="hero-card" href="rl-on-top.html">
+          <div class="hc-title">Can I add RL to my policy?</div>
+          <p class="hc-sub">What's actually shipping for reinforcement learning, and the &pi;0.6 question.</p>
+          <span class="hc-arrow">Open &rarr;</span>
+        </a>
+
+        <a class="hero-card" href="ecosystem.html">
+          <div class="hc-title">What plugs in</div>
+          <p class="hc-sub">GR00T, V-JEPA, UMI, world models &mdash; what's already supported and what's still external.</p>
+          <span class="hc-arrow">Open &rarr;</span>
+        </a>
+
+        <a class="hero-card" href="changelog.html">
+          <div class="hc-title">Should I upgrade from 0.4.4?</div>
+          <p class="hc-sub">8 files added, 2 removed, 96 modified &mdash; what it means for your stack.</p>
+          <span class="hc-arrow">Open &rarr;</span>
+        </a>
+
+      </div>
+    </section>
+
+    <!-- BLOCK: GLOSSARY -->
+    <section class="glossary">
+      <h2 style="margin-top: 0; border: 0; padding: 0;">Glossary</h2>
+      <p style="color: var(--text-soft); margin-top: 0.3em;">
+        Terms you'll see across the site.
+      </p>
+      <dl>
+        <dt>Policy</dt>
+        <dd>The trained brain that maps what the robot sees (camera frames + joint positions) to what it should do next (motor commands).</dd>
+
+        <dt>Imitation learning (IL)</dt>
+        <dd>You record human demonstrations, then train a policy to copy them. ACT, Diffusion, SmolVLA all work this way.</dd>
+
+        <dt>Reinforcement learning (RL)</dt>
+        <dd>The robot tries actions, gets a reward signal, and learns from trial and error. SAC and TDMPC are LeRobot's RL options.</dd>
+
+        <dt>HIL-SERL</dt>
+        <dd>"Human-in-the-loop SERL" &mdash; a human supervises and corrects the robot while it learns by RL. Shipped, but starts from scratch (no IL warm-start).</dd>
+
+        <dt>Action chunk</dt>
+        <dd>A short sequence of future motor commands the policy predicts at once (e.g. the next 50 steps), instead of one step at a time. Smoother and faster.</dd>
+
+        <dt>ACT</dt>
+        <dd>Action Chunking Transformer. A small transformer policy that predicts action chunks. The bread-and-butter SO-101 baseline.</dd>
+
+        <dt>Diffusion Policy</dt>
+        <dd>A policy that generates action chunks by iteratively denoising random noise, the way image diffusion models generate pictures.</dd>
+
+        <dt>SmolVLA, &pi;0, &pi;0.5, GR00T</dt>
+        <dd>Vision-language-action models &mdash; bigger policies that take a text instruction plus camera frames and output actions. Mostly fine-tuned from Hub checkpoints.</dd>
+
+        <dt>LeRobotDataset</dt>
+        <dd>LeRobot's standard recording format: a folder of parquet tables (joint positions, actions) plus MP4 videos, with an index card describing the schema.</dd>
+
+        <dt>Episode</dt>
+        <dd>One continuous demonstration &mdash; from "start recording" to "stop recording." A dataset is a stack of episodes.</dd>
+
+        <dt>Hub</dt>
+        <dd>The Hugging Face Hub. Where pretrained policies and public datasets live. <code>lerobot-train</code> can pull either by name.</dd>
+
+        <dt>Teleoperator / leader arm</dt>
+        <dd>The smaller arm a human moves by hand. The larger "follower" arm copies it. Demonstrations are recorded by teleoperating.</dd>
+
+        <dt>Async inference</dt>
+        <dd>Two programs talking over the network: one on the robot, one on a GPU box. Camera frames go one way, motor commands the other.</dd>
+
+        <dt>RTC</dt>
+        <dd>Real-Time Chunking. An inference trick that smooths the seam between consecutive action chunks for flow-matching policies (&pi;0, &pi;0.5, SmolVLA).</dd>
+
+        <dt>ONNX</dt>
+        <dd>A portable format for trained neural networks. LeRobot uses an ONNX runtime for the Unitree G1 whole-body controller.</dd>
+      </dl>
+    </section>
+
+    <!-- BLOCK: NEXT UP -->
+    <section class="next-up">
+      <strong>Where to go next &rarr;</strong>
+      <p>
+        New to LeRobot? Start with
+        <a href="anatomy.html">How LeRobot is organized</a> &mdash; the 5
+        pieces you actually use.
+      </p>
+      <p>
+        Just here for the upgrade decision? Jump to
+        <a href="changelog.html">Should I upgrade from 0.4.4?</a>
+      </p>
+    </section>
+
+  </article>
+</main>
+
+<button id="to-top" aria-label="Back to top" title="Back to top">&uarr;</button>
+
+<footer class="site-footer">
+  <div>Built 2026-05-08 &middot; pinned tags
+    <a href="https://github.com/huggingface/lerobot/tree/v0.4.4" target="_blank" rel="noopener">v0.4.4</a>
+    /
+    <a href="https://github.com/huggingface/lerobot/tree/v0.5.0" target="_blank" rel="noopener">v0.5.0</a>
+    &middot; <a href="https://github.com/huggingface/lerobot/compare/v0.4.4...v0.5.0" target="_blank" rel="noopener">compare</a>
+  </div>
+</footer>
+
+</body>
+</html>

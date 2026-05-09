@@ -1,0 +1,126 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>&pi;&#x2080; Workshop &mdash; Page 4: Knowledge Insulation</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+  <header class="page-header">
+    <nav class="page-nav">
+      <a href="index.html">index</a>
+      <a href="page1.html">1. Substrate</a>
+      <a href="page2.html">2. &pi;&#x2080;</a>
+      <a href="page3.html">3. FAST</a>
+      <a href="page4.html">4. KI</a>
+      <a href="page5.html">5. &pi;&#x2080;.5</a>
+    </nav>
+    <div class="arc-progress" aria-label="page progress">
+      <span class="dot" title="1. Substrate"></span>
+      <span class="dot" title="2. &pi;&#x2080;"></span>
+      <span class="dot" title="3. FAST"></span>
+      <span class="dot" title="4. KI"></span>
+      <span class="dot" title="5. &pi;&#x2080;.5"></span>
+      <span class="label">page 4 of 5 &middot; the climax</span>
+    </div>
+    <h1>Page 4 &mdash; Knowledge Insulation: Two Gradients, One Backbone</h1>
+  </header>
+
+  <main>
+    <section class="page-intro">
+      <p><strong>Where you are.</strong> This is the climax. Pages 2 and 3 set up the problem: a continuous flow head needs to coexist with discrete language priors on the same backbone, and a noisy flow gradient backpropagated into a 3B VLM erodes those priors. KI is the answer to that.</p>
+      <p><strong>Knowledge Insulation does roughly the opposite of what the name suggests. The VLM is <em>not</em> frozen. It trains.</strong> What's insulated is the path back from the flow-matching loss &mdash; that gradient is detached at the boundary, so the action expert's high-variance signal can't corrupt the VLM's language priors. A FAST cross-entropy head provides clean discrete supervision in its place. The VLM sees clean signal from three sources (language data, web VQA, FAST-CE on the action chunk); the action expert sees the noisy flow loss and keeps it to itself. <span class="cite">[KI paper, arXiv 2505.23705]</span></p>
+      <aside class="callout-quote">
+        <strong>What you'll see:</strong> a gradient-flow diagram (KI1) showing the stop-gradient barrier and the auxiliary FAST-CE path that <em>does</em> flow back into the VLM, and a train-vs-inference toggle (TI1) showing that FAST tokens are predicted only at training and never emitted at runtime.
+      </aside>
+      <p class="cite">Sources: KI paper (arXiv 2505.23705); &pi;&#x2080;.5 paper (arXiv 2504.16054); Pertsch (PI), X/Twitter, April 2025.</p>
+    </section>
+
+    <!-- ============================== KI summary cards ============================== -->
+    <section class="ki-summary">
+      <div class="cell cell-vlm">
+        <h4>VLM (PaliGemma) <span class="grad-tag ce-grad">trained</span></h4>
+        <p>Receives gradients from <strong>(1)</strong> the language / web data losses and <strong>(2)</strong> the FAST-token cross-entropy auxiliary head. Does <em>not</em> receive gradients from the flow-matching loss. The VLM is not frozen &mdash; it is selectively shielded.</p>
+      </div>
+      <div class="cell cell-aux">
+        <h4>FAST-CE auxiliary head <span class="grad-tag ce-grad">trained</span></h4>
+        <p>A discrete categorical head sitting on the VLM. Predicts the FAST-tokenized version of the same action chunk the flow expert is regressing toward. Cross-entropy loss; gradients <em>do</em> flow back into the VLM.</p>
+      </div>
+      <div class="cell cell-expert">
+        <h4>Action expert (flow head) <span class="grad-tag flow-grad">trained</span></h4>
+        <p>Reads VLM features through a stop-gradient. Updates its own weights from the flow-matching loss. Its gradient never crosses back into the VLM. <strong>Runtime output is continuous flow &mdash; FAST tokens are NEVER decoded at inference.</strong></p>
+      </div>
+    </section>
+
+    <!-- ============================== KI1 — gradient flow ============================== -->
+    <article class="viz-section">
+      <header>
+        <h2>KI1 &mdash; Where gradients flow, and where they don't</h2>
+        <p class="purpose">Toggle pretrain &pi;&#x2080; / finetune &pi;&#x2080; / KI &pi;&#x2080;.5 train / KI &pi;&#x2080;.5 inference. Watch the backward arrows recolor and disappear.</p>
+      </header>
+      <div class="viz-body wrap wrap--wide">
+        <div class="viz-section" id="viz-knowledge_insulation_gradients" data-viz="knowledge_insulation_gradients"></div>
+      </div>
+      <div class="viz-explanation">
+        <p>Why is the asymmetry necessary? The flow-matching loss has <em>time-dependent variance</em>: it spikes near &tau;=0 (predicting the mean is ill-defined when noise dominates) and near &tau;=1 (the residual is small but high-frequency). Backpropagating that high-variance, non-stationary gradient into the VLM erodes its language priors during co-training. <strong>The VLM is the crown jewel. The training recipe exists to protect it.</strong></p>
+        <p>KI's two-piece insulation:</p>
+        <ol>
+          <li><strong>Stop-gradient at the VLM &rarr; action-expert interface.</strong> The action expert reads VLM features (forward pass: clean activations flow). The action expert's flow loss propagates inside the action expert's own weights but is <em>detached</em> at the boundary &mdash; it does not flow into the VLM. Concretely: a <code>stop_gradient()</code> wraps the VLM features the action expert consumes.</li>
+          <li><strong>FAST-token cross-entropy auxiliary head, hung off the VLM.</strong> The same action chunk the flow expert regresses against is also FAST-tokenized; an auxiliary head on the VLM predicts those discrete tokens via standard next-token CE. <em>This</em> gradient does flow back into the VLM. So the VLM still receives an action-relevant learning signal &mdash; but as a clean, stationary, low-variance categorical signal, not a noisy velocity-field signal.</li>
+        </ol>
+        <blockquote>&ldquo;Training with discrete FAST action tokenization now powers all of our pre-training in &pi;0.5!&rdquo; <span class="cite">&mdash; Karl Pertsch (PI / FAST first author), X / Twitter, April 2025</span></blockquote>
+        <p>This is why the Pertsch quote matters precisely: <em>pre-training</em>, not inference. The VLM is co-trained on a heterogeneous mixture (language, web VQA, object detection, FAST-CE on actions) all of which contribute clean gradients. The action expert is co-trained on flow matching, isolated. Two gradients, one backbone, one direction of leakage. <span class="cite">[KI &sect;3]</span></p>
+        <aside class="callout-quote">
+          <strong>What the viz shows:</strong> in KI &pi;&#x2080;.5 train mode, the VLM is colored <span class="role-chip role-trained">trained</span>; the action expert is colored <span class="role-chip role-trained">trained</span>. <em>No box is colored frozen.</em> What changes is the backward-pass arrows: a dashed gradient arrow goes from FAST-CE up into the VLM; a separate gradient arrow from the flow loss is blocked at the boundary by a <span style="color:var(--ar-coral); font-weight:600;">||</span> stop-gradient bar. In inference mode, the FAST head and its arrows disappear entirely.
+        </aside>
+        <p class="cite">Sources: KI paper &sect;3 (arXiv 2505.23705); fast_deep_dive_2026-04-14.md &sect;4.</p>
+      </div>
+    </article>
+
+    <!-- ============================== TI1 — train vs inference ============================== -->
+    <article class="viz-section">
+      <header>
+        <h2>TI1 &mdash; Train-time vs inference-time data flow</h2>
+        <p class="purpose">Same network, two paths. At training, both heads fire. At inference, only the flow head emits.</p>
+      </header>
+      <div class="viz-body wrap wrap--wide">
+        <div class="viz-section" id="viz-train_vs_inference_toggle" data-viz="train_vs_inference_toggle"></div>
+      </div>
+      <div class="viz-explanation">
+        <p>The four common misreadings, in order of frequency:</p>
+        <ul>
+          <li><strong>&ldquo;FAST is the inference path.&rdquo;</strong> No. At inference, only the flow-matching action expert runs. The FAST auxiliary head is dead weight at deployment &mdash; only its representational shaping of the VLM during training carries forward.</li>
+          <li><strong>&ldquo;KI = freeze the VLM.&rdquo;</strong> No. The VLM is updated by language losses, web data, and FAST-CE. It is not updated by the flow-matching loss. The selective protection is the trick.</li>
+          <li><strong>&ldquo;FAST tokens are decoded then converted to actions at inference.&rdquo;</strong> No. There is no FAST decoding step at inference in &pi;&#x2080;.5 / KI. Continuous flow is the runtime artifact.</li>
+          <li><strong>&ldquo;The action expert and VLM are separate transformers.&rdquo;</strong> No (carry-over from Page 2). They are two parameter sets inside one transformer. Stop-gradient is applied at the VLM features the action-expert tokens read &mdash; one tensor cut, not a structural separation.</li>
+        </ul>
+        <p>One honest open question. KI's ablations remove the FAST-token aux loss, the stop-gradient, or the co-training data. The biggest performance drop comes from removing the <em>aux loss</em>, suggesting the discrete categorical target is doing more representational work than the stop-gradient itself. The KI paper does <em>not</em> ablate against LoRA-only or adapter-only fine-tuning. VLM2VLA directly rebuts with &ldquo;simpler LoRA works.&rdquo; Whether KI is uniquely necessary or just one valid solution is unsettled in the public literature. <span class="cite">[fast_deep_dive_2026-04-14.md &sect;4.4; pi_papers_multiagent_discussion_2026-04-14.md Round 2]</span></p>
+        <aside class="callout-quote">
+          <strong>What the viz shows:</strong> toggle &ldquo;train&rdquo; vs &ldquo;inference&rdquo;. In train mode both heads light up with their loss arrows. In inference mode the FAST head fades to grey and only the flow path runs. Below: the same network at both modes, color-coded by which weights see gradient.
+        </aside>
+        <p class="cite">Sources: KI paper &sect;3, &sect;4 (arXiv 2505.23705); &pi;&#x2080;.5 paper &sect;3 (arXiv 2504.16054).</p>
+      </div>
+    </article>
+
+    <!-- ============================== Closing punchline + bridge ============================== -->
+    <section class="page-intro">
+      <p><strong>One sentence to leave with.</strong> The same network sees three loss signals. Two of them train the VLM (language / web data, plus FAST cross-entropy on the action chunk). One trains the action expert (flow matching). <em>The flow gradient never crosses.</em> That is the whole mechanism &mdash; one tensor cut at one boundary, plus a clean discrete supervisor on the VLM side. Everything Page 5 says about co-training, data mixtures, and open-world generalization rests on this single asymmetry.</p>
+      <aside class="callout-quote">
+        <strong>Bridge to Page 5.</strong> With KI as the recipe and FAST tokens as the auxiliary signal, you can co-train on web data + cross-embodiment teleop + lab data without the action expert dragging the VLM down. That recipe is &pi;&#x2080;.5. <a href="page5.html">Page 5 &rarr;</a>
+      </aside>
+    </section>
+  </main>
+
+  <footer>
+    <div class="footer-stop"><b>If you stop here, you walked away with:</b> Knowledge Insulation is a stop-gradient between the action expert and the VLM, plus a FAST cross-entropy auxiliary head. The VLM trains; the flow gradient does not corrupt it. FAST tokens are training-only &mdash; never decoded at inference. This is the recipe that makes &pi;&#x2080;.5 possible.</div>
+    <p>&pi;&#x2080; / &pi;&#x2080;.5 Workshop &middot; Page 4 of 5 &middot; Sources: <a href="https://arxiv.org/abs/2505.23705">arXiv 2505.23705</a> (KI) &middot; <a href="https://arxiv.org/abs/2504.16054">arXiv 2504.16054</a> (&pi;&#x2080;.5)</p>
+    <p>Next: <a href="page5.html">Page 5 &mdash; &pi;&#x2080;.5: What Actually Changed &rarr;</a></p>
+  </footer>
+
+  <script src="data.js"></script>
+  <script src="shared.js"></script>
+  <script src="viz_knowledge_insulation_gradients.js"></script>
+  <script src="viz_train_vs_inference_toggle.js"></script>
+</body>
+</html>

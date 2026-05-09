@@ -1,0 +1,73 @@
+<section class="viz" id="viz-5" data-viz="5">
+  <h3 class="viz-title">Viz 5 &mdash; Quantization: from dense floats to sparse integers</h3>
+  <p class="viz-purpose">
+    FAST step 2. A uniform scalar quantizer applied to DCT coefficients is
+    <em>implicitly non-uniform on the time-domain signal</em>: DC + low harmonics
+    retain real resolution, high harmonics fall below the step size and round to zero.
+    <span class="cite">[FAST &sect;3], [fast_deep_dive &sect;1]</span>
+  </p>
+
+  <!-- TOP: DCT float coefficients -->
+  <div class="card">
+    <h2>Before &mdash; DCT coefficients (continuous floats)</h2>
+    <div class="cap">
+      Shape 50 &times; 7 (coefficient index k by action dim d). Diverging blue-white-red, centered at 0.
+      Most magnitude is concentrated on the <strong>left side</strong> (low-k); high-k columns are near zero.
+    </div>
+    <canvas class="js-canvas-float" width="1040" height="170"></canvas>
+    <div class="axis-x">x = coefficient index k (0 = DC &rarr; 49 = highest freq)&nbsp;&nbsp;|&nbsp;&nbsp;y = action dim (0..6)</div>
+    <div class="legend-row">
+      <span>-max</span><span class="legend-grad"></span><span>+max</span>
+      <span class="js-float-range stat"></span>
+    </div>
+  </div>
+
+  <!-- ARROW / ANNOTATION -->
+  <div class="divider">
+    <span class="arrow">&darr;</span>
+    <div>Step 2 &mdash; uniform scalar quantization (global step = max_abs &divide; 20, int8 range)</div>
+    <div class="sub2">
+      Most high-frequency coefficients (right side, all rows) round to zero because their
+      magnitudes fell below the quantization step size. The dense float matrix becomes a
+      sparse integer matrix &mdash; exactly the structure BPE compresses downstream.
+    </div>
+  </div>
+
+  <!-- BOTTOM: quantized integers -->
+  <div class="card">
+    <h2>After &mdash; quantized integers (zeros in black)</h2>
+    <div class="cap">
+      Same shape, same colormap. Cells with integer value <code>0</code> are painted
+      <span style="background:#000;color:#ffd666;padding:1px 5px;border-radius:3px;font-family:monospace">black</span>
+      so sparsity is immediately legible.
+    </div>
+    <canvas class="js-canvas-int" width="1040" height="170"></canvas>
+    <div class="axis-x">x = coefficient index k&nbsp;&nbsp;|&nbsp;&nbsp;y = action dim. Right side should be mostly black.</div>
+
+    <div class="legend-row">
+      <span>-max</span><span class="legend-grad"></span><span>+max</span>
+      &nbsp;&nbsp;<span class="legend-zero"></span> <span>= exact zero</span>
+    </div>
+
+    <div style="margin-top:10px;">
+      <span class="counter js-sparsity">0.00% zero</span>
+      <span class="js-int-range stat"></span>
+      <span class="js-step-stat stat"></span>
+    </div>
+
+    <div class="controls">
+      <label>Quantization aggressiveness:</label>
+      <input type="range" class="js-step-slider" min="0.5" max="5" step="0.1" value="1">
+      <span class="val js-step-val">1.0&times;</span>
+      <span style="font-size:11px;color:#888">(larger = coarser step = more zeros, worse reconstruction)</span>
+    </div>
+  </div>
+
+  <div class="pull-blue">
+    &ldquo;The DCT coefficient matrix is typically sparse, with most entries being zero and
+    only a few significant coefficients remaining per action dimension&hellip; the BPE step
+    &lsquo;squashes&rsquo; the zero-valued components and merges frequently-occurring
+    coefficient combinations across action dimensions.&rdquo;
+    <span class="src">&mdash; Pertsch et al., FAST: Efficient Action Tokenization for VLAs, &sect;3</span>
+  </div>
+</section>

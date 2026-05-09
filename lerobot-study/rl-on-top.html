@@ -1,0 +1,521 @@
+<!doctype html>
+<html lang="en" data-theme="dark">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Can I add RL to my policy? — LeRobot Study</title>
+  <link rel="stylesheet" href="shared/styles.css" />
+  <script defer src="shared/site.js"></script>
+</head>
+<body>
+
+<header class="site-header">
+  <h1><a href="index.html">LeRobot Study</a></h1>
+  <div class="subtitle">A friendly tour of LeRobot 0.4.4 &rarr; 0.5.0 for SO-101 hobbyists.</div>
+</header>
+
+<main class="page-grid">
+  <aside id="site-nav" aria-label="Site navigation">
+    <!-- injected by site.js from shared/nav.html -->
+  </aside>
+
+  <article class="page-content">
+    <div class="reading-order" role="navigation" aria-label="Reading order">
+      <a href="inference.html">&larr; prev</a>
+      <span class="sep">&middot;</span>
+      <span>Can I add RL to my policy?</span>
+      <span class="sep">&middot;</span>
+      <a href="ecosystem.html">next &rarr;</a>
+    </div>
+
+    <div class="eyebrow">Advanced &middot; RL</div>
+    <h1>Can I add RL to my policy?</h1>
+    <p class="read-time">7 min read &middot; <span class="persona-tag">for SO-101 users with a working IL policy</span></p>
+
+    <section class="tldr">
+      <p>
+        Not really, no. LeRobot ships a complete HIL-SERL setup (a smart way to
+        train SAC with human help), but you can't load your trained ACT or
+        Diffusion weights into it as a starting point &mdash; the SAC actor
+        always begins from random. The &pi;0.6-style "warm-start with IL,
+        fine-tune with RL" pipeline isn't shipped yet.
+      </p>
+    </section>
+
+    <p class="what-this-means">
+      If your IL policy plateaus at 80% success and you wanted to layer RL on
+      top to push it higher: that path doesn't exist out-of-the-box. You can
+      use HIL-SERL from scratch (with your demos in the replay buffer), or fork
+      ~200 lines of code to build the bridge yourself.
+    </p>
+
+    <div class="mental-model">
+      <p>
+        Two mental pictures, side by side &mdash; what you wanted, and what's
+        actually in the box.
+      </p>
+<pre>What you wanted (pi0.6-style):
+  trained ACT weights ---&gt; SAC actor (warm-start) ---&gt; RL fine-tune
+                                                          |
+                                                          v
+                                                      better policy
+
+What LeRobot ships (HIL-SERL):
+  random SAC actor ---&gt; rollout on robot ---+
+                                            |
+                                    human intervenes
+                                            |
+   demos pre-loaded in offline buffer ------+--&gt; SAC training
+                                                   |
+                                                   v
+                                               good policy (but from scratch)</pre>
+    </div>
+
+    <h2>The basics</h2>
+
+    <h3>What is HIL-SERL?</h3>
+    <p>
+      Human-In-the-Loop Sample-Efficient RL. The training algorithm is SAC
+      (Soft Actor-Critic, a continuous-control RL method); "sample-efficient"
+      comes from three tricks bolted on: a <em>reward classifier</em> (a small
+      net that decides whether each rollout looked like success), <em>demo
+      replay</em> (your teleop demonstrations get pre-loaded into an offline
+      buffer SAC samples from), and <em>human interventions</em> &mdash; you
+      sit at the gamepad and grab control when the robot looks like it's about
+      to fail. Those interventions go straight into the replay buffer.
+    </p>
+
+    <h3>Why doesn't it warm-start from my IL policy?</h3>
+    <p>
+      SAC predicts <strong>one action at a time</strong>. ACT, Diffusion, &pi;0
+      and SmolVLA all predict <strong>chunks</strong> (8-100 actions per
+      forward pass). The output shapes don't match. There's no code to copy
+      weights from a chunk-predicting network into a single-action one &mdash;
+      and no config knob saying "start the SAC actor from this checkpoint."
+      The only "pretrained" hook in the SAC stack is the visual backbone, not
+      the action head.
+    </p>
+
+    <h3>What is QC-FQL?</h3>
+    <p>
+      Q-Chunked Flow Q-Learning. The README labels it "coming soon". The idea
+      is RL that works on action chunks (matching what IL policies output) so
+      you could actually warm-start from ACT or Diffusion weights. As of
+      v0.5.0 there is no code, no PR &mdash; just the README mention.
+    </p>
+
+    <h3>What's actually in <code>src/lerobot/rl/</code>?</h3>
+    <p>
+      Eleven files, roughly 4,629 lines: SAC, replay buffers (online +
+      offline), a gRPC actor-learner split (GPU box trains while the robot
+      box rolls out), the reward classifier, and the gamepad-intervention
+      plumbing. Solid implementation &mdash; just always from scratch.
+    </p>
+
+    <h2>How you actually use it</h2>
+
+    <p>The standard HIL-SERL recipe is three things in sequence:</p>
+
+    <div class="workflow">
+<span class="wf-comment"># 1) Train a reward classifier on a small labeled dataset</span>
+<span class="wf-prompt"></span> lerobot-train \
+    <span class="wf-flag">--config_path</span>=path/to/reward_classifier_train_config.json
+    </div>
+
+    <div class="workflow">
+<span class="wf-comment"># 2) Launch the HIL-SERL learner + actor (separate processes;</span>
+<span class="wf-comment">#    invoked as modules, not console scripts &mdash; no lerobot-rl-* in pyproject.toml)</span>
+<span class="wf-prompt"></span> python -m lerobot.rl.learner <span class="wf-flag">--policy.type</span>=sac <span class="wf-flag">--dataset.repo_id</span>=youruser/demos
+<span class="wf-prompt"></span> python -m lerobot.rl.actor   <span class="wf-flag">--policy.type</span>=sac <span class="wf-flag">--robot.type</span>=so101_follower
+    </div>
+
+    <div class="workflow">
+<span class="wf-comment"># 3) Pick up your gamepad. When the robot looks like it's about to fail,</span>
+<span class="wf-comment">#    intervene. Those interventions go straight into the replay buffer.</span>
+    </div>
+
+    <h2>Things to know</h2>
+
+    <div class="callout callout-info">
+      <div class="callout-title">HIL-SERL is genuinely production-grade for SAC-from-scratch</div>
+      <p>
+        The full real-robot path is documented (<code>docs/source/hilserl.mdx</code>
+        is 923 lines), tests cover the gRPC transport end-to-end, and the
+        intervention path is wired into the leader-arm and gamepad. If
+        from-scratch SAC with demos and interventions is what you want, this
+        is the cleanest implementation around.
+      </p>
+    </div>
+
+    <div class="callout callout-warn">
+      <div class="callout-title">The default reward classifier is broken on transformers v5</div>
+      <p>
+        The default vision encoder
+        <code>helper2424/resnet10</code> doesn't load cleanly under the
+        transformers version that v0.5.0 pins. Stay on v0.4.4 for HIL-SERL
+        until that's patched, or swap the encoder.
+      </p>
+    </div>
+
+    <div class="callout callout-warn">
+      <div class="callout-title">No automatic IL warm-start</div>
+      <p>
+        There is no <code>il_warm_start_path</code> or BC-loss config. You'd
+        write the bridge yourself &mdash; the spec is in the deep-dive below
+        (about ~200 LoC for the residual-SAC variant).
+      </p>
+    </div>
+
+    <div class="callout callout-warn">
+      <div class="callout-title">Q-chunking is explicitly absent</div>
+      <p>
+        The trick that makes &pi;0.6 work &mdash; a critic that scores action
+        <em>chunks</em> instead of single actions &mdash; is not in the box.
+        QC-FQL is forward-looking, not shipped.
+      </p>
+    </div>
+
+    <div class="callout callout-info">
+      <div class="callout-title">Bottom line for "press button to improve my IL policy"</div>
+      <p>
+        Not yet. Wait for QC-FQL, or fork the residual-SAC bridge.
+      </p>
+    </div>
+
+    <div class="section-divider">Optional: under the hood</div>
+
+    <details class="deep-dive">
+      <summary>Show why SAC can't warm-start from ACT (file evidence)</summary>
+
+      <p>
+        Three concrete reasons, in code.
+      </p>
+
+      <p>
+        <strong>(1) The SAC actor is random-init with no IL-bridge config.</strong>
+        <code>SACConfig</code>
+        (<span class="file-ref">src/lerobot/policies/sac/configuration_sac.py</span>,
+        243 lines) defines device, vision encoder name (line 127, e.g.
+        <code>"helper2424/resnet10"</code>),
+        <code>freeze_vision_encoder</code> (line 129), discount, entropy,
+        replay-buffer capacity, actor/critic LR. There is no field for
+        "warm-start from IL checkpoint", "BC loss weight", or "policy-prior
+        KL". The only "pretrained" hook is the visual backbone &mdash;
+        <code>_load_pretrained_vision_encoder</code>
+        (<span class="file-ref">policies/sac/modeling_sac.py:936-942</span>).
+        The actor MLP and critic ensemble heads remain random.
+      </p>
+
+      <p>
+        <code>make_policy</code>
+        (<span class="file-ref">src/lerobot/policies/factory.py:487-491</span>)
+        honors <code>cfg.pretrained_path</code> only by calling
+        <code>policy_cls.from_pretrained(...)</code>. <code>policy_cls</code> is
+        whatever <code>cfg.policy.type</code> resolves to, which for an RL run
+        is <code>"sac"</code>. So <code>pretrained_path</code> resumes an SAC
+        checkpoint; it cannot inject ACT/Diffusion weights. Confirmed by zero
+        references to <code>ACTPolicy</code> or <code>DiffusionPolicy</code> in
+        <code>src/lerobot/rl/</code>.
+      </p>
+
+      <p>
+        <strong>(2) SAC explicitly rejects action chunks.</strong>
+        <span class="file-ref">policies/sac/modeling_sac.py:78-81</span> is a
+        stub:
+      </p>
+
+<pre><code>raise NotImplementedError(
+    "SACPolicy does not support action chunking. It returns single actions!"
+)</code></pre>
+
+      <p>
+        The actor outputs a single action per <code>select_action</code> call
+        (<span class="file-ref">policies/sac/modeling_sac.py:84-98</span>).
+        <code>SACConfig.action_delta_indices</code> returns <code>None</code>
+        with the comment "SAC typically predicts one action at a time"
+        (<span class="file-ref">policies/sac/configuration_sac.py:237-239</span>).
+        No Q-chunking, full stop.
+      </p>
+
+      <p>
+        <strong>(3) The README says it explicitly.</strong>
+        <span class="file-ref">README.md:106</span>:
+      </p>
+
+<pre><code>Reinforcement Learning | HIL-SERL, TDMPC &amp; QC-FQL (coming soon)</code></pre>
+
+      <p>
+        <code>grep -rni "q.chunk|qchunk|fql"</code> across the entire tree
+        returns one hit &mdash; that very README announcement. There is no
+        Q-chunking, FQL, or chunked-Q file anywhere in v0.5.0.
+      </p>
+
+      <p>
+        And in the HIL-SERL example:
+        <span class="file-ref">examples/tutorial/rl/hilserl_example.py:270</span>
+        reads <code>policy_actor = SACPolicy(policy_cfg)</code>, no
+        <code>from_pretrained</code>. The actor still starts random.
+      </p>
+    </details>
+
+    <details class="deep-dive">
+      <summary>Show what would need to change to enable pi0.6 (concrete spec)</summary>
+
+      <p>
+        The load-bearing missing piece is a bridge config + factory hook that
+        takes an IL checkpoint (ACT, Diffusion, &pi;0, SmolVLA), copies matching
+        layers into the SAC actor, optionally freezes the trunk, and
+        reinitializes the critic from scratch. Without that, "warm-start with
+        IL" is impossible regardless of whether Q-chunking is added later.
+      </p>
+
+      <p>Concrete file-level changes on top of v0.5.0:</p>
+
+      <ol>
+        <li>
+          <strong>Action-chunked SAC actor.</strong> Replace <code>SACActor</code>
+          in <span class="file-ref">policies/sac/modeling_sac.py</span> so
+          <code>forward</code> returns <code>[B, H, action_dim]</code> instead
+          of <code>[B, action_dim]</code>. Implement
+          <code>predict_action_chunk</code> instead of raising
+          <code>NotImplementedError</code> at line 79-81. Add
+          <code>chunk_size: int = 8</code> to <code>SACConfig</code>.
+        </li>
+        <li>
+          <strong>Chunked critic.</strong> Adapt <code>CriticEnsemble</code>
+          (in <code>modeling_sac.py</code>) to take action chunks as input
+          &mdash; concatenate or RNN over the chunk. Add a chunk-level Bellman
+          backup in <code>forward(batch, model="critic")</code>
+          (<span class="file-ref">policies/sac/modeling_sac.py:139</span>+).
+        </li>
+        <li>
+          <strong>Bridge config: load IL weights into SAC actor.</strong>
+          Extend <code>SACConfig</code> with
+          <code>il_warm_start_path: Path | None</code>,
+          <code>il_policy_type: str | None</code>
+          (e.g. <code>"act"</code>, <code>"diffusion"</code>,
+          <code>"pi05"</code>), and
+          <code>freeze_il_layers: list[str]</code>. In <code>make_policy</code>
+          (<span class="file-ref">policies/factory.py:405</span>+), after
+          constructing <code>SACPolicy</code>, if <code>cfg.il_warm_start_path</code>
+          is set, load the IL policy via <code>make_policy(IL_cfg)</code>, copy
+          matching layers into <code>policy.actor</code>, and reinitialize the
+          critic from scratch.
+        </li>
+        <li>
+          <strong>Auxiliary BC loss.</strong> Add
+          <code>bc_loss_weight: float = 0.0</code> to <code>SACConfig</code>; in
+          <code>SACPolicy.forward(model="actor")</code>, when sampling the
+          offline buffer (the demo half), add
+          <code>bc_weight * MSE(actor(s), a_demo)</code> to the actor loss.
+          This keeps the warm-started actor from drifting before the critic
+          catches up.
+        </li>
+        <li>
+          <strong>Optional residual head (smaller fork).</strong> Add a residual
+          MLP that outputs <code>&Delta;a</code> to be added to the IL prior's
+          action; freeze the IL trunk, train only the residual + critic with
+          SAC. This is a smaller, lower-risk variant than full fine-tune
+          &mdash; about ~200 LoC, dropped into
+          <span class="file-ref">rl/actor.py:285-298</span> around the
+          <code>policy.select_action</code> call.
+        </li>
+        <li>
+          <strong>SO-101 plumbing.</strong> Reward classifier and gRPC
+          actor-learner work as-is on SO-101. Just verify
+          <code>HILSerlProcessorConfig</code> has SO-101-specific
+          <code>ee_action_bounds</code> (the doc references SO-100 at
+          <span class="file-ref">docs/source/hilserl.mdx:407</span>).
+        </li>
+      </ol>
+
+      <p>
+        Note on fidelity: the HIL-SERL paper (Luo et al. 2024) doesn't
+        warm-start the SAC actor from a pretrained IL policy either &mdash; so
+        LeRobot's implementation is an honest implementation of the paper, not
+        an omission. If you want IL warm-start, you're leaving the paper's
+        recipe and chasing the &pi;0.6 idea instead.
+      </p>
+    </details>
+
+    <details class="deep-dive">
+      <summary>Show the full HIL-SERL recipe with file refs</summary>
+
+      <p>
+        Eleven files, ~4,629 lines under <code>src/lerobot/rl/</code> &mdash;
+        the complete HIL-SERL stack.
+      </p>
+
+      <div class="table-wrap">
+        <table>
+          <thead>
+            <tr><th>File</th><th>Role</th><th>Lines</th></tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td><code>actor.py</code></td>
+              <td>Actor process: rollouts on real robot, sends transitions, applies updates from learner</td>
+              <td>738</td>
+            </tr>
+            <tr>
+              <td><code>learner.py</code></td>
+              <td>Learner process: SAC gradient updates, gRPC server, replay buffer mgmt</td>
+              <td>1200</td>
+            </tr>
+            <tr>
+              <td><code>buffer.py</code></td>
+              <td><code>ReplayBuffer</code> (online + offline DrQ-augmented), <code>from_lerobot_dataset</code> constructor</td>
+              <td>834</td>
+            </tr>
+            <tr>
+              <td><code>gym_manipulator.py</code></td>
+              <td><code>make_robot_env</code>, <code>RobotEnv</code> Gym wrapper, reward classifier integration</td>
+              <td>790</td>
+            </tr>
+            <tr>
+              <td><code>learner_service.py</code></td>
+              <td>gRPC service definitions</td>
+              <td>117</td>
+            </tr>
+            <tr>
+              <td><code>process.py</code>, <code>queue.py</code>, <code>wandb_utils.py</code></td>
+              <td>Multiproc plumbing + logging</td>
+              <td>338</td>
+            </tr>
+            <tr>
+              <td><code>crop_dataset_roi.py</code>, <code>eval_policy.py</code>, <code>joint_observations_processor.py</code></td>
+              <td>Tooling</td>
+              <td>612</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+
+      <p>
+        The HIL-SERL mechanism in v0.5.0 (from
+        <span class="file-ref">examples/tutorial/rl/hilserl_example.py:51-97</span>):
+      </p>
+
+      <ul>
+        <li>
+          <code>online_buffer</code>: every actor transition (autonomous +
+          intervention) is added (line 57).
+        </li>
+        <li>
+          <code>offline_buffer</code>: only intervention transitions are added
+          (lines 60-65); also pre-populated from a <code>LeRobotDataset</code>
+          via <code>ReplayBuffer.from_lerobot_dataset</code>
+          (line 279, <span class="file-ref">rl/buffer.py:415</span>).
+        </li>
+        <li>
+          Each SAC update samples <code>batch_size//2</code> from each buffer
+          and concatenates (lines 73-84). This is the HIL-SERL "demos +
+          interventions" trick.
+        </li>
+      </ul>
+
+      <p>Components on disk:</p>
+
+      <ul>
+        <li>
+          SAC policy + critic ensemble:
+          <span class="file-ref">policies/sac/modeling_sac.py</span> (1064 lines).
+        </li>
+        <li>
+          Reward classifier:
+          <span class="file-ref">policies/sac/reward_model/modeling_classifier.py</span>
+          (308 lines) &mdash; pretrained vision encoder + classifier head, returns
+          scalar reward. Wired into <code>gym_manipulator.py</code> as
+          <code>RewardClassifierConfig.pretrained_path</code>
+          (<span class="file-ref">docs/source/hilserl.mdx:121, 731</span>).
+        </li>
+        <li>
+          Async actor/learner split via gRPC
+          (<span class="file-ref">rl/actor.py:254</span>,
+          <span class="file-ref">rl/learner.py:309</span>). Learner streams
+          updated weights to the actor every
+          <code>policy_parameters_push_frequency=4</code> SAC steps
+          (<span class="file-ref">policies/sac/configuration_sac.py:54</span>).
+        </li>
+        <li>
+          Intervention path:
+          <code>InterventionActionProcessorStep</code>, gamepad/leader-arm
+          interventions tagged via
+          <code>complementary_info["is_intervention"]</code>
+          (<span class="file-ref">examples/tutorial/rl/hilserl_example.py:60</span>;
+          <span class="file-ref">docs/source/hilserl.mdx:155-166</span>).
+        </li>
+        <li>
+          Comprehensive doc:
+          <span class="file-ref">docs/source/hilserl.mdx</span> (923 lines) walks
+          action-space cropping, leader-arm teleop intervention, EE-space
+          training, ROI image crop, classifier training with
+          <code>lerobot-train --config_path &hellip;reward_classifier_train_config.json</code>
+          (line 718), and launching learner+actor (lines 815-825). Sim variant:
+          <span class="file-ref">docs/source/hilserl_sim.mdx</span> (154 lines).
+        </li>
+        <li>
+          Install via the <code>[hilserl]</code> extra; pulls
+          <code>gym-hil&gt;=0.1.13</code> from HF.
+        </li>
+      </ul>
+
+      <p>Tests confirm what's officially shipped &mdash; and what isn't:</p>
+
+      <ul>
+        <li>
+          <span class="file-ref">tests/rl/test_actor_learner.py:91-300+</span>
+          covers the gRPC transport
+          (<code>test_end_to_end_transitions_flow</code>,
+          <code>test_end_to_end_interactions_flow</code>,
+          <code>test_end_to_end_parameters_flow</code>). All three instantiate
+          <code>SACConfig()</code> from defaults &mdash; no IL warm-start tested.
+        </li>
+        <li>
+          <span class="file-ref">tests/policies/test_sac_policy.py:82-540</span>
+          covers forward pass, multi-critic ensemble, save/load round-trip
+          (<code>SACPolicy.from_pretrained(root, config=config)</code>
+          round-trips SAC&rarr;SAC), and pretrained vision encoder (currently
+          <code>@pytest.mark.skip</code> at line 308).
+        </li>
+        <li>
+          <span class="file-ref">tests/policies/hilserl/test_modeling_classifier.py</span>
+          covers reward classifier behavior.
+        </li>
+      </ul>
+
+      <p>
+        No test for IL&rarr;RL warm-start because there is no such code path.
+        The RL surface is functionally identical between v0.4.4 and v0.5.0
+        &mdash; <code>diff -rq</code> returns one trivial diff in
+        <code>reward_model/configuration_classifier.py</code> and zero diffs
+        elsewhere.
+      </p>
+    </details>
+
+    <div class="next-up">
+      <strong>Where to go next &rarr;</strong>
+      <p>
+        That covers the policy-running and policy-improving stories. Next, the
+        wider context: what other tools and packages live around LeRobot, and
+        which ones matter for an SO-101 hobbyist.
+        <a href="ecosystem.html">The LeRobot ecosystem</a>.
+      </p>
+    </div>
+
+  </article>
+</main>
+
+<button id="to-top" aria-label="Back to top" title="Back to top">&uarr;</button>
+
+<footer class="site-footer">
+  <div>Built 2026-05-08 &middot; pinned tags
+    <a href="https://github.com/huggingface/lerobot/tree/v0.4.4" target="_blank" rel="noopener">v0.4.4</a>
+    /
+    <a href="https://github.com/huggingface/lerobot/tree/v0.5.0" target="_blank" rel="noopener">v0.5.0</a>
+    &middot; <a href="https://github.com/huggingface/lerobot/compare/v0.4.4...v0.5.0" target="_blank" rel="noopener">compare</a>
+  </div>
+</footer>
+
+</body>
+</html>

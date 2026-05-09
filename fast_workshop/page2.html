@@ -1,0 +1,452 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>FAST Workshop &mdash; Page 2: The Pipeline</title>
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+  <header class="page-header">
+    <nav class="page-nav">
+      <a href="index.html">Home</a>
+      <a href="page1.html">1. Problem</a>
+      <a href="page2.html" class="active">2. Pipeline</a>
+      <a href="page3.html">3. Context</a>
+    </nav>
+    <h1>Page 2 &mdash; The Pipeline</h1>
+  </header>
+
+  <main>
+    <section class="page-intro">
+      <p>The FAST tokenizer is a three-stage deterministic preprocessor that runs once offline and then behaves as a black box. Stage 1 applies a 1D DCT along the time axis of each action dimension, producing a sparse coefficient matrix. Stage 2 applies uniform scalar quantization per coefficient, collapsing most high-frequency entries to zero. Stage 3 runs BPE on the flattened integer stream, merging recurring patterns into a fixed vocabulary of 1024 to 2048 tokens that drops straight into a pretrained VLM's embedding table. Input: 350 floats. Output: 30 to 60 tokens per chunk. Training time drops roughly 5&times; on comparable tasks; inference, we will address on Page 3.</p>
+      <aside class="callout-quote">
+        <strong>What the viz shows (end-to-end):</strong> A stacked pipeline diagram &mdash; chunk (50&times;7) &rarr; DCT matrix (50&times;7) &rarr; quantized integers (sparse) &rarr; flattened 1D stream &rarr; BPE merges &rarr; final 30&ndash;60 token sequence &mdash; with byte counts under each stage so the compression ratio is visible end-to-end.
+      </aside>
+      <p class="cite">Sources: FAST &sect;3 (arXiv 2501.09747); Pertsch X thread, Jan 2025.</p>
+    </section>
+
+    <!-- ============================== VIZ 4 ============================== -->
+    <article class="viz-section">
+      <header>
+        <h2>Viz 4 &mdash; DCT energy compaction</h2>
+        <p class="purpose">Show quantitatively why DCT is the enabling step. Top-16 of 350 coefficients captures 95.1% of signal energy.</p>
+      </header>
+      <div class="viz-body wrap wrap--wide">
+        <section class="viz" id="viz-4" data-viz="4">
+          <p class="viz-purpose">
+            50&times;7 chunk &rarr; 350 DCT coefficients. Variance collapses exponentially with frequency index;
+            top-16 captures <b>95.1%</b> of the signal energy.
+            <span class="cite">[FAST &sect;3] [fast_deep_dive &sect;1]</span>
+          </p>
+
+          <!-- Panel A -->
+          <div class="panel">
+            <h2>A &middot; DCT spectrum &mdash; variance per coefficient index <span class="cite" style="font-weight:400">(log scale)</span></h2>
+            <div class="axis-note">For k = 0..49, variance is taken across the 7 DOF dims of <code>dct[k][d]</code>. Bars are log-scaled.</div>
+            <div class="canvas-holder">
+              <canvas class="js-cv-a" width="1080" height="300"></canvas>
+            </div>
+            <div class="plotlabel">x &mdash; coefficient index k (0 = DC) &middot; y &mdash; log<sub>10</sub> variance over 7 dims</div>
+          </div>
+
+          <!-- Panel B -->
+          <div class="panel">
+            <h2>B &middot; Reconstruction from top-K coefficients</h2>
+            <div class="axis-note">Keeps the <b>K largest-magnitude</b> coefficients out of all 350 (50 time &times; 7 dim), zeros the rest, inverse-DCT.</div>
+
+            <div class="slider-row">
+              <span class="kval">K = <b class="js-kval">16</b> / 350</span>
+              <input type="range" class="js-kslider" min="1" max="350" step="1" value="16">
+              <span class="mse">MSE = <b class="js-mseval">0.0000</b></span>
+            </div>
+            <div class="controls">
+              <span style="color:var(--dim);font-size:12px;">preset:</span>
+              <button class="js-preset" data-k="1">K=1</button>
+              <button class="js-preset" data-k="4">K=4</button>
+              <button class="js-preset on" data-k="16">K=16</button>
+              <button class="js-preset" data-k="64">K=64</button>
+              <button class="js-preset" data-k="350">K=350</button>
+            </div>
+            <div class="help">Keyboard: &larr; / &rarr; nudge K by 1 &middot; &uarr; / &darr; by 5. Click a preset to jump.</div>
+
+            <div class="stack">
+              <div class="plotlabel">original chunk &mdash; 7 dims over 50 timesteps</div>
+              <div class="canvas-holder"><canvas class="js-cv-b1" width="1080" height="220"></canvas></div>
+              <div class="plotlabel">reconstruction &mdash; top-K coefficients, inverse DCT</div>
+              <div class="canvas-holder"><canvas class="js-cv-b2" width="1080" height="220"></canvas></div>
+              <div class="legend js-legend"></div>
+            </div>
+          </div>
+
+          <!-- Panel C -->
+          <div class="panel">
+            <h2>C &middot; JPEG analogy</h2>
+            <div class="aside-body">
+              FAST&rsquo;s top-K energy compaction on action chunks is structurally the same trick JPEG plays on 8&times;8 image patches.
+              Both rely on the DCT&rsquo;s property that smooth signals &mdash; adjacent pixels or adjacent robot poses &mdash; concentrate their energy in a few low-frequency coefficients.
+              Drop the high-frequency tail, quantize the survivors, entropy-code the zeros, and reconstruction is still near-perfect.
+              At K=16 (95%-energy cutoff) the robot trajectory looks visually identical; this is exactly what JPEG does inside every 8&times;8 block.
+            </div>
+            <div class="pull">
+              DCT is commonly used for compression algorithms (e.g., JPEG) due to its simplicity, computational efficiency, and strong compression property: since pixels often vary smoothly, DCT can often represent most of the information of an input signal in only a few coefficients.
+            </div>
+            <div class="cite" style="margin-top:6px;">&mdash; [FAST &sect;3]</div>
+          </div>
+        </section>
+      </div>
+      <div class="viz-explanation">
+        <p>Run the DCT once per dimension. The output is a <code>T x D</code> matrix of coefficients ordered from DC (index 0) to the highest representable frequency (index T-1). Plot the variance of each coefficient across the training distribution and the curve falls off exponentially: the first few coefficients carry nearly all the signal energy, the tail is near zero. This is the same property JPEG exploits on image patches &mdash; and the paper invokes the analogy literally, not rhetorically:</p>
+        <blockquote>"since pixels often vary smoothly, DCT can often represent most of the information of an input signal in only a few coefficients." (FAST &sect;3)</blockquote>
+        <p>For smooth motor trajectories the prior holds with little modification. The mechanical consequence is that information has now been sorted by importance. Any fixed-precision quantization applied next will land most bits where they matter and zero out the rest, without handcrafting a Q-table.</p>
+        <aside class="callout-quote">
+          <strong>What the viz shows:</strong> A variance-by-frequency bar chart on log-y. The first 5&ndash;7 bars dominate; the remaining 40+ are visually flat against zero. A second panel overlays reconstruction error vs number of retained coefficients &mdash; also falling off fast.
+        </aside>
+        <p class="cite">Sources: FAST &sect;3 (arXiv 2501.09747).</p>
+      </div>
+    </article>
+
+    <!-- ============================== VIZ 5 ============================== -->
+    <article class="viz-section">
+      <header>
+        <h2>Viz 5 &mdash; Quantization</h2>
+        <p class="purpose">Show the sparsity that makes BPE efficient. A uniform step on DCT coefficients is implicitly resolution-aware on the time-domain signal.</p>
+      </header>
+      <div class="viz-body wrap wrap--wide">
+        <section class="viz" id="viz-5" data-viz="5">
+          <p class="viz-purpose">
+            FAST step 2. A uniform scalar quantizer applied to DCT coefficients is
+            <em>implicitly non-uniform on the time-domain signal</em>: DC + low harmonics
+            retain real resolution, high harmonics fall below the step size and round to zero.
+            <span class="cite">[FAST &sect;3], [fast_deep_dive &sect;1]</span>
+          </p>
+
+          <!-- TOP: DCT float coefficients -->
+          <div class="card">
+            <h2>Before &mdash; DCT coefficients (continuous floats)</h2>
+            <div class="cap">
+              Shape 50 &times; 7 (coefficient index k by action dim d). Diverging blue-white-red, centered at 0.
+              Most magnitude is concentrated on the <strong>left side</strong> (low-k); high-k columns are near zero.
+            </div>
+            <canvas class="js-canvas-float" width="1040" height="170"></canvas>
+            <div class="axis-x">x = coefficient index k (0 = DC &rarr; 49 = highest freq)&nbsp;&nbsp;|&nbsp;&nbsp;y = action dim (0..6)</div>
+            <div class="legend-row">
+              <span>-max</span><span class="legend-grad"></span><span>+max</span>
+              <span class="js-float-range stat"></span>
+            </div>
+          </div>
+
+          <!-- ARROW / ANNOTATION -->
+          <div class="divider">
+            <span class="arrow">&darr;</span>
+            <div>Step 2 &mdash; uniform scalar quantization (global step = max_abs &divide; 20, int8 range)</div>
+            <div class="sub2">
+              Most high-frequency coefficients (right side, all rows) round to zero because their
+              magnitudes fell below the quantization step size. The dense float matrix becomes a
+              sparse integer matrix &mdash; exactly the structure BPE compresses downstream.
+            </div>
+          </div>
+
+          <!-- BOTTOM: quantized integers -->
+          <div class="card">
+            <h2>After &mdash; quantized integers (zeros in black)</h2>
+            <div class="cap">
+              Same shape, same colormap. Cells with integer value <code>0</code> are painted
+              <span style="background:#000;color:#ffd666;padding:1px 5px;border-radius:3px;font-family:monospace">black</span>
+              so sparsity is immediately legible.
+            </div>
+            <canvas class="js-canvas-int" width="1040" height="170"></canvas>
+            <div class="axis-x">x = coefficient index k&nbsp;&nbsp;|&nbsp;&nbsp;y = action dim. Right side should be mostly black.</div>
+
+            <div class="legend-row">
+              <span>-max</span><span class="legend-grad"></span><span>+max</span>
+              &nbsp;&nbsp;<span class="legend-zero"></span> <span>= exact zero</span>
+            </div>
+
+            <div style="margin-top:10px;">
+              <span class="counter js-sparsity">0.00% zero</span>
+              <span class="js-int-range stat"></span>
+              <span class="js-step-stat stat"></span>
+            </div>
+
+            <div class="controls">
+              <label>Quantization aggressiveness:</label>
+              <input type="range" class="js-step-slider" min="0.5" max="5" step="0.1" value="1">
+              <span class="val js-step-val">1.0&times;</span>
+              <span style="font-size:11px;color:#888">(larger = coarser step = more zeros, worse reconstruction)</span>
+            </div>
+          </div>
+
+          <div class="pull-blue">
+            &ldquo;The DCT coefficient matrix is typically sparse, with most entries being zero and
+            only a few significant coefficients remaining per action dimension&hellip; the BPE step
+            &lsquo;squashes&rsquo; the zero-valued components and merges frequently-occurring
+            coefficient combinations across action dimensions.&rdquo;
+            <span class="src">&mdash; Pertsch et al., FAST: Efficient Action Tokenization for VLAs, &sect;3</span>
+          </div>
+        </section>
+      </div>
+      <div class="viz-explanation">
+        <p>After DCT, apply uniform scalar quantization per coefficient: a fixed scale, round to integer bins. Because the DCT has already sorted energy by frequency, a uniform step on coefficients becomes an implicitly resolution-aware operation on the original signal. Low-frequency coefficients retain real precision; high-frequency coefficients whose magnitude sits below the step size round to exactly zero. After quantization the matrix is dominated by zeros, with a small minority of nonzero low-frequency entries and a handful of mid-range ones. The paper puts the sparsity plainly:</p>
+        <blockquote>"The DCT coefficient matrix is typically sparse, with most entries being zero and only a few significant coefficients remaining per action dimension." (FAST &sect;3)</blockquote>
+        <p>This sparsity is the precondition for the next stage. BPE's compression ratio on dense random integers would be mediocre; on a mostly-zero stream with repeating low-frequency patterns, it is substantial.</p>
+        <aside class="callout-quote">
+          <strong>What the viz shows:</strong> The 50&times;7 coefficient matrix before and after quantization, side by side. Pre-quant: continuous gradient. Post-quant: a few colored cells against a sea of zero-valued cells. Annotation quantifies the zero fraction.
+        </aside>
+        <p class="cite">Sources: FAST &sect;3 (arXiv 2501.09747).</p>
+      </div>
+    </article>
+
+    <!-- ============================== VIZ 6 ============================== -->
+    <article class="viz-section">
+      <header>
+        <h2>Viz 6 &mdash; BPE merge</h2>
+        <p class="purpose">Why BPE specifically, not Huffman or arithmetic coding. The engineering win is fixed-vocab compatibility with the VLM embedding table.</p>
+      </header>
+      <div class="viz-body wrap wrap--wide">
+        <section class="viz" id="viz-6" data-viz="6">
+          <p class="viz-purpose">
+            Byte-pair encoding greedily merges the most-frequent adjacent token pair into a new vocab ID,
+            then repeats. Applied to FAST's flattened quantized DCT, it drops the chunk from 350 &rarr; 66 tokens.
+            <span class="cite">[FAST &sect;3] [fast_deep_dive &sect;1]</span>
+          </p>
+
+          <div class="pullquote6">
+            &ldquo;We choose BPE to compress the DCT matrix, since many efficient implementations exist and
+            <em>it can produce a fixed-size output vocabulary that can be easily integrated into the existing
+            vocabulary of vision-language models.</em>&rdquo;
+            &mdash; <span class="cite">FAST &sect;3</span>
+            <span class="annot">Last clause is the real engineering win. BPE wasn't chosen for compression efficiency &mdash;
+            it was chosen for fixed-vocab compatibility with the VLM embedding table.</span>
+          </div>
+
+          <div class="grid">
+            <!-- LEFT: main strip + controls + chart -->
+            <div class="panel6">
+              <div class="callout6 js-callout">Step 0 &mdash; initial sequence (350 tokens). Hit <b>Play</b> or press <b>&rarr;</b> to start merging.</div>
+
+              <div>
+                <span class="counter6"><span class="lbl">step</span><span class="js-step-n">0</span> / <span class="js-step-max">0</span></span>
+                <span class="counter6"><span class="lbl">tokens</span><span class="js-tok-n">350</span></span>
+                <span class="counter6"><span class="lbl">unique IDs</span><span class="js-uniq-n">0</span></span>
+                <span class="counter6"><span class="lbl">merges used</span><span class="js-merge-n">0</span></span>
+              </div>
+
+              <div class="strip-wrap">
+                <canvas class="strip js-strip" width="1750" height="54"></canvas>
+              </div>
+
+              <div class="controls controls6">
+                <button class="js-btn-prev" title="Previous step (&larr;)">&#9664; Prev</button>
+                <button class="js-btn-play" title="Play / Pause (Space)">&#9654; Play</button>
+                <button class="js-btn-next" title="Next step (&rarr;)">Next &#9654;</button>
+                <div class="slider-box">
+                  <input type="range" class="js-slider" min="0" max="0" value="0" step="1">
+                  <span class="step-label"><span class="js-slider-lbl">0</span></span>
+                </div>
+                <div class="speed js-speed">
+                  <button data-s="0.5">0.5&times;</button>
+                  <button data-s="1" class="active">1&times;</button>
+                  <button data-s="2">2&times;</button>
+                  <button data-s="4">4&times;</button>
+                </div>
+              </div>
+              <div class="kbd-hint">keyboard: &larr; / &rarr; step &middot; space = play/pause</div>
+
+              <div style="margin-top: 16px;">
+                <div class="chart-title">Token count vs merge step</div>
+                <canvas class="chart js-chart" width="1150" height="140"></canvas>
+              </div>
+
+              <div class="legend-mini">
+                <span><span class="sw" style="background:#4b5768"></span> base token (ID 0-255)</span>
+                <span><span class="sw" style="background:#ffb454"></span> merge token (ID &ge; 256)</span>
+                <span><span class="sw" style="background:#fff; outline: 2px solid #fff"></span> pair just merged</span>
+              </div>
+            </div>
+
+            <!-- RIGHT: vocab table -->
+            <div class="panel6">
+              <h2>Vocabulary</h2>
+
+              <div class="vocab-section">
+                <div class="hdr"><span>Base tokens (ID 0-255)</span><span class="val js-base-count">&mdash;</span></div>
+              </div>
+
+              <div class="vocab-section">
+                <div class="hdr"><span>Merge tokens (ID &ge; 256) &mdash; 10 most recent</span><span class="val js-merge-count">0 merges</span></div>
+                <table class="vocab">
+                  <thead><tr><th>ID</th><th>&rarr; (a, b)</th><th>freq</th></tr></thead>
+                  <tbody class="js-vocab-body"><tr><td colspan="3" style="color:var(--muted6)">(no merges yet)</td></tr></tbody>
+                </table>
+              </div>
+
+              <div class="footer-note">
+                <div class="hdr-label">Why BPE?</div>
+                <div>Efficient implementations exist; the output vocabulary is fixed-size, so new tokens slot
+                into the VLM embedding table without retraining the tokenizer. <span class="cite">[FAST &sect;3]</span></div>
+                <div style="margin-top: 8px;">BPE halts once no adjacent pair repeats (&ge;2&times;) &mdash; that's why this chunk
+                saturates at ~14 merges, not 80. Standard behavior, not a bug.</div>
+              </div>
+            </div>
+          </div>
+        </section>
+      </div>
+      <div class="viz-explanation">
+        <p>Flatten the quantized integer matrix into a 1D sequence. Run BPE &mdash; byte-pair encoding trained once on a large action corpus. BPE is algorithmically agnostic to symbol meaning; it sees integers and counts adjacent-pair frequencies, greedily merging the most common pairs into new symbols. Runs of zeros collapse to single tokens; recurring low-frequency patterns that appear across the training distribution become motor-primitive tokens. The paper is direct about why BPE and not a better-compressing code:</p>
+        <blockquote>"We choose BPE to compress the DCT matrix, since many efficient implementations exist and it can produce a fixed-size output vocabulary that can be easily integrated into the existing vocabulary of vision-language models." (FAST &sect;3)</blockquote>
+        <p>That last clause is the actual engineering win. Huffman would compress comparably, but BPE emits a fixed-size vocabulary (FAST uses 1024&ndash;2048 tokens) whose entries drop cleanly into a pretrained VLM's embedding table. The tokenizer is designed as an interface layer, not just a codec.</p>
+        <aside class="callout-quote">
+          <strong>What the viz shows:</strong> A short integer sequence animated through BPE iterations &mdash; <code>[0,0,0,3,0,0,0,3]</code> merges <code>(0,0)</code> then <code>(0,0,0)</code> then the recurring <code>(00,3)</code> pair &mdash; with the growing vocabulary table on the right. The final frame pastes the new tokens into a VLM embedding grid to make the integration point concrete.
+        </aside>
+        <p class="cite">Sources: FAST &sect;3 (arXiv 2501.09747); FAST &sect;VI-D ablation notes.</p>
+      </div>
+    </article>
+
+    <!-- ============================== VIZ 7 ============================== -->
+    <article class="viz-section">
+      <header>
+        <h2>Viz 7 &mdash; End-to-end pipeline</h2>
+        <p class="purpose">Pin down the quantitative claim and set up Page 3's honesty: 10&times; compression, ~5&times; training speedup, ~2&times; slower inference than flow matching.</p>
+      </header>
+      <div class="viz-body wrap wrap--wide">
+        <section class="viz" id="viz-7" data-viz="7">
+          <p class="viz-purpose">
+            One chunk (50&times;7 floats) &rarr; DCT &rarr; quantize &rarr; flatten &rarr; BPE &rarr; a short token sequence.
+            <span class="cite">[FAST &sect;3] [fast_deep_dive_2026-04-14.md &sect;1]</span>
+          </p>
+
+          <div class="panel">
+            <div class="headline">
+              <div class="big">Compression: <span class="js-hdr-in">350</span> floats &rarr; <span class="js-hdr-out">66</span> tokens <span class="rate">(<span class="js-hdr-rate">5.3</span>&times;)</span></div>
+              <div class="small">
+                Trains ~5&times; faster than per-cell tokenization &mdash; at the cost of ~2&times; slower inference vs flow matching.
+                <span class="cite">[FAST &sect;VI-D]</span>
+              </div>
+            </div>
+
+            <div class="controls">
+              <button class="js-btn-animate">&#9654; Animate pipeline</button>
+              <button class="js-btn-reset">Show all</button>
+              <span class="js-animate-status" style="font-size:12px;color:var(--muted);"></span>
+            </div>
+
+            <div class="pipeline js-pipeline">
+              <div class="stage js-stage-1">
+                <h3><span class="stage-num">1</span> Input chunk</h3>
+                <div class="canvas-slot">
+                  <canvas class="js-c-stage1 heatmap" width="280" height="140"></canvas>
+                  <div class="axis-x">t = 0 &rarr; 49 (rows), joints 0-6 (cols, colored palette)</div>
+                </div>
+                <div class="stage-label">
+                  <span class="count js-lbl-stage1">350 floats</span> &mdash; 50 timesteps &times; 7 dims
+                </div>
+                <div class="stage-note">raw joint-angle trajectory (radians)</div>
+                <div class="counter-chip">shape 50&times;7 &middot; floats</div>
+              </div>
+
+              <div class="arrow-col js-arrow-1">
+                <div class="op">DCT along<br>time axis</div>
+                <svg class="svg-arrow" viewBox="0 0 60 26"><defs><marker id="v7a1" viewBox="0 0 8 8" refX="6" refY="4" markerWidth="8" markerHeight="8" orient="auto"><path d="M0,0 L8,4 L0,8 z" fill="#444"/></marker></defs><line x1="2" y1="13" x2="54" y2="13" stroke="#444" stroke-width="1.8" marker-end="url(#v7a1)"/></svg>
+              </div>
+
+              <div class="stage js-stage-2">
+                <h3><span class="stage-num">2</span> DCT matrix</h3>
+                <div class="canvas-slot">
+                  <canvas class="js-c-stage2 heatmap" width="280" height="140"></canvas>
+                  <div class="cb-wrap">
+                    <canvas class="js-cb-stage2" width="120" height="8"></canvas>
+                    <span class="js-cb2-min">-</span><span>&hellip;0&hellip;</span><span class="js-cb2-max">+</span>
+                  </div>
+                  <div class="axis-x">k = 0 &rarr; 49 (freq index, rows), dim 0-6 (cols)</div>
+                </div>
+                <div class="stage-label">
+                  <span class="count js-lbl-stage2">350 floats</span> &mdash; same shape, frequency domain
+                </div>
+                <div class="stage-note">energy compacted into low-k columns (left side) &mdash; top-16 coeffs hold <span class="js-chip-compaction">95%</span> of energy</div>
+                <div class="counter-chip">shape 50&times;7 &middot; floats</div>
+              </div>
+
+              <div class="arrow-col js-arrow-2">
+                <div class="op">uniform scalar<br>quant (per-coef)</div>
+                <svg class="svg-arrow" viewBox="0 0 60 26"><defs><marker id="v7a2" viewBox="0 0 8 8" refX="6" refY="4" markerWidth="8" markerHeight="8" orient="auto"><path d="M0,0 L8,4 L0,8 z" fill="#444"/></marker></defs><line x1="2" y1="13" x2="54" y2="13" stroke="#444" stroke-width="1.8" marker-end="url(#v7a2)"/></svg>
+              </div>
+
+              <div class="stage js-stage-3">
+                <h3><span class="stage-num">3</span> Quantized integers</h3>
+                <div class="canvas-slot">
+                  <canvas class="js-c-stage3 heatmap" width="280" height="140"></canvas>
+                  <div class="cb-wrap">
+                    <span style="display:inline-block;width:10px;height:10px;background:#000;border:1px solid #555;vertical-align:middle;margin-right:3px;"></span>
+                    <span>= 0</span>
+                    <span style="margin-left:8px;">non-zero:</span>
+                    <canvas class="js-cb-stage3" width="80" height="8"></canvas>
+                  </div>
+                  <div class="axis-x">black cells = rounded-to-zero (sparse)</div>
+                </div>
+                <div class="stage-label">
+                  <span class="count js-lbl-stage3">350 ints</span> &mdash; but <span class="js-sparsity-pct">84.6%</span> are zero
+                </div>
+                <div class="stage-note">integer range &asymp; [-20, +20] (int8-safe)</div>
+                <div class="counter-chip">~<span class="js-chip-nonzero">54</span> non-zero &middot; int8</div>
+              </div>
+
+              <div class="arrow-col js-arrow-3">
+                <div class="op">flatten (row-major)<br>+ BPE merge</div>
+                <svg class="svg-arrow" viewBox="0 0 60 26"><defs><marker id="v7a3" viewBox="0 0 8 8" refX="6" refY="4" markerWidth="8" markerHeight="8" orient="auto"><path d="M0,0 L8,4 L0,8 z" fill="#444"/></marker></defs><line x1="2" y1="13" x2="54" y2="13" stroke="#444" stroke-width="1.8" marker-end="url(#v7a3)"/></svg>
+              </div>
+
+              <div class="stage js-stage-4">
+                <h3><span class="stage-num">4</span> BPE tokens</h3>
+                <div class="canvas-slot">
+                  <canvas class="js-c-stage4 heatmap" width="280" height="140"></canvas>
+                  <div class="axis-x">1 cell = 1 token ID (hash-colored)</div>
+                </div>
+                <div class="stage-label">
+                  <span class="count js-lbl-stage4">66 tokens</span> &mdash; fixed vocab, pastes into VLM embedding table
+                </div>
+                <div class="stage-note"><span class="js-merges-count">14</span> BPE merges applied</div>
+                <div class="counter-chip">1&times;66 &middot; uint</div>
+              </div>
+            </div>
+
+            <div class="pullquote">
+              &ldquo;The DCT coefficient matrix is typically sparse, with most entries being zero and only a few significant coefficients remaining per action dimension&hellip; the BPE step &lsquo;squashes&rsquo; the zero-valued components and merges frequently-occurring coefficient combinations across action dimensions.&rdquo;
+              <span class="src">&mdash; FAST &sect;3</span>
+            </div>
+            <div class="viz-caption">
+              The pipeline collapses 350 correlated floats into ~66 discrete tokens that plug straight into a VLM's embedding table &mdash; that's the whole trick. DCT makes the signal sparse in frequency, quantization hardens the sparsity, BPE eats the zero-runs and common patterns.
+              <span class="cite">[FAST &sect;3] [FAST &sect;VI-D] [fast_deep_dive_2026-04-14.md &sect;1]</span>
+            </div>
+          </div>
+        </section>
+      </div>
+      <div class="viz-explanation">
+        <p>End to end: a chunk of 50 timesteps by 7 dimensions enters as 350 floats. DCT reshapes it into a sparse 50&times;7 coefficient matrix. Quantization drops most of it to zero. BPE flattens and merges the result into 30 to 60 tokens drawn from a fixed 1024&ndash;2048 vocabulary (FAST paper numbers; FAST blog for chunk-level token count). The headline gains, as reported by PI: roughly 10&times; compression versus naive per-dim per-timestep binning, and roughly 5&times; training speedup on comparable tasks (Pertsch X thread, Jan 2025). Two framing notes, kept brief here and expanded on Page 3: the 5&times; is a training speedup, not inference &mdash; inference is in fact slower, at roughly 750 ms per chunk per the FAST paper itself &mdash; and the 10&times; compression comes with codebook utilization around 48%, per FASTer benchmarks. The pipeline is coherent; its deployment profile is where the honest caveats live.</p>
+        <aside class="callout-quote">
+          <strong>What the viz shows:</strong> A single horizontal flow: <code>A (50&times;7 floats, 350 scalars)</code> &rarr; DCT &rarr; quantize &rarr; flatten &rarr; BPE &rarr; <code>30&ndash;60 tokens</code>. Compression ratio and training-speedup numbers annotated on the arrow. A small footnote marker hands off to Page 3 for inference latency and codebook utilization.
+        </aside>
+        <p class="cite">Sources: FAST &sect;3, &sect;VI-D (arXiv 2501.09747); Pertsch X thread, Jan 2025; FASTer (arXiv 2512.04952) for 48% codebook utilization.</p>
+      </div>
+    </article>
+  </main>
+
+  <footer>
+    <p>FAST Workshop Artifact &middot; Page 2 of 3 &middot; Sources: <a href="https://arxiv.org/abs/2501.09747">arXiv 2501.09747</a> (FAST) &middot; <a href="https://arxiv.org/abs/2512.04952">arXiv 2512.04952</a> (FASTer)</p>
+  </footer>
+
+  <script src="data.js"></script>
+  <script src="shared.js"></script>
+  <script src="viz_4.js"></script>
+  <script src="viz_5.js"></script>
+  <script src="viz_6.js"></script>
+  <script src="viz_7.js"></script>
+  <script>
+    document.addEventListener('DOMContentLoaded', function () {
+      Viz4.init(document.getElementById('viz-4'));
+      Viz5.init(document.getElementById('viz-5'));
+      Viz6.init(document.getElementById('viz-6'));
+      Viz7.init(document.getElementById('viz-7'));
+    });
+  </script>
+</body>
+</html>

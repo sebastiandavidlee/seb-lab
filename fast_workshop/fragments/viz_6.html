@@ -1,0 +1,88 @@
+<section class="viz" id="viz-6" data-viz="6">
+  <h3 class="viz-title">Viz 6 &mdash; BPE compresses the quantized DCT sequence</h3>
+  <p class="viz-purpose">
+    Byte-pair encoding greedily merges the most-frequent adjacent token pair into a new vocab ID,
+    then repeats. Applied to FAST's flattened quantized DCT, it drops the chunk from 350 &rarr; 66 tokens.
+    <span class="cite">[FAST &sect;3] [fast_deep_dive &sect;1]</span>
+  </p>
+
+  <div class="pullquote6">
+    &ldquo;We choose BPE to compress the DCT matrix, since many efficient implementations exist and
+    <em>it can produce a fixed-size output vocabulary that can be easily integrated into the existing
+    vocabulary of vision-language models.</em>&rdquo;
+    &mdash; <span class="cite">FAST &sect;3</span>
+    <span class="annot">Last clause is the real engineering win. BPE wasn't chosen for compression efficiency &mdash;
+    it was chosen for fixed-vocab compatibility with the VLM embedding table.</span>
+  </div>
+
+  <div class="grid">
+    <!-- LEFT: main strip + controls + chart -->
+    <div class="panel6">
+      <div class="callout6 js-callout">Step 0 &mdash; initial sequence (350 tokens). Hit <b>Play</b> or press <b>&rarr;</b> to start merging.</div>
+
+      <div>
+        <span class="counter6"><span class="lbl">step</span><span class="js-step-n">0</span> / <span class="js-step-max">0</span></span>
+        <span class="counter6"><span class="lbl">tokens</span><span class="js-tok-n">350</span></span>
+        <span class="counter6"><span class="lbl">unique IDs</span><span class="js-uniq-n">0</span></span>
+        <span class="counter6"><span class="lbl">merges used</span><span class="js-merge-n">0</span></span>
+      </div>
+
+      <div class="strip-wrap">
+        <canvas class="strip js-strip" width="1750" height="54"></canvas>
+      </div>
+
+      <div class="controls controls6">
+        <button class="js-btn-prev" title="Previous step (←)">&#9664; Prev</button>
+        <button class="js-btn-play" title="Play / Pause (Space)">&#9654; Play</button>
+        <button class="js-btn-next" title="Next step (→)">Next &#9654;</button>
+        <div class="slider-box">
+          <input type="range" class="js-slider" min="0" max="0" value="0" step="1">
+          <span class="step-label"><span class="js-slider-lbl">0</span></span>
+        </div>
+        <div class="speed js-speed">
+          <button data-s="0.5">0.5&times;</button>
+          <button data-s="1" class="active">1&times;</button>
+          <button data-s="2">2&times;</button>
+          <button data-s="4">4&times;</button>
+        </div>
+      </div>
+      <div class="kbd-hint">keyboard: &larr; / &rarr; step &middot; space = play/pause</div>
+
+      <div style="margin-top: 16px;">
+        <div class="chart-title">Token count vs merge step</div>
+        <canvas class="chart js-chart" width="1150" height="140"></canvas>
+      </div>
+
+      <div class="legend-mini">
+        <span><span class="sw" style="background:#4b5768"></span> base token (ID 0-255)</span>
+        <span><span class="sw" style="background:#ffb454"></span> merge token (ID &ge; 256)</span>
+        <span><span class="sw" style="background:#fff; outline: 2px solid #fff"></span> pair just merged</span>
+      </div>
+    </div>
+
+    <!-- RIGHT: vocab table -->
+    <div class="panel6">
+      <h2>Vocabulary</h2>
+
+      <div class="vocab-section">
+        <div class="hdr"><span>Base tokens (ID 0-255)</span><span class="val js-base-count">&mdash;</span></div>
+      </div>
+
+      <div class="vocab-section">
+        <div class="hdr"><span>Merge tokens (ID &ge; 256) &mdash; 10 most recent</span><span class="val js-merge-count">0 merges</span></div>
+        <table class="vocab">
+          <thead><tr><th>ID</th><th>&rarr; (a, b)</th><th>freq</th></tr></thead>
+          <tbody class="js-vocab-body"><tr><td colspan="3" style="color:var(--muted6)">(no merges yet)</td></tr></tbody>
+        </table>
+      </div>
+
+      <div class="footer-note">
+        <div class="hdr-label">Why BPE?</div>
+        <div>Efficient implementations exist; the output vocabulary is fixed-size, so new tokens slot
+        into the VLM embedding table without retraining the tokenizer. <span class="cite">[FAST &sect;3]</span></div>
+        <div style="margin-top: 8px;">BPE halts once no adjacent pair repeats (&ge;2&times;) &mdash; that's why this chunk
+        saturates at ~14 merges, not 80. Standard behavior, not a bug.</div>
+      </div>
+    </div>
+  </div>
+</section>

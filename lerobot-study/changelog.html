@@ -1,0 +1,442 @@
+<!doctype html>
+<html lang="en" data-theme="dark">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Should I upgrade from 0.4.4? &mdash; LeRobot Study</title>
+  <link rel="stylesheet" href="shared/styles.css" />
+  <script defer src="shared/site.js"></script>
+</head>
+<body>
+
+<header class="site-header">
+  <h1><a href="index.html">LeRobot Study</a></h1>
+  <div class="subtitle">A friendly tour of LeRobot 0.4.4 &rarr; 0.5.0 for SO-101 hobbyists.</div>
+</header>
+
+<main class="page-grid">
+  <aside id="site-nav" aria-label="Site navigation">
+    <!-- injected by site.js from shared/nav.html -->
+  </aside>
+
+  <article class="page-content">
+    <div class="reading-order" role="navigation" aria-label="Reading order">
+      <a href="ecosystem.html">&larr; prev</a>
+      <span class="sep">&middot;</span>
+      <span>Should I upgrade from 0.4.4?</span>
+      <span class="sep">&middot;</span>
+      <a href="index.html">end &rarr;</a>
+    </div>
+
+    <div class="eyebrow">Upgrade decision</div>
+
+    <h1>Should I upgrade from 0.4.4?</h1>
+
+    <p class="read-time">5 min read &middot; <span class="persona-tag">for SO-101 users</span></p>
+
+    <section class="tldr">
+      Probably not yet. ACT and Diffusion code is byte-identical between 0.4.4 and
+      0.5.0. The upgrade asks you to rebuild your Python environment to 3.12 and
+      migrate to <code>transformers</code> v5 &mdash; for changes that won't help
+      most hobbyists. Stay on 0.4.4 unless you specifically need pi-Gemma
+      improvements or the new <code>cudnn_deterministic</code> flag.
+    </section>
+
+    <p class="what-this-means">
+      What this means for you: if you train ACT or Diffusion on SO-101 demos,
+      the upgrade is pure cost (rebuild the env, migrate transformers) with no
+      real benefit. If you fine-tune &pi;0 or &pi;0.5, you may need to re-validate
+      your weights &mdash; image normalization changed silently.
+    </p>
+
+    <section class="mental-model">
+<pre>Do you train ACT or Diffusion only?
+   │
+   ├── Yes → STAY on 0.4.4
+   │
+   └── No, I use π0 / π0.5 / SmolVLA / fine-tunes
+         │
+         └── Want pi-Gemma backbone refactor or cuDNN-determinism?
+               │
+               ├── Yes → Upgrade, re-validate fine-tunes
+               │
+               └── No  → STAY on 0.4.4</pre>
+    </section>
+
+    <h2>The basics</h2>
+
+    <h3>What's NEW in 0.5.0?</h3>
+    <ul>
+      <li>Python 3.12 required (was 3.10).</li>
+      <li><code>transformers</code> v5 (was v4.57).</li>
+      <li><code>pi_gemma</code> shared backbone module &mdash; internal refactor for &pi;0 / &pi;0.5.</li>
+      <li>Unitree G1 humanoid driver split (irrelevant for SO-101).</li>
+      <li>New <code>cudnn_deterministic</code> training knob for reproducible runs (~10&ndash;20% slowdown).</li>
+    </ul>
+
+    <h3>What's BROKEN by upgrading?</h3>
+    <ul>
+      <li>Your conda env on Python 3.10 / 3.11 &mdash; must rebuild on 3.12.</li>
+      <li>HuggingFace fine-tuned weights loaded via <code>from_pretrained</code>
+          &mdash; may break under <code>transformers</code> v5.</li>
+      <li>&pi;0 / &pi;0.5 image preprocessing &mdash; silent change from
+          <code>[-1, 1]</code> to <code>[0, 1]</code> range. The model sees a
+          different image distribution.</li>
+    </ul>
+
+    <h3>What does NOT change?</h3>
+    <p>
+      ACT, Diffusion Policy, the LeRobotDataset format on disk, the async-inference
+      stack, the RL stack, and the motor / camera drivers (other than G1) are all
+      untouched. Your existing recordings load fine on either version.
+    </p>
+
+    <h2>How you actually use it</h2>
+
+    <p>If you do upgrade, here's the four-step migration:</p>
+
+    <div class="workflow">
+<span class="wf-comment"># 1) Snapshot your current environment</span>
+<span class="wf-prompt"></span>pip freeze &gt; lerobot-v044-frozen.txt
+
+<span class="wf-comment"># 2) Build a fresh Python 3.12 env</span>
+<span class="wf-prompt"></span>conda create -n lerobot-v050 python=3.12 -y
+<span class="wf-prompt"></span>conda activate lerobot-v050
+
+<span class="wf-comment"># 3) Install</span>
+<span class="wf-prompt"></span>pip install lerobot==0.5.0
+
+<span class="wf-comment"># 4) Re-validate any pi0/π0.5/SmolVLA fine-tunes</span>
+<span class="wf-prompt"></span>lerobot-eval <span class="wf-flag">--policy.path</span>=path/to/old_pi0_finetune ...
+    </div>
+
+    <p>If anything breaks, roll back &mdash; the dataset format is unchanged:</p>
+
+    <div class="workflow">
+<span class="wf-prompt"></span>pip install lerobot==0.4.4
+    </div>
+
+    <h2>Things to know</h2>
+
+    <div class="callout callout-warn">
+      <div class="callout-title">HIL-SERL is broken under transformers v5</div>
+      <p>
+        The HIL-SERL reward model <code>helper2424/resnet10</code> won't load
+        under <code>transformers</code> v5 &mdash; the Hub model lacks
+        <code>self.post_init()</code> so <code>from_pretrained</code> fails. If
+        you do online RL, either pin <code>transformers</code> v4 manually or
+        stay on 0.4.4 for that workflow.
+      </p>
+    </div>
+
+    <div class="callout callout-warn">
+      <div class="callout-title"><code>huggingface-cli</code> is renamed to <code>hf</code></div>
+      <p>
+        The <code>huggingface-hub</code> 0.34&rarr;1.0 jump dropped the old
+        <code>huggingface-cli</code> binary in favor of <code>hf</code>. Update
+        any shell scripts.
+      </p>
+    </div>
+
+    <div class="callout callout-warn">
+      <div class="callout-title"><code>lerobot.available_policies</code> is stale</div>
+      <p>
+        The constant <code>lerobot.available_policies</code> still lists only
+        four policies in <strong>both</strong> 0.4.4 and 0.5.0, even though the
+        repo ships 14 policy folders. Don't rely on it programmatically. (It's
+        not a 0.5.0 regression &mdash; just a long-standing wart.)
+      </p>
+    </div>
+
+    <div class="callout callout-info">
+      <div class="callout-title">Dataset format is unchanged</div>
+      <p>
+        Both versions emit the same v3.0 LeRobotDataset format on disk. No
+        re-recording needed. ACT and Diffusion folders are byte-identical
+        between tags &mdash; your existing code paths don't change.
+      </p>
+    </div>
+
+    <div class="section-divider">Optional: under the hood</div>
+
+    <details class="deep-dive">
+      <summary>Show the full diff (8 added, 2 removed, 96 modified)</summary>
+
+      <p>
+        v0.5.0 was released <strong>2026-03-09</strong>, ten days after v0.4.4
+        (2026-02-27), and bundles 26 PRs. Diff sweep totals
+        (<code>diff -rq</code>, excluding <code>.git</code>):
+        <strong>8 added, 2 removed, 96 modified</strong>.
+      </p>
+
+      <h4>Added (8 new files)</h4>
+      <ul>
+        <li>
+          <strong><code>AI_POLICY.md</code></strong> &mdash; project policy for
+          AI-assisted contributions.
+        </li>
+        <li>
+          <strong><code>src/lerobot/policies/pi_gemma.py</code></strong>
+          (363 lines, PR #2964) &mdash; refactor target for pi0/pi05.
+          <code>PaliGemmaForConditionalGenerationWithPiGemma</code>,
+          <code>PiGemmaForCausalLM</code>, etc. Compat layer for transformers v5.
+        </li>
+        <li>
+          <strong><code>src/lerobot/robots/unitree_g1/g1_kinematics.py</code></strong>
+          (287 lines) &mdash; <code>WeightedMovingFilter</code> + casadi/pinocchio
+          IK. Replaces the deleted <code>robot_kinematic_processor.py</code>.
+        </li>
+        <li>
+          <strong><code>src/lerobot/robots/unitree_g1/gr00t_locomotion.py</code></strong>
+          (205 lines) &mdash; ONNX-runtime locomotion policy on top of NVIDIA
+          GR00T weights. 50&nbsp;Hz, dual-ONNX.
+        </li>
+        <li>
+          <strong><code>src/lerobot/robots/unitree_g1/holosoma_locomotion.py</code></strong>
+          (214 lines) &mdash; alternate ONNX locomotion controller (Amazon FAR
+          Holosoma). 200&nbsp;Hz, single-ONNX.
+        </li>
+        <li>
+          <strong><code>tests/robots/test_unitree_g1.py</code></strong> +
+          <strong><code>tests/teleoperators/test_unitree_g1_teleoperator.py</code></strong>
+          &mdash; first proper test coverage for G1.
+        </li>
+        <li>
+          <strong><code>examples/dataset/slurm_compute_rabc.py</code></strong>
+          (490 lines, PR #3041) &mdash; SLURM-distributed SARM RA-BC
+          progress-annotation pipeline. Useful only with a SLURM cluster.
+        </li>
+      </ul>
+
+      <h4>Removed (2 files)</h4>
+      <p>
+        Both removals are <em>refactors</em>, not deletions:
+      </p>
+      <ul>
+        <li>
+          <strong><code>src/lerobot/robots/unitree_g1/robot_kinematic_processor.py</code></strong>
+          (313 lines) &mdash; functionality moved into the new
+          <code>g1_kinematics.py</code>.
+        </li>
+        <li>
+          <strong><code>examples/unitree_g1/</code></strong> &mdash; the two
+          example scripts (<code>gr00t_locomotion.py</code>,
+          <code>holosoma_locomotion.py</code>) were promoted into the library
+          proper at <code>src/lerobot/robots/unitree_g1/</code>.
+        </li>
+      </ul>
+
+      <h4>Modified (top of the 96-file list)</h4>
+      <ul>
+        <li>
+          <strong>Type-system modernization</strong> &mdash; many files rewritten
+          to use PEP 695 native generics (<code>class Foo[T]:</code> instead of
+          <code>Generic[T]</code>). Non-breaking for callers but compile-time
+          errors on Python &lt;3.12. This is the main reason the Python floor moved.
+        </li>
+        <li>
+          <strong>Processor pipeline (state padding moved)</strong> &mdash;
+          <span class="file-ref">policies/pi05/processor_pi05.py:25-72</span>
+          removed the explicit <code>state = pad_vector(...)</code> step. Padding
+          still happens but inside <code>modeling_pi05.pad_vector</code> at
+          action-tensor build time.
+        </li>
+        <li>
+          <strong>Scripts</strong> &mdash;
+          <code>lerobot_record.py</code> and <code>lerobot_teleoperate.py</code>
+          gained <code>teleop.send_feedback(obs)</code> calls when
+          <code>robot.name == "unitree_g1"</code>. Non-G1 robots ignore.
+          <code>lerobot_train.py</code> gained the cuDNN-determinism switch.
+        </li>
+        <li>
+          <strong>Docs</strong> &mdash; updated to use <code>hf</code> CLI
+          instead of <code>huggingface-cli</code> (PR #3071). Pre-commit and
+          Dockerfiles bumped to py312.
+        </li>
+        <li>
+          <strong>HIL-SERL TODO</strong> &mdash;
+          <span class="file-ref">policies/sac/reward_model/configuration_classifier.py:36</span>
+          adds a TODO comment noting <code>helper2424/resnet10</code> won't load
+          under transformers v5.
+        </li>
+      </ul>
+
+      <h4>Release-note headlines</h4>
+      <pre><code>feat(robots): Unitree G1 WBC implementation by @nepyope in #2876
+feat(train): add cudnn_deterministic option by @imgeorgiev in #3102
+chore(dependencies): bump transformers v5 by @imstevenpmwork in #2964
+feat(dependencies): require Python 3.12+ by @imstevenpmwork in #3023
+Feat/slurm compute rabc script by @pkooij in #3041
+chore: add AI policy by @imstevenpmwork in #3055
+chore(readme): update citation with ICLR26 paper by @imstevenpmwork in #3107</code></pre>
+    </details>
+
+    <details class="deep-dive">
+      <summary>Show the breaking dependency table (every pyproject.toml row that changed)</summary>
+
+      <div class="table-wrap">
+        <table>
+          <thead>
+            <tr><th>Field</th><th>v0.4.4</th><th>v0.5.0</th><th>Source</th></tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td><code>requires-python</code></td>
+              <td><code>&gt;=3.10</code></td>
+              <td><code>&gt;=3.12</code></td>
+              <td><span class="file-ref">pyproject.toml:32</span></td>
+            </tr>
+            <tr>
+              <td><code>transformers-dep</code></td>
+              <td><code>&gt;=4.57.1,&lt;5.0.0</code></td>
+              <td><code>&gt;=5.3.0,&lt;6.0.0</code></td>
+              <td><span class="file-ref">pyproject.toml:102</span></td>
+            </tr>
+            <tr>
+              <td><code>huggingface-hub</code></td>
+              <td><code>[hf-transfer,cli]&gt;=0.34.2,&lt;0.36.0</code></td>
+              <td><code>&gt;=1.0.0,&lt;2.0.0</code></td>
+              <td><span class="file-ref">pyproject.toml:65</span></td>
+            </tr>
+            <tr>
+              <td><code>numpy</code></td>
+              <td>(implicit)</td>
+              <td><code>&gt;=2.0.0,&lt;2.3.0</code> (top-level)</td>
+              <td><span class="file-ref">pyproject.toml:69</span></td>
+            </tr>
+            <tr>
+              <td><code>placo-dep</code></td>
+              <td><code>&lt;0.10.0</code></td>
+              <td><code>&lt;0.9.17</code></td>
+              <td><span class="file-ref">pyproject.toml:101</span></td>
+            </tr>
+            <tr>
+              <td><code>unitree-sdk2</code></td>
+              <td>(absent)</td>
+              <td><code>==1.0.1</code></td>
+              <td><span class="file-ref">pyproject.toml:122</span></td>
+            </tr>
+            <tr>
+              <td><code>pi</code> extra</td>
+              <td>custom <code>transformers @ git+...@fix/lerobot_openpi</code> branch</td>
+              <td>regular <code>transformers-dep</code></td>
+              <td><span class="file-ref">pyproject.toml:147</span></td>
+            </tr>
+            <tr>
+              <td><code>wallx</code> extra</td>
+              <td>custom transformers branch</td>
+              <td>mainline transformers v5</td>
+              <td><span class="file-ref">pyproject.toml:141-145</span></td>
+            </tr>
+            <tr>
+              <td><code>[all]</code> extra</td>
+              <td><code>pi</code> / <code>wallx</code> commented out</td>
+              <td>both re-enabled</td>
+              <td><span class="file-ref">pyproject.toml:194-195</span></td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+
+      <p>
+        New consolidated extra deps in v0.5.0: <code>peft-dep</code>,
+        <code>scipy-dep</code>, <code>qwen-vl-utils-dep</code>,
+        <code>matplotlib-dep</code>
+        (<span class="file-ref">pyproject.toml:105-108</span>).
+      </p>
+
+      <p>
+        The <code>huggingface-hub</code> dropped its <code>[hf-transfer, cli]</code>
+        extras; the <code>huggingface-cli</code> binary is now <code>hf</code>.
+        The big <code>[tool.uv]</code> conflicts block (~80 lines) for wallx/pi
+        mutual-exclusion was removed because both extras now share mainline
+        transformers v5.
+      </p>
+    </details>
+
+    <details class="deep-dive">
+      <summary>Show the silent numeric changes in pi0 / &pi;0.5 with file refs</summary>
+
+      <p>
+        Beyond the dependency bumps, &pi;0 and &pi;0.5 changed image normalization
+        in a way that silently affects model outputs. <strong>Any &pi;0 / &pi;0.5
+        fine-tunes from v0.4.4 must be re-validated or re-finetuned</strong>
+        &mdash; the model sees a different image distribution.
+      </p>
+
+      <div class="compare-cols">
+        <div class="col-v044">
+          <span class="col-tag">v0.4.4</span>
+          <pre><code>resized_images.clamp(-1.0, 1.0)
+constant_value = -1.0  # for pad</code></pre>
+        </div>
+        <div class="col-v050">
+          <span class="col-tag">v0.5.0</span>
+          <pre><code>resized_images.clamp(0.0, 1.0)
+constant_value = 0.0   # for pad</code></pre>
+        </div>
+      </div>
+
+      <p>Sources (line numbers given for both versions since they shifted):</p>
+      <ul>
+        <li>v0.4.4
+          <span class="file-ref">src/lerobot/policies/pi0/modeling_pi0.py:194,205</span>
+          &rarr; v0.5.0
+          <span class="file-ref">src/lerobot/policies/pi0/modeling_pi0.py:202,213</span>
+        </li>
+        <li>v0.4.4
+          <span class="file-ref">src/lerobot/policies/pi05/modeling_pi05.py:192,203</span>
+          &rarr; v0.5.0
+          <span class="file-ref">src/lerobot/policies/pi05/modeling_pi05.py:199,210</span>
+        </li>
+      </ul>
+
+      <p>Two more silent changes in pi0 / pi05 internals:</p>
+      <ul>
+        <li>
+          Gemma / PaliGemma transformer access now routes through
+          <code>paligemma.model.language_model.layers[...]</code> (added
+          <code>.model.</code> segment) &mdash; transformers v5 module path change.
+        </li>
+        <li>
+          <code>dtype=</code> is used instead of the deprecated
+          <code>torch_dtype=</code> kwarg.
+        </li>
+      </ul>
+
+      <div class="callout callout-info">
+        <div class="callout-title">Quick test before re-finetuning</div>
+        <p>
+          As a fast sanity check, branch the preprocessing to match v0.4.4
+          normalization (<code>clamp(-1, 1)</code>, pad value <code>-1.0</code>)
+          and re-run inference on a held-out batch. Compare actions against your
+          v0.4.4 outputs. If they match within tolerance, the weights are
+          recoverable without a full re-train.
+        </p>
+      </div>
+    </details>
+
+    <div class="next-up">
+      <strong>Where to go next &rarr;</strong>
+      <p>
+        <a href="index.html">Back to the hub</a> &mdash; that's the end of the
+        tour. From the index you can revisit any page or jump to the glossary.
+      </p>
+    </div>
+
+  </article>
+</main>
+
+<button id="to-top" aria-label="Back to top" title="Back to top">&uarr;</button>
+
+<footer class="site-footer">
+  <div>Built 2026-05-08 &middot; pinned tags
+    <a href="https://github.com/huggingface/lerobot/tree/v0.4.4" target="_blank" rel="noopener">v0.4.4</a>
+    /
+    <a href="https://github.com/huggingface/lerobot/tree/v0.5.0" target="_blank" rel="noopener">v0.5.0</a>
+    &middot; <a href="https://github.com/huggingface/lerobot/compare/v0.4.4...v0.5.0" target="_blank" rel="noopener">compare</a>
+  </div>
+</footer>
+
+</body>
+</html>

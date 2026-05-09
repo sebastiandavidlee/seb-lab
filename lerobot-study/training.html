@@ -1,0 +1,540 @@
+<!doctype html>
+<html lang="en" data-theme="dark">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Training a policy — LeRobot Study</title>
+  <link rel="stylesheet" href="shared/styles.css" />
+  <script defer src="shared/site.js"></script>
+</head>
+<body>
+
+<header class="site-header">
+  <h1><a href="index.html">LeRobot Study</a></h1>
+  <div class="subtitle">A friendly tour of LeRobot 0.4.4 &rarr; 0.5.0 for SO-101 hobbyists.</div>
+</header>
+
+<main class="page-grid">
+  <aside id="site-nav" aria-label="Site navigation">
+    <!-- injected by site.js from shared/nav.html -->
+  </aside>
+
+  <article class="page-content">
+    <div class="reading-order" role="navigation" aria-label="Reading order">
+      <a href="teleop.html">&larr; prev</a>
+      <span class="sep">&middot;</span>
+      <span>Training a policy</span>
+      <span class="sep">&middot;</span>
+      <a href="data.html">next &rarr;</a>
+    </div>
+
+    <div class="eyebrow">TRAINING</div>
+
+    <h1>Training a policy</h1>
+
+    <p class="read-time">7 min read &middot; <span class="persona-tag">for SO-101 users</span></p>
+
+    <section class="tldr">
+      <p>
+        When you run <code>lerobot-train</code>, LeRobot loads your dataset, builds a
+        fresh policy network (or resumes one), and runs a standard PyTorch training
+        loop. The 0.5.0 release added one knob (<code>cudnn_deterministic</code>) and
+        silently changed image normalization for &pi;0/&pi;0.5 &mdash; your ACT and
+        Diffusion code is unchanged.
+      </p>
+    </section>
+
+    <p class="what-this-means">
+      If you train ACT or Diffusion on your SO-101 demos, the upgrade does nothing
+      useful. If you're fine-tuning &pi;0 or &pi;0.5, you may need to re-validate
+      your weights &mdash; the image preprocessing changed.
+    </p>
+
+    <div class="mental-model">
+      <p>
+        <strong>Training is teaching by example.</strong> The policy watches thousands
+        of recorded demos and learns to predict "what motor command would the human
+        have sent here?"
+      </p>
+<pre>LeRobotDataset  &rarr;  DataLoader  &rarr;  Policy.forward(obs)
+                                          &darr;
+                                        Loss
+                                          &darr;
+                                  Optimizer.step()</pre>
+    </div>
+
+    <h2>The basics</h2>
+
+    <h3>What does <code>lerobot-train</code> actually do?</h3>
+    <p>
+      Five steps, in order: load the config from your CLI flags &rarr; load the
+      dataset (parquet + mp4 on disk, or pulled from the Hub) &rarr; build a fresh
+      policy network from scratch (or resume one from a checkpoint) &rarr; loop over
+      mini-batches calling <code>policy.forward(batch)</code>, backprop, and
+      optimizer step &rarr; eval and checkpoint every N steps.
+    </p>
+    <p>
+      It's a vanilla PyTorch training loop wrapped by HuggingFace's
+      <code>Accelerator</code>. There is nothing exotic happening &mdash; if you've
+      trained any HF model before, this is the same shape.
+    </p>
+
+    <h3>Picking a policy: ACT vs Diffusion vs SmolVLA vs &pi;0/&pi;0.5</h3>
+    <p>You pass <code>--policy.type=&lt;name&gt;</code> at the CLI. The plain-language guide:</p>
+    <ul>
+      <li>
+        <strong>ACT</strong> &mdash; small, fast transformer that predicts a chunk of
+        future actions. <strong>Start here for SO-101</strong> &mdash; 99% of small-data
+        home setups want this.
+      </li>
+      <li>
+        <strong>Diffusion Policy</strong> &mdash; slightly better when your demos show
+        more than one valid way to do the task (multimodal behaviour). Same training
+        time ballpark as ACT.
+      </li>
+      <li>
+        <strong>SmolVLA</strong> &mdash; the smallest vision-language-action model.
+        Language-conditioned ("pick the red cube"). Single-GPU friendly. Use when
+        you want one policy that handles several tasks.
+      </li>
+      <li>
+        <strong>&pi;0 / &pi;0.5</strong> &mdash; large vision-language-action models
+        from Physical Intelligence. More compute, best zero-shot generalization.
+        Fine-tune from the Hub checkpoint, don't train from scratch.
+      </li>
+      <li>
+        <strong>VQ-BeT, TD-MPC, SAC, GR00T, WALL-X, XVLA</strong> &mdash; niche or
+        research-stage. SAC and TD-MPC are RL (skip unless you've read the
+        <a href="rl-on-top.html">RL page</a>); GR00T wraps NVIDIA's external model.
+      </li>
+    </ul>
+
+    <h3>What's a config?</h3>
+    <p>
+      Every CLI flag corresponds to a field on a Python dataclass. The configs nest:
+      a top-level <code>TrainPipelineConfig</code> contains a
+      <code>DatasetConfig</code>, a <code>PreTrainedConfig</code> (the policy), an
+      <code>OptimizerConfig</code>, an <code>LRSchedulerConfig</code>, and so on.
+      You override any nested field with dotted CLI flags
+      (<code>--dataset.repo_id=...</code>, <code>--policy.type=act</code>).
+    </p>
+
+    <h3>Resume vs from-scratch</h3>
+    <p>
+      From-scratch is the default: pass <code>--policy.type=act</code> and a fresh
+      network is initialized. To resume an interrupted run, point at the output
+      folder with <code>--config_path=outputs/your_run --resume=true</code> &mdash;
+      LeRobot reloads the optimizer state, scheduler state, and step counter.
+      To <em>fine-tune</em> from a Hub checkpoint instead, use
+      <code>--policy.pretrained_path=&lt;hub-id&gt;</code> &mdash; weights load, but
+      training restarts at step 0.
+    </p>
+
+    <h2>How you actually use it</h2>
+
+    <p>Train ACT on your dataset:</p>
+    <div class="workflow">
+<span class="wf-comment"># Train ACT from scratch on your recorded demos</span>
+<span class="wf-prompt"></span>lerobot-train \
+    <span class="wf-flag">--policy.type</span>=act \
+    <span class="wf-flag">--dataset.repo_id</span>=youruser/your-task \
+    <span class="wf-flag">--output_dir</span>=outputs/act_run1
+    </div>
+
+    <p>Resume after a crash or pause:</p>
+    <div class="workflow">
+<span class="wf-comment"># Pick up where you left off</span>
+<span class="wf-prompt"></span>lerobot-train \
+    <span class="wf-flag">--config_path</span>=outputs/act_run1 \
+    <span class="wf-flag">--resume</span>=true
+    </div>
+
+    <p>Fine-tune SmolVLA from a Hub checkpoint:</p>
+    <div class="workflow">
+<span class="wf-comment"># Start from pretrained weights, train on your data</span>
+<span class="wf-prompt"></span>lerobot-train \
+    <span class="wf-flag">--policy.type</span>=smolvla \
+    <span class="wf-flag">--policy.pretrained_path</span>=lerobot/smolvla_base \
+    <span class="wf-flag">--dataset.repo_id</span>=youruser/your-task \
+    <span class="wf-flag">--output_dir</span>=outputs/smolvla_finetune
+    </div>
+
+    <h2>Things to know</h2>
+
+    <div class="callout callout-warn">
+      <div class="callout-title">No EMA, no FSDP, no gradient accumulation</div>
+      <p>
+        The stock trainer is single-process with one <code>Accelerator</code>.
+        Effective batch size is hard-bounded by
+        <code>batch_size &times; num_processes</code>. To reproduce the original
+        Diffusion Policy paper numbers you need exponential moving average of
+        weights (EMA) &mdash; LeRobot doesn't ship one. Add it externally if paper
+        parity matters.
+      </p>
+    </div>
+
+    <div class="callout callout-warn">
+      <div class="callout-title">&pi;0 / &pi;0.5 image normalization changed silently</div>
+      <p>
+        In v0.5.0, image-pad value flipped from <code>-1.0</code> to
+        <code>0.0</code> for &pi;0 and &pi;0.5, shifting normalization range from
+        [&minus;1,&nbsp;1] to [0,&nbsp;1]. Re-validate any &pi;0/&pi;0.5 weights
+        you fine-tuned on v0.4.4 before trusting them on v0.5.0. ACT and
+        Diffusion are unaffected.
+      </p>
+    </div>
+
+    <div class="callout callout-info">
+      <div class="callout-title">PEFT/LoRA is the only memory-saver shipped</div>
+      <p>
+        If you're fine-tuning a big VLA (&pi;0, SmolVLA, WALL-X) on a single GPU,
+        pass <code>--peft.method_type=LORA</code>. There's no other memory-saving
+        path in the trainer &mdash; no FSDP, no DeepSpeed, no tensor parallelism.
+      </p>
+    </div>
+
+    <div class="callout callout-info">
+      <div class="callout-title">The "SLURM" script is for SARM, not distributed training</div>
+      <p>
+        v0.5.0 ships <code>examples/dataset/slurm_compute_rabc.py</code>. It's
+        <em>not</em> a multi-node training launcher &mdash; it's an offline
+        annotator that runs the SARM reward model over your dataset. The trainer
+        itself is single-process. (More on SARM in the deep-dive below.)
+      </p>
+    </div>
+
+    <div class="section-divider">Optional: under the hood</div>
+
+    <details class="deep-dive">
+      <summary>Show the actual train loop with file:line refs</summary>
+
+      <p>
+        Entry point: <span class="file-ref">scripts/lerobot_train.py</span> (555
+        lines in v0.5.0, 551 in v0.4.4). <code>main()</code> calls
+        <code>register_third_party_plugins()</code> then
+        <code>train()</code>, wrapped by <code>@parser.wrap()</code> to feed it a
+        <code>TrainPipelineConfig</code>
+        (<span class="file-ref">scripts/lerobot_train.py:549-551</span>,
+        <span class="file-ref">:153-154</span>).
+      </p>
+
+      <ol>
+        <li>
+          <strong>Init / Accelerator.</strong> A single <code>Accelerator</code> with
+          <code>step_scheduler_with_optimizer=False</code> and
+          <code>DistributedDataParallelKwargs(find_unused_parameters=True)</code>
+          (<span class="file-ref">scripts/lerobot_train.py:177-187</span>).
+          <code>torch.backends.cuda.matmul.allow_tf32 = True</code> unconditionally;
+          <code>cudnn.deterministic</code> is config-driven in 0.5.0.
+        </li>
+        <li>
+          <strong>Dataset / env / policy.</strong> <code>make_dataset(cfg)</code>
+          rank-0-first (<span class="file-ref">:220-228</span>);
+          <code>make_env(...)</code> rank-0-only
+          (<span class="file-ref">:233-236</span>);
+          <code>make_policy(cfg=cfg.policy, ds_meta=dataset.meta, rename_map=cfg.rename_map)</code>
+          (<span class="file-ref">:240-244</span>); optional
+          <code>policy.wrap_with_peft(...)</code>
+          (<span class="file-ref">:246-250</span>).
+        </li>
+        <li>
+          <strong>Pre / post-processors.</strong>
+          <code>make_pre_post_processors(...)</code>
+          (<span class="file-ref">:255-291</span>).
+          <code>preprocessor_overrides["normalizer_processor"]["stats"] = dataset.meta.stats</code>
+          forces fresh dataset stats even when resuming
+          (<span class="file-ref">:266-284</span>).
+        </li>
+        <li>
+          <strong>Optim + scheduler.</strong>
+          <code>make_optimizer_and_scheduler</code>
+          (<span class="file-ref">:295</span>); RA-BC weights provider when
+          <code>cfg.use_rabc</code> (<span class="file-ref">:300-318</span>).
+        </li>
+        <li>
+          <strong>Sampler / dataloader.</strong> Policies exposing
+          <code>drop_n_last_frames</code> (Diffusion etc.) get an
+          <code>EpisodeAwareSampler</code> over per-episode index ranges; otherwise
+          plain shuffle (<span class="file-ref">:346-368</span>).
+          <code>accelerator.prepare(...)</code> wraps
+          policy/optimizer/dataloader/scheduler.
+        </li>
+        <li>
+          <strong>Train loop</strong> (<code>update_policy</code>,
+          <span class="file-ref">scripts/lerobot_train.py:59-150</span>): optional
+          RA-BC per-sample weighting (<span class="file-ref">:96-117</span>);
+          <code>accelerator.backward(loss)</code>;
+          <code>clip_grad_norm_</code> when <code>grad_clip_norm &gt; 0</code>
+          (<span class="file-ref">:122-130</span>);
+          <code>optimizer.step()</code> under optional lock for SAC's separate
+          optimizers (<span class="file-ref">:133-134</span>);
+          <code>lr_scheduler.step()</code> per batch
+          (<span class="file-ref">:136-140</span>); optional unwrapped
+          <code>policy.update()</code> (TD-MPC's Polyak target update,
+          <span class="file-ref">:143-144</span>).
+        </li>
+        <li>
+          <strong>Eval / save.</strong>
+          <code>save_checkpoint(...)</code> writes policy + optimizer + scheduler +
+          processors; <code>update_last_checkpoint()</code> updates the symlink
+          (<span class="file-ref">:457-475</span>);
+          <code>eval_policy_all</code> over
+          <code>dict[suite][task_id] -&gt; vec_env</code>
+          (<span class="file-ref">:477-524</span>); on finish,
+          <code>cfg.policy.push_to_hub</code> pushes the unwrapped model + processors
+          (<span class="file-ref">:535-542</span>).
+        </li>
+      </ol>
+
+      <p>
+        <strong>Hooks present:</strong> resume; AMP via
+        <code>accelerator.autocast()</code>; per-sample weighting (RA-BC); gradient
+        clipping; lock-protected optimizer step (SAC).
+        <strong>Absent:</strong> explicit gradient accumulation; EMA weights; FSDP;
+        DeepSpeed; layer-wise depth-decay LR; checkpoint averaging or SWA.
+      </p>
+
+      <div class="callout callout-new">
+        <div class="callout-title">New in v0.5.0 &mdash; <code>cudnn_deterministic</code></div>
+        <p>
+          One new field: <code>cudnn_deterministic: bool = False</code>
+          (<span class="file-ref">configs/train.py:53-55</span>). Wired in
+          <span class="file-ref">scripts/lerobot_train.py:212-216</span>: v0.4.4
+          unconditionally sets <code>cudnn.benchmark = True</code>; v0.5.0 picks
+          deterministic-or-benchmark based on the flag. Docstring says it "may
+          reduce training speed by ~10-20%".
+        </p>
+      </div>
+    </details>
+
+    <details class="deep-dive">
+      <summary>Show all 14 native policies with architecture details</summary>
+
+      <p>
+        All policies subclass <code>PreTrainedPolicy</code>; each declares a
+        <code>name</code> string used by <code>get_policy_class()</code>
+        (<span class="file-ref">policies/factory.py:60-138</span>) and a
+        <code>config_class</code>. Each policy ships
+        <code>configuration_&lt;x&gt;.py</code>, <code>modeling_&lt;x&gt;.py</code>,
+        <code>processor_&lt;x&gt;.py</code>, and a README.
+      </p>
+
+      <h4>act &mdash; Action Chunking Transformer</h4>
+      <p>
+        DETR-style encoder/decoder over a CNN backbone, optional CVAE latent head,
+        optional online temporal ensembling. Defaults
+        <code>chunk_size=100</code>, <code>n_action_steps=100</code>,
+        <code>n_obs_steps=1</code>
+        (<span class="file-ref">policies/act/configuration_act.py:85-87</span>).
+        Two-group optimizer preset (backbone vs head)
+        (<span class="file-ref">policies/act/modeling_act.py:71-90</span>). Paper:
+        Zhao et al. arXiv:2304.13705.
+      </p>
+
+      <h4>diffusion &mdash; Diffusion Policy (DDPM/DDIM)</h4>
+      <p>
+        UNet1D over an action chunk conditioned on encoded image+state context, via
+        <code>diffusers</code>. <code>EpisodeAwareSampler</code> drops last
+        <code>drop_n_last_frames</code> to avoid horizon bleed. Paper: Chi et al.,
+        IJRR 2024
+        (<span class="file-ref">policies/diffusion/modeling_diffusion.py:17-21</span>).
+      </p>
+
+      <h4>vqbet &mdash; Behavior Transformer over Residual-VQ-VAE</h4>
+      <p>
+        Two-stage: <code>n_vqvae_training_steps=20000</code> of constant-LR RVQ
+        pre-training (16 codes, embedding 256), then transformer predicts code
+        indices via Focal loss + offset head
+        (<span class="file-ref">policies/vqbet/configuration_vqbet.py:106-130</span>).
+        Paper: Lee et al. arXiv:2403.03181.
+      </p>
+
+      <h4>tdmpc &mdash; Latent-dynamics MPC + TD learning</h4>
+      <p>
+        Online RL; <code>update()</code> is called every step for Polyak target
+        updates. Paper: Hansen, Wang, Su arXiv:2203.04955; FOWM aug
+        arXiv:2310.16029
+        (<span class="file-ref">policies/tdmpc/modeling_tdmpc.py:511</span> for
+        <code>update()</code>).
+      </p>
+
+      <h4>sac &mdash; Soft Actor-Critic</h4>
+      <p>
+        Optional discrete gripper head, optionally shared image encoders. Returns
+        per-component param groups (<code>actor</code>, <code>critic</code>,
+        <code>temperature</code>, optional <code>discrete_critic</code>) for
+        <code>MultiAdamConfig</code>
+        (<span class="file-ref">policies/sac/modeling_sac.py:39-72</span>).
+      </p>
+
+      <h4>pi0 &mdash; &pi;&#8320; port from OpenPI</h4>
+      <p>
+        PaliGemma VLM + Gemma action expert, conditional flow matching over a
+        50-step action chunk. Tokenizer length 48
+        (<span class="file-ref">policies/pi0/configuration_pi0.py:32-97</span>).
+        Paper: arXiv:2410.24164.
+      </p>
+
+      <h4>pi0_fast &mdash; &pi;&#8320; with FAST discrete action tokenization</h4>
+      <p>
+        DCT-based, decoded via <code>scipy.fftpack.idct</code>. Causal-LM head over
+        PaliGemma; loads HF tokenizer for action detokenization
+        (<span class="file-ref">policies/pi0_fast/modeling_pi0_fast.py:32-44</span>).
+      </p>
+
+      <h4>pi05 &mdash; &pi;&#8320;.&#8325; port</h4>
+      <p>
+        Differs from &pi;&#8320;: AdaRMS time conditioning via
+        <code>time_mlp_*</code>; tokenizer length 200; discrete state input (no
+        <code>state_proj</code>). Paper: arXiv:2504.16054
+        (<span class="file-ref">policies/pi05/README.md:35-41</span>).
+      </p>
+
+      <h4>smolvla &mdash; HF's affordable VLA</h4>
+      <p>
+        Pretrained VLM + flow-matching action expert. Paper: arXiv:2506.01844
+        (<span class="file-ref">policies/smolvla/modeling_smolvla.py:17-50</span>).
+      </p>
+
+      <h4>groot &mdash; wrapper over NVIDIA's <code>Isaac-GR00T</code></h4>
+      <p>
+        <code>GR00TN15.from_pretrained</code> is the model loader; predict_action
+        via <code>model.get_action</code>
+        (<span class="file-ref">policies/groot/modeling_groot.py:46-93</span>). Paper:
+        arXiv:2503.14734 (GR00T N1).
+      </p>
+
+      <h4>sarm &mdash; Stage-Aware Reward Model (NOT a manipulation policy)</h4>
+      <p>
+        <code>StageTransformer</code> for stage class,
+        <code>SubtaskTransformer</code> for within-stage progress. Output feeds RA-BC
+        weighting. Paper: arXiv:2509.25358
+        (<span class="file-ref">policies/sarm/modeling_sarm.py:18-25</span>).
+      </p>
+
+      <h4>wall_x &mdash; WALL-OSS port</h4>
+      <p>
+        Qwen2.5-VL with MoE action experts; flow-matching or FAST-token action heads.
+        PEFT/LoRA. Paper: arXiv:2509.11766
+        (<span class="file-ref">policies/wall_x/modeling_wall_x.py:17-89</span>).
+      </p>
+
+      <h4>xvla &mdash; soft-prompted Florence-2-based cross-embodiment VLA</h4>
+      <p>
+        From <code>2toINF</code>. Bespoke <code>xvla-adamw</code> optimizer with VLM
+        at 1/10 LR
+        (<span class="file-ref">policies/xvla/modeling_xvla.py:270-296</span>).
+      </p>
+
+      <h4>rtc &mdash; Real-Time Chunking (NOT a policy)</h4>
+      <p>
+        Inference-time wrapper for flow-matching policies (&pi;&#8320; / &pi;&#8320;.&#8325; /
+        SmolVLA). Paper: Black, Galliker, Levine 2025
+        (<span class="file-ref">policies/rtc/modeling_rtc.py:17-23</span>).
+      </p>
+
+      <div class="callout callout-new">
+        <div class="callout-title">New in v0.5.0 &mdash; <code>pi_gemma</code> shared backbone (NOT a registered policy)</div>
+        <p>
+          363-line module factored out of <code>pi0/</code> / <code>pi05/</code>.
+          Provides <code>PiGemmaRMSNorm</code> (AdaRMS), <code>_gated_residual</code>,
+          a decoder-layer factory, <code>PiGemmaModel</code>,
+          <code>PiGemmaForCausalLM</code>, and
+          <code>PaliGemmaForConditionalGenerationWithPiGemma</code>
+          (<span class="file-ref">src/lerobot/policies/pi_gemma.py:54-352</span>).
+          The factory does <strong>not</strong> route
+          <code>--policy.type=pi_gemma</code> &mdash; you can't train it directly. It
+          exists so &pi;&#8320; / &pi;&#8320;.&#8325; / &pi;&#8320;-FAST drop a private-symbol
+          dependency on transformers internals.
+        </p>
+      </div>
+    </details>
+
+    <details class="deep-dive">
+      <summary>Show the SARM reward-weighted-BC pipeline</summary>
+
+      <p>
+        A complete reward-weighted-BC pipeline ships in both versions, hidden behind
+        <code>cfg.use_rabc</code>:
+      </p>
+
+      <ol>
+        <li>
+          <strong>Annotate dataset offline</strong> with a SARM model &rarr;
+          <code>sarm_progress.parquet</code> per episode (stage class + within-stage
+          &tau;).
+        </li>
+        <li>
+          At train time, <code>cfg.use_rabc=True</code> instantiates
+          <code>RABCWeights(progress_path, chunk_size, head_mode, kappa, epsilon, device)</code>
+          (<span class="file-ref">scripts/lerobot_train.py:300-318</span>).
+        </li>
+        <li>
+          Train loop calls <code>policy.forward(batch, reduction="none")</code>;
+          multiplies per-sample loss by <code>w_i</code> (from the parquet); reduces
+          as <code>(per_sample_loss * w).sum() / (w.sum() + 1e-6)</code>
+          (<span class="file-ref">scripts/lerobot_train.py:96-117</span>).
+        </li>
+      </ol>
+
+      <p>
+        Five fields in <code>TrainPipelineConfig</code>:
+        <code>use_rabc</code>, <code>rabc_progress_path</code>,
+        <code>rabc_kappa=0.01</code>, <code>rabc_epsilon=1e-6</code>,
+        <code>rabc_head_mode="sparse"</code>
+        (<span class="file-ref">configs/train.py:73-78</span>). Paper:
+        arXiv:2509.25358.
+      </p>
+
+      <div class="callout callout-new">
+        <div class="callout-title">New in v0.5.0 &mdash; <code>examples/dataset/slurm_compute_rabc.py</code></div>
+        <p>
+          490-line offline annotator built on
+          <code>datatrove.executor.slurm.SlurmPipelineExecutor</code>. Two
+          subcommands:
+        </p>
+        <ul>
+          <li>
+            <code>compute</code> &mdash; N workers each compute SARM stage/progress
+            (sparse and/or dense head) for a subset of episodes, writing per-rank
+            parquet shards under <code>rabc_shards/</code>
+            (<span class="file-ref">examples/dataset/slurm_compute_rabc.py:46-100+</span>).
+          </li>
+          <li>
+            <code>aggregate</code> &mdash; single worker merges shards into
+            <code>sarm_progress.parquet</code>, optionally pushes to the Hub
+            (<span class="file-ref">examples/dataset/slurm_compute_rabc.py:33-36</span>).
+          </li>
+        </ul>
+        <p>
+          The only "SLURM" in the repo is for SARM annotation. Policy training itself
+          never runs under SLURM.
+        </p>
+      </div>
+    </details>
+
+    <div class="next-up">
+      <strong>Where to go next &rarr;</strong>
+      <p>
+        <a href="data.html">Where your data lives</a> &mdash; how
+        <code>lerobot-record</code> stores demos on disk, what the v3.0 format looks
+        like, and when to re-record vs convert.
+      </p>
+    </div>
+
+  </article>
+</main>
+
+<button id="to-top" aria-label="Back to top" title="Back to top">&uarr;</button>
+
+<footer class="site-footer">
+  <div>Built 2026-05-08 &middot; pinned tags
+    <a href="https://github.com/huggingface/lerobot/tree/v0.4.4" target="_blank" rel="noopener">v0.4.4</a>
+    /
+    <a href="https://github.com/huggingface/lerobot/tree/v0.5.0" target="_blank" rel="noopener">v0.5.0</a>
+    &middot; <a href="https://github.com/huggingface/lerobot/compare/v0.4.4...v0.5.0" target="_blank" rel="noopener">compare</a>
+  </div>
+</footer>
+
+</body>
+</html>

@@ -1,0 +1,529 @@
+<!doctype html>
+<html lang="en" data-theme="dark">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>What plugs in &mdash; LeRobot Study</title>
+  <link rel="stylesheet" href="shared/styles.css" />
+  <script defer src="shared/site.js"></script>
+</head>
+<body>
+
+<header class="site-header">
+  <h1><a href="index.html">LeRobot Study</a></h1>
+  <div class="subtitle">A friendly tour of LeRobot 0.4.4 &rarr; 0.5.0 for SO-101 hobbyists.</div>
+</header>
+
+<main class="page-grid">
+  <aside id="site-nav" aria-label="Site navigation">
+    <!-- injected by site.js from shared/nav.html -->
+  </aside>
+
+  <article class="page-content">
+    <div class="reading-order" role="navigation" aria-label="Reading order">
+      <a href="rl-on-top.html">&larr; prev</a>
+      <span class="sep">&middot;</span>
+      <span>What plugs in</span>
+      <span class="sep">&middot;</span>
+      <a href="changelog.html">next &rarr;</a>
+    </div>
+
+    <div class="eyebrow">Ecosystem</div>
+
+    <h1>What plugs in</h1>
+
+    <p class="read-time">7 min read &middot; <span class="persona-tag">for SO-101 users</span></p>
+
+    <section class="tldr">
+      LeRobot has first-class support for big foundation models from HuggingFace
+      and NVIDIA &mdash; SmolVLA, GR00T, &pi;0 / &pi;0.5 &mdash; and a few research
+      integrations like the Unitree G1's whole-body locomotion. But popular research
+      tools like V-JEPA, DINO, and UMI are <strong>not</strong> in the codebase.
+      You'd swap an encoder by forking the policy file.
+    </section>
+
+    <p class="what-this-means">
+      What this means for you: if you want to fine-tune SmolVLA or GR00T on your
+      SO-101 demos, that just works &mdash; one extra to install, one config flag,
+      go. If you wanted to plug a V-JEPA visual encoder into ACT instead of its
+      default ResNet, you'd be writing a fork.
+    </p>
+
+    <section class="mental-model">
+<pre>SHIPPED IN v0.5.0:
+  ┌──────────────┐ ┌─────────────┐ ┌─────────────┐
+  │   SmolVLA    │ │  GR00T VLA  │ │ π0 / π0.5   │
+  │  (450M, HF)  │ │   (NVIDIA)  │ │ (PaliGemma) │
+  └──────────────┘ └─────────────┘ └─────────────┘
+
+  ┌──────────────┐ ┌─────────────┐
+  │  GR00T-WBC   │ │  Holosoma   │   (G1 humanoid only)
+  │ (locomotion) │ │ (locomotion)│
+  └──────────────┘ └─────────────┘
+
+NOT IN THE CODE — fork-only:
+  ▢ V-JEPA / DINO encoders
+  ▢ UMI ingestion (Stanford handheld)
+  ▢ Diffusion world models for rollout / planning</pre>
+      <p>
+        Top row is what an SO-101 user can actually use. Middle row is humanoid-only.
+        Bottom row is the work you'd own if you wanted it.
+      </p>
+    </section>
+
+    <h2>The basics</h2>
+
+    <h3>What's a VLA?</h3>
+    <p>
+      A <em>VLA</em> is a Vision-Language-Action model: a big transformer that
+      takes camera frames plus a text instruction (&ldquo;put the red block in the
+      bowl&rdquo;) and outputs robot actions. SmolVLA, GR00T, and &pi;0 are all
+      VLAs &mdash; same family, different sizes and pre-training recipes.
+    </p>
+
+    <h3>What ships natively?</h3>
+    <p>
+      &ldquo;Native&rdquo; here means the code is in the repo, a
+      <code>pip install</code> extra brings it in, and a config flag turns it on.
+    </p>
+    <ul>
+      <li>
+        <strong>SmolVLA</strong> (450M parameters, HuggingFace) &mdash; the friendliest
+        VLA for fine-tuning on a single consumer GPU. Closest thing to a
+        &ldquo;weekend VLA&rdquo; on SO-101. Pretrained checkpoint
+        <code>lerobot/smolvla_base</code>.
+      </li>
+      <li>
+        <strong>GR00T N1.5</strong> (3B, NVIDIA) &mdash; manipulation only, more
+        compute, stronger zero-shot. Pretrained checkpoint
+        <code>nvidia/GR00T-N1.5-3B</code>. Wrapper delegates to NVIDIA's
+        Isaac-GR00T runner.
+      </li>
+      <li>
+        <strong>&pi;0 / &pi;0.5 / &pi;0-FAST</strong> &mdash; the SOTA tier,
+        large models, PaliGemma backbone. Pretrained <code>lerobot/pi05_base</code>.
+      </li>
+      <li>
+        <strong>GR00T-WBC + Holosoma</strong> &mdash; locomotion ONNX policies for
+        the Unitree G1 humanoid. <em>Not</em> relevant for arm-only setups.
+      </li>
+    </ul>
+
+    <h3>What's missing?</h3>
+    <p>
+      <strong>V-JEPA, V-JEPA-2, DINOv2/DINOv3</strong> (research-grade visual
+      encoders), <strong>UMI</strong> (Stanford's handheld GoPro data-collection
+      pipeline), and <strong>diffusion world models</strong> (learned-dynamics
+      planners) are all absent from the codebase. A repo-wide grep for any of
+      these terms returns zero hits in <code>src/</code>.
+    </p>
+
+    <h3>Sims</h3>
+    <p>
+      Four optional sim extras: <code>gym-aloha</code> (bimanual ALOHA),
+      <code>gym-pusht</code> (Push-T benchmark), <code>metaworld</code>
+      (manipulation suite), <code>hf-libero</code> (LIBERO, Linux only).
+      <strong>None simulate SO-101.</strong> For SO-101 in sim you pull a
+      community env from the HuggingFace hub &mdash; not an official one.
+    </p>
+
+    <h2>How you actually use it</h2>
+
+    <p>Fine-tune SmolVLA on your demos &mdash; the most plug-and-play VLA path:</p>
+
+    <div class="workflow">
+<span class="wf-comment"># Install once</span>
+<span class="wf-prompt"></span>pip install -e <span class="wf-flag">".[smolvla]"</span>
+
+<span class="wf-comment"># Fine-tune on your dataset (single consumer GPU)</span>
+<span class="wf-prompt"></span>lerobot-train \
+    <span class="wf-flag">--policy.type</span>=smolvla \
+    <span class="wf-flag">--policy.pretrained_path</span>=lerobot/smolvla_base \
+    <span class="wf-flag">--dataset.repo_id</span>=youruser/your-task
+    </div>
+
+    <p>Fine-tune GR00T N1.5 &mdash; bigger model, better zero-shot, more compute:</p>
+
+    <div class="workflow">
+<span class="wf-prompt"></span>pip install -e <span class="wf-flag">".[groot]"</span>
+
+<span class="wf-prompt"></span>lerobot-train \
+    <span class="wf-flag">--policy.type</span>=groot \
+    <span class="wf-flag">--policy.pretrained_path</span>=nvidia/GR00T-N1.5-3B \
+    <span class="wf-flag">--policy.embodiment_tag</span>=new_embodiment \
+    <span class="wf-flag">--dataset.repo_id</span>=youruser/your-task
+    </div>
+
+    <p>
+      <code>embodiment_tag=new_embodiment</code> tells GR00T &ldquo;this is a new
+      arm shape, learn to map onto it.&rdquo;
+    </p>
+
+    <h2>Things to know</h2>
+
+    <div class="callout callout-warn">
+      <div class="callout-title">ACT and Diffusion are ResNet-locked</div>
+      <p>
+        Both ACT and Diffusion Policy hard-validate the vision backbone as one of
+        the ResNet variants. Swapping in V-JEPA, DINO, or any other encoder is
+        <strong>not a config flag</strong> &mdash; it's a fork patch. Expand
+        the deep-dive below for the exact files to edit.
+      </p>
+    </div>
+
+    <div class="callout callout-warn">
+      <div class="callout-title">huggingface-cli is now hf</div>
+      <p>
+        v0.5.0 bumped <code>huggingface-hub</code> from 0.34 to 1.0 (a major
+        version jump). The <code>huggingface-cli</code> binary was renamed to
+        <code>hf</code>. If you have shell scripts that call
+        <code>huggingface-cli upload &hellip;</code>, they break on upgrade.
+      </p>
+    </div>
+
+    <div class="callout callout-info">
+      <div class="callout-title">For SO-101 / arm-only setups</div>
+      <p>
+        SmolVLA fine-tune is the most plug-and-play path; GR00T second (more
+        compute, better baseline). Skip GR00T-WBC and Holosoma &mdash; they're
+        locomotion controllers gated to the Unitree G1. For G1 locomotion users,
+        both are shipping ONNX policies &mdash; no PyTorch fine-tune needed; pick
+        one via <code>--robot.controller=&hellip;</code>.
+      </p>
+    </div>
+
+    <div class="callout callout-warn">
+      <div class="callout-title"><code>pi_gemma</code> is not a policy you can train</div>
+      <p>
+        v0.5.0 added a file called <code>pi_gemma.py</code> that <em>looks</em>
+        like a new policy. It isn't &mdash; it's a shared backbone module
+        (PaliGemma transformer internals) factored out of &pi;0 and &pi;0.5.
+        <code>--policy.type=pi_gemma</code> is not registered. Use
+        <code>--policy.type=pi05</code> as before.
+      </p>
+    </div>
+
+    <div class="section-divider">Optional: under the hood</div>
+
+    <details class="deep-dive">
+      <summary>Show the full native vs bridge integration table (with hub IDs and file refs)</summary>
+
+      <div class="table-wrap">
+        <table>
+          <thead>
+            <tr>
+              <th>Integration</th>
+              <th>Scope</th>
+              <th>Install path</th>
+              <th>File:line evidence</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td><strong>SmolVLA</strong></td>
+              <td>VLA policy. Backbone: HF <code>SmolVLM2-500M-Video-Instruct</code>.
+                  Pretrained weights: <code>lerobot/smolvla_base</code>.</td>
+              <td><code>pip install -e ".[smolvla]"</code></td>
+              <td>
+                <span class="file-ref">policies/smolvla/configuration_smolvla.py:87</span><br>
+                <span class="file-ref">policies/smolvla/smolvlm_with_expert.py:64</span><br>
+                <span class="file-ref">docs/source/smolvla.mdx:49,58</span>
+              </td>
+            </tr>
+            <tr>
+              <td><strong>GR00T (manipulation VLA)</strong></td>
+              <td>Wrapper around Isaac-GR00T. Default checkpoint
+                  <code>nvidia/GR00T-N1.5-3B</code>. Eagle 2.5-VL VLM in-tree.
+                  Already in 0.4.4 &mdash; the <code>groot/</code> policy folders
+                  diff identically.</td>
+              <td><code>pip install -e ".[groot]"</code></td>
+              <td>
+                <span class="file-ref">policies/groot/configuration_groot.py:58,61,64</span><br>
+                <span class="file-ref">policies/groot/modeling_groot.py:20-22</span><br>
+                <span class="file-ref">pyproject.toml:149-159</span>
+              </td>
+            </tr>
+            <tr>
+              <td><strong>&pi;0 / &pi;0.5 / &pi;0-FAST</strong></td>
+              <td>SOTA-tier VLAs. PaliGemma 3B backbone, 224-px input. Pretrained
+                  <code>lerobot/pi05_base</code>, <code>lerobot/pi05_libero</code>.</td>
+              <td><code>pip install -e ".[pi]"</code></td>
+              <td>
+                <span class="file-ref">policies/pi05/processor_pi05.py:141</span><br>
+                <span class="file-ref">policies/pi0/processor_pi0.py:135</span><br>
+                <span class="file-ref">docs/source/pi05.mdx:78-80</span>
+              </td>
+            </tr>
+            <tr>
+              <td><strong>GR00T-WBC (locomotion)</strong> &mdash; <em>NEW in 0.5.0</em></td>
+              <td>Dual-ONNX lower-body locomotion stack for Unitree G1.
+                  Pulls <code>nepyope/GR00T-WholeBodyControl_g1</code> from HF.
+                  Runs at 50&nbsp;Hz.</td>
+              <td>Loaded via <code>--robot.controller=GrootLocomotionController</code></td>
+              <td>
+                <span class="file-ref">robots/unitree_g1/gr00t_locomotion.py:41,48,62-69</span><br>
+                <span class="file-ref">docs/source/unitree_g1.mdx:158,254</span>
+              </td>
+            </tr>
+            <tr>
+              <td><strong>Holosoma</strong> &mdash; <em>NEW in 0.5.0</em></td>
+              <td>Single-ONNX whole-body locomotion controller, 200&nbsp;Hz, 29&nbsp;DoF.
+                  Origin: Amazon FAR (<code>github.com/amazon-far/holosoma</code>).
+                  FastSAC default; PPO variant available.</td>
+              <td>Loaded via <code>--robot.controller=HolosomaLocomotionController</code></td>
+              <td>
+                <span class="file-ref">robots/unitree_g1/holosoma_locomotion.py:45,52,55-58</span><br>
+                <span class="file-ref">docs/source/unitree_g1.mdx:161,255</span>
+              </td>
+            </tr>
+            <tr>
+              <td><strong><code>pi_gemma</code> shared backbone</strong> &mdash; <em>NEW in 0.5.0</em></td>
+              <td>Shared module for &pi;0 / &pi;0.5 / &pi;0-FAST. PaliGemma 3B at 224
+                  hardcoded as the tokenizer for all three.
+                  <em>Not</em> a registered policy &mdash; refactor target only.</td>
+              <td>Pulled in by <code>[pi]</code>, <code>[wallx]</code>, etc.</td>
+              <td>
+                <span class="file-ref">policies/pi_gemma.py:24-39,54,69</span><br>
+                <span class="file-ref">policies/pi05/processor_pi05.py:141</span><br>
+                <span class="file-ref">policies/pi0_fast/configuration_pi0_fast.py:56</span>
+              </td>
+            </tr>
+            <tr>
+              <td><strong>Wall-OSS / X-VLA / SARM</strong></td>
+              <td>Other VLA variants (Wall-OSS = X-Square Robot, X-VLA = HF research,
+                  SARM = stage-aware reward model with CLIP).</td>
+              <td><code>pip install -e ".[wallx|xvla|sarm]"</code></td>
+              <td>
+                <span class="file-ref">pyproject.toml:140-161</span><br>
+                <span class="file-ref">policies/sarm/processor_sarm.py:94-95</span>
+              </td>
+            </tr>
+            <tr>
+              <td><strong>Diffusers</strong></td>
+              <td><em>Hard-required</em> runtime dep. DDIM/DDPM in Diffusion Policy;
+                  attention/embedding primitives in GR00T action head; LR scheduler
+                  in optim.</td>
+              <td>Always installed</td>
+              <td>
+                <span class="file-ref">pyproject.toml:64</span><br>
+                <span class="file-ref">policies/diffusion/modeling_diffusion.py:32-33</span><br>
+                <span class="file-ref">policies/groot/action_head/cross_attention_dit.py:19-22</span>
+              </td>
+            </tr>
+            <tr>
+              <td><strong>HF Hub</strong></td>
+              <td>Hard dep. Every checkpoint, dataset, env, and the new ONNX policy
+                  downloads (Holosoma, GR00T-WBC).
+                  <strong>Bumped from <code>&gt;=0.34.2</code> to <code>&gt;=1.0.0</code></strong>
+                  &mdash; major-version jump.</td>
+              <td>Always installed</td>
+              <td>
+                <span class="file-ref">pyproject.toml:65</span>
+              </td>
+            </tr>
+            <tr>
+              <td><strong>Sim envs (gym-aloha, gym-pusht, metaworld, hf-libero)</strong></td>
+              <td>External HF-org packages declared as optional extras. No SO-101
+                  sim shipped &mdash; use EnvHub LeIsaac (community-published).</td>
+              <td><code>pip install -e ".[aloha|pusht|metaworld|libero]"</code></td>
+              <td>
+                <span class="file-ref">pyproject.toml:175-178</span><br>
+                <span class="file-ref">docs/source/envhub_leisaac.mdx</span>
+              </td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+
+      <p>
+        IsaacLab Arena is an in-tree config option (<code>--env.type=hub</code> with
+        default <code>nvidia/isaaclab-arena-envs</code>) but it pulls envs from the
+        HuggingFace hub, not from a vendored sim. Verify any community env you pull.
+      </p>
+    </details>
+
+    <details class="deep-dive">
+      <summary>Show GR00T-WBC and Holosoma details (Unitree G1 only)</summary>
+
+      <p>
+        v0.5.0 ships <strong>two distinct GR00T-branded artifacts</strong> that
+        share only the brand. The manipulation VLA (<code>policy.type=groot</code>)
+        is unchanged from 0.4.4. The locomotion controllers (<code>--robot.controller=&hellip;</code>)
+        are new in 0.5.0 and apply only to the G1 humanoid.
+      </p>
+
+      <div class="compare-cols">
+        <div class="col-v044">
+          <span class="col-tag">GR00T-WBC</span>
+          <p><strong>NVIDIA &middot; dual-ONNX &middot; 50&nbsp;Hz</strong></p>
+          <ul>
+            <li>Two ONNX files: Balance + Walk.</li>
+            <li><code>CONTROL_DT = 0.02</code> &rarr; 50&nbsp;Hz.
+                <span class="file-ref">gr00t_locomotion.py:41</span></li>
+            <li>15-DoF action.</li>
+            <li>6-step stacked observation history.</li>
+            <li>3-vector velocity command <code>[vx, vy, theta_dot]</code>.</li>
+            <li>Default checkpoint: <code>nepyope/GR00T-WholeBodyControl_g1</code>.</li>
+            <li>Origin: <code>github.com/NVlabs/GR00T-WholeBodyControl</code>.</li>
+          </ul>
+        </div>
+        <div class="col-v050">
+          <span class="col-tag">Holosoma</span>
+          <p><strong>Amazon FAR &middot; single-ONNX &middot; 200&nbsp;Hz</strong></p>
+          <ul>
+            <li>One ONNX file (default <code>fastsac_g1_29dof.onnx</code>; PPO variant
+                <code>ppo_g1_29dof.onnx</code> available).</li>
+            <li><code>CONTROL_DT = 0.005</code> &rarr; 200&nbsp;Hz.</li>
+            <li>Drives 29 DoF directly.</li>
+            <li>Phase variable <code>[0, &pi;]</code> with
+                <code>GAIT_PERIOD = 0.5&nbsp;s</code>.</li>
+            <li><code>kp</code> / <code>kd</code> joint gains pulled from ONNX
+                metadata fields &mdash; gains travel with the policy.</li>
+            <li>Default checkpoint: <code>nepyope/holosoma_locomotion</code>.</li>
+            <li>Origin: <code>github.com/amazon-far/holosoma</code>
+                <em>[external claim]</em>.</li>
+          </ul>
+        </div>
+      </div>
+
+      <div class="callout callout-info">
+        <div class="callout-title">The zero-arm-obs trick</div>
+        <p>
+          Holosoma drops the upper-body arm joints from the observation vector
+          before feeding the lower-body locomotion ONNX
+          (<span class="file-ref">robots/unitree_g1/holosoma_locomotion.py:161-163</span>).
+          The pattern (FastSAC + PPO with phase-conditioned gait, zero-arm-obs masking)
+          is consistent with sim-to-real RL locomotion stacks; the source-code intent
+          is &ldquo;swap-in alternative to GR00T-WholeBodyControl.&rdquo;
+        </p>
+      </div>
+
+      <p>
+        Both controllers are interchangeable at the config layer:
+        <code>--robot.controller=HolosomaLocomotionController|GrootLocomotionController</code>
+        (<span class="file-ref">docs/source/unitree_g1.mdx:158,161,241</span>). Since
+        the action space is whole-body (15 or 29 DoF lower body), neither is portable
+        to a single 6-DoF arm like SO-101 or UR20.
+      </p>
+    </details>
+
+    <details class="deep-dive">
+      <summary>Show what's NOT in the code &mdash; V-JEPA, UMI, world models &mdash; with verification</summary>
+
+      <h4>V-JEPA / V-JEPA-2 / DINOv2 / DINOv3</h4>
+      <p>
+        A repo-wide grep for <code>vjepa</code>, <code>v_jepa</code>, <code>jepa</code>,
+        <code>world_model</code>, <code>dinov2</code>, <code>DINOv</code> returns
+        <strong>zero hits in <code>src/</code></strong> for both 0.4.4 and 0.5.0.
+      </p>
+      <p>
+        The default vision encoder for ACT and Diffusion Policy is ImageNet ResNet-18,
+        and there is a hard <em>ResNet-only validator</em> at:
+      </p>
+      <ul>
+        <li>ACT &mdash; <code>vision_backbone: str = "resnet18"</code> with
+            <code>"must be one of the ResNet variants"</code> check at
+            <span class="file-ref">policies/act/configuration_act.py:99-100,137</span></li>
+        <li>Diffusion &mdash; same default and same validator at
+            <span class="file-ref">policies/diffusion/configuration_diffusion.py:122,171</span></li>
+      </ul>
+      <p>
+        The only non-ResNet SSL-style encoder anywhere in the repo is
+        <strong>CLIP ViT-B/32 inside SARM</strong> &mdash; a stage-aware reward model,
+        not a policy backbone:
+        <code>CLIPModel.from_pretrained("openai/clip-vit-base-patch32")</code> at
+        <span class="file-ref">policies/sarm/processor_sarm.py:94-95</span>.
+      </p>
+
+      <p>To enable a V-JEPA-encoder ACT, you'd:</p>
+      <ol>
+        <li>Fork <code>policies/act/configuration_act.py</code> and remove (or extend)
+            the <code>"must be one of the ResNet variants"</code> validator at
+            <span class="file-ref">policies/act/configuration_act.py:137</span>.
+            Add <code>vjepa</code> / <code>vjepa2</code> to the
+            <code>vision_backbone</code> enum.</li>
+        <li>Patch <code>policies/act/modeling_act.py</code>'s feature projector to
+            accept V-JEPA's patch-token output (typically larger embed dim than
+            ResNet-18's 512). Re-thread <code>backbone_out_channels</code>.</li>
+        <li>Add the V-JEPA repo as a vendored dep or pip-install the upstream
+            package. The repo currently has <strong>zero V-JEPA imports</strong>
+            &mdash; you are adding the first one.</li>
+        <li>Decide on freezing strategy: V-JEPA pre-trained weights are typically
+            frozen for the first N steps, then unfrozen with a small LR. ACT's
+            default training loop has no equivalent of GR00T's
+            <code>tune_visual</code> / <code>tune_llm</code> toggles.</li>
+        <li>Plan ~1&ndash;2 weekends for a clean implementation; another weekend
+            to re-collect the comparison curve against ResNet-18 baseline.</li>
+      </ol>
+
+      <h4>UMI / Stanford handheld GoPro</h4>
+      <p>
+        Searches for <code>umi</code>, <code>universal_manipulation</code>,
+        <code>umi-on-legs</code>, <code>gopro</code>, <code>fisheye</code>,
+        <code>orb_slam</code> return <strong>no source-code hits</strong>.
+      </p>
+      <p>
+        The single string <code>"lerobot/umi_cup_in_the_wild"</code> at
+        <span class="file-ref">__init__.py:101</span> is just a dataset slug
+        listed alongside <code>aloha_*</code>, <code>unitreeh1_*</code>, etc.
+        i.e., the original Stanford UMI cup dataset has been <em>converted</em>
+        to LeRobotDataset format and pushed to the HF hub, but there is
+        <strong>no UMI-specific ingestion code</strong> &mdash; no SLAM trajectory
+        parser, no GoPro fisheye undistortion, no handheld-gripper kinematics shim,
+        and <strong>no <code>umi-on-legs</code> reference anywhere</strong>.
+      </p>
+
+      <h4>No world-model subsystem</h4>
+      <p>
+        No diffusion-world-model rollout, no Dreamer-style latent imagination,
+        no learned-dynamics model used for planning. The only model-based-control
+        path is the MPC inside <code>tdmpc</code> (TD-MPC2), which uses an explicit
+        learned latent dynamics + reward model for short-horizon planning &mdash;
+        not what the &ldquo;world model&rdquo; literature usually means.
+      </p>
+
+      <div class="callout callout-info">
+        <div class="callout-title">External claims &mdash; what is and isn't source-anchored</div>
+        <p>
+          References to upstream papers / repos are tagged <em>[external claim]</em>;
+          the file:line citation is to the comment / docstring / docs page that
+          names them, <strong>not</strong> to a verified mirror of the external work.
+        </p>
+        <ul>
+          <li><em>GR00T N1</em> paper (arXiv 2503.14734, NVIDIA, 2025) &mdash;
+              <span class="file-ref">policies/groot/README.md:3-7,12-21,27</span></li>
+          <li><em>GR00T-WholeBodyControl</em> (NVlabs) &mdash;
+              <span class="file-ref">docs/source/unitree_g1.mdx:254</span></li>
+          <li><em>Holosoma</em> (Amazon FAR) &mdash;
+              <span class="file-ref">docs/source/unitree_g1.mdx:255</span></li>
+          <li><em>Wall-OSS</em> (arXiv 2509.11766, X-Square Robot) &mdash;
+              <span class="file-ref">docs/source/walloss.mdx:3</span></li>
+        </ul>
+      </div>
+    </details>
+
+    <div class="next-up">
+      <strong>Where to go next &rarr;</strong>
+      <p>
+        <a href="changelog.html">Should I upgrade from 0.4.4?</a> &mdash; the
+        upgrade decision page. ACT and Diffusion are byte-identical between tags;
+        find out what's actually different and whether it's worth a Python rebuild.
+      </p>
+    </div>
+
+  </article>
+</main>
+
+<button id="to-top" aria-label="Back to top" title="Back to top">&uarr;</button>
+
+<footer class="site-footer">
+  <div>Built 2026-05-08 &middot; pinned tags
+    <a href="https://github.com/huggingface/lerobot/tree/v0.4.4" target="_blank" rel="noopener">v0.4.4</a>
+    /
+    <a href="https://github.com/huggingface/lerobot/tree/v0.5.0" target="_blank" rel="noopener">v0.5.0</a>
+    &middot; <a href="https://github.com/huggingface/lerobot/compare/v0.4.4...v0.5.0" target="_blank" rel="noopener">compare</a>
+  </div>
+</footer>
+
+</body>
+</html>

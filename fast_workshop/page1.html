@@ -1,0 +1,223 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>FAST Workshop &mdash; Page 1: Problem &amp; Intuition</title>
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+  <header class="page-header">
+    <nav class="page-nav">
+      <a href="index.html">Home</a>
+      <a href="page1.html" class="active">1. Problem</a>
+      <a href="page2.html">2. Pipeline</a>
+      <a href="page3.html">3. Context</a>
+    </nav>
+    <h1>Page 1 &mdash; Problem &amp; Intuition</h1>
+  </header>
+
+  <main>
+    <section class="page-intro">
+      <p>Before tackling the FAST pipeline, we need to be clear about three things: what an action chunk actually is, why the obvious way to tokenize it does not work, and why the transform axis matters. These three vizzes are the priors you need to have loaded before the math on Page 2 does any work.</p>
+      <aside class="callout-quote">
+        <strong>What you'll see:</strong> the 50&times;7 chunk as both a heatmap and a line plot (Viz 1); a slider demonstrating the "copy the previous token" pathology of naive per-cell binning (Viz 2); and a side-by-side correlation matrix showing why the redundancy lives along time, not across joint dimensions (Viz 3).
+      </aside>
+      <p class="cite">Sources: FAST &sect;2, &sect;3, &sect;4 (arXiv 2501.09747); fast_deep_dive_2026-04-14.md &sect;1.</p>
+    </section>
+
+    <!-- ============================== VIZ 1 ============================== -->
+    <article class="viz-section">
+      <header>
+        <h2>Viz 1 &mdash; The chunk itself</h2>
+        <p class="purpose">Anchor the input before touching the tokenizer. This is what FAST compresses: 350 floats, one second of motion.</p>
+      </header>
+      <div class="viz-body wrap wrap--wide">
+        <section class="viz" id="viz-1" data-viz="1">
+          <p class="viz-purpose">
+            1 chunk = 50 timesteps &times; 7 joint dimensions = 350 floats. At 50 Hz control, this is 1 second of motion.
+            <span class="cite">[FAST &sect;3] [fast_deep_dive_2026-04-14.md &sect;1]</span>
+          </p>
+
+          <div class="viz-controls">
+            <button class="js-btn-heatmap active">Heatmap</button>
+            <button class="js-btn-lineplot">Line plot</button>
+          </div>
+
+          <div class="js-view-heatmap">
+            <div class="heatmap-row">
+              <div class="axis-y">joint dim (0-6)</div>
+              <canvas class="js-heatmap heatmap" width="500" height="70"></canvas>
+            </div>
+            <div class="axis-x">timestep (0 &rarr; 49, 50 Hz)</div>
+            <div class="colorbar-wrap">
+              <span>joint value (rad):</span>
+              <canvas class="js-colorbar" width="200" height="10" style="border:1px solid #ccc;"></canvas>
+              <span class="js-cb-min">-</span>
+              <span>&hellip;</span>
+              <span class="js-cb-max">+</span>
+            </div>
+          </div>
+
+          <div class="js-view-lineplot" style="display:none;">
+            <canvas class="js-lines" width="900" height="320" style="display:block; border:1px solid var(--border);"></canvas>
+            <div class="legend js-legend"></div>
+          </div>
+        </section>
+      </div>
+      <div class="viz-explanation">
+        <p>An action chunk is the unit of work a VLA emits. Concretely: a matrix <code>A</code> of shape <code>T x D</code>, where <code>T = 50</code> timesteps and <code>D = 7</code> dimensions for a typical single-arm setup (6 joints plus gripper). At a 50 Hz control rate this is exactly one second of motion. Each column is the trajectory of one joint; each row is the full robot pose at one instant. That is the object FAST compresses. The workshop's baseline reference &mdash; a diffusion policy on UR20+Robotiq+RealSense &mdash; consumes the same shape; the only difference downstream is whether the chunk is emitted as a continuous flow output or routed through a tokenizer first. Keep the shape in mind. Every number in the rest of the pipeline is derived from <code>T*D = 350</code> floats.</p>
+        <aside class="callout-quote">
+          <strong>What the viz shows:</strong> A 50&times;7 heatmap with time on the x-axis and joint index on the y-axis, colored by normalized joint value. A second panel plots the same data as 7 overlaid smooth line curves. The heatmap view previews the DCT operand; the line view previews where the smoothness lives &mdash; along rows, not columns.
+        </aside>
+        <p class="cite">Source: FAST &sect;3 (arXiv 2501.09747).</p>
+      </div>
+    </article>
+
+    <!-- ============================== VIZ 2 ============================== -->
+    <article class="viz-section">
+      <header>
+        <h2>Viz 2 &mdash; Naive tokenization fails</h2>
+        <p class="purpose">Motivate why "tokenize each dim-timestep directly" is a dead end. The "copy the previous token" pathology made visible.</p>
+      </header>
+      <div class="viz-body wrap wrap--wide">
+        <section class="viz" id="viz-2" data-viz="2">
+          <div class="slider-row">
+            <label>num_bins:</label>
+            <input class="js-bins" type="range" min="0" max="4" step="1" value="3">
+            <span class="bins-readout js-bins-readout">256</span>
+          </div>
+          <div class="counter js-counter">...</div>
+
+          <div class="dual">
+            <div class="sub-panel">
+              <h3>Original chunk (same colormap as Viz 1)</h3>
+              <canvas class="js-heatmap-orig heatmap" width="500" height="70"></canvas>
+              <div class="axis-x">timestep (0 &rarr; 49)</div>
+            </div>
+            <div class="sub-panel">
+              <h3>Naive tokens &mdash; integer bin IDs <span class="js-bins-subtitle" style="font-weight:normal; color:var(--muted);">(256 bins)</span></h3>
+              <canvas class="js-heatmap-tok heatmap" width="500" height="70"></canvas>
+              <canvas class="js-heatmap-ident heatmap" width="500" height="70" title="yellow bar = token[t] == token[t+1]"></canvas>
+              <div class="axis-x">yellow bar over (t, t+1) where token IDs are identical</div>
+            </div>
+          </div>
+
+          <div class="pullquote">
+            &ldquo;Highly correlated action tokens diminish the effectiveness of the next token prediction objective&hellip;
+            low token prediction loss can often be achieved with trivial mappings like simply copying the most recent action token.&rdquo;
+            <span class="src">&mdash; FAST &sect;2</span>
+          </div>
+          <div class="viz-caption">
+            Per-cell uniform binning: each (t, d) scalar mapped independently to a bin index.
+            Adjacent cells in time are nearly equal in value, so they end up in the <em>same bin</em> &mdash;
+            next-token prediction reduces to copying the previous token.
+            <span class="cite">[FAST &sect;2, &sect;4] [fast_deep_dive_2026-04-14.md &sect;1]</span>
+          </div>
+        </section>
+      </div>
+      <div class="viz-explanation">
+        <p>Before FAST, autoregressive VLAs (RT-2, OpenVLA) used per-dimension, per-timestep uniform binning: every one of the <code>T*D = 350</code> scalars became one token from a ~256-bin vocabulary. That looks innocent until you look at the loss curve. Adjacent action values are nearly identical, so next-token prediction collapses to pattern-matching the previous token. The paper states this directly:</p>
+        <blockquote>"low token prediction loss can often be achieved with trivial mappings like simply copying the most recent action token." (FAST &sect;2)</blockquote>
+        <p>The model posts a clean loss curve without learning any action structure. The FAST ablation is blunter: standard discretization "could not solve any of the dexterous tasks" in PI's benchmark. The problem is not vocabulary size or encoder capacity; it is that adjacent tokens carry almost no new information, so the AR objective is trivially satisfied.</p>
+        <aside class="callout-quote">
+          <strong>What the viz shows:</strong> Side-by-side. Left: a per-dim per-timestep token grid with nearly-identical colored cells block by block, captioned "next token = previous token." Right: a loss curve that drops fast yet corresponds to zero task success &mdash; the "trivial copy" pathology made visible.
+        </aside>
+        <p class="cite">Sources: FAST &sect;2, &sect;4 (arXiv 2501.09747).</p>
+      </div>
+    </article>
+
+    <!-- ============================== VIZ 3 ============================== -->
+    <article class="viz-section">
+      <header>
+        <h2>Viz 3 &mdash; Why time, why DCT</h2>
+        <p class="purpose">Explain the two structural choices before showing the pipeline: transform axis (time, not dim) and transform family (DCT, not DFT or wavelet).</p>
+      </header>
+      <div class="viz-body wrap wrap--wide">
+        <section class="viz" id="viz-3" data-viz="3">
+          <p class="viz-purpose">Temporal (50&times;50) vs cross-dim (7&times;7) Pearson correlation on the same 50&times;7 chunk.</p>
+
+          <div class="controls">
+            <button class="js-toggle-btn">Show only |corr| &gt; 0.5</button>
+            <span class="threshold-note">Threshold filter fades cells with |corr| &le; 0.5 to reveal structure.</span>
+          </div>
+
+          <div class="panels">
+            <div class="panel">
+              <h2>Temporal correlation (50 &times; 50)</h2>
+              <div class="axis-note">pearson(chunk[i], chunk[j]) across 7 dims &middot; x: timestep j, y: timestep i</div>
+              <div class="canvas-holder">
+                <canvas class="js-cv-t" width="520" height="520"></canvas>
+              </div>
+              <div class="stat">
+                <span class="label">mean |corr| off-diagonal:</span> <b class="js-stat-t-moad">&hellip;</b>
+                &nbsp;|&nbsp; <span class="label">adjacent (i,i+1):</span> <b class="js-stat-t-adj">&hellip;</b>
+              </div>
+              <div class="note-diag">The thick diagonal band is the signal: poses at nearby timesteps are nearly identical. That is the temporal smoothness DCT-along-time compacts into a few low-frequency coefficients.</div>
+            </div>
+
+            <div class="panel">
+              <h2>Cross-dim correlation (7 &times; 7)</h2>
+              <div class="axis-note">pearson(col_i, col_j) across 50 timesteps &middot; x: dim j, y: dim i</div>
+              <div class="canvas-holder">
+                <canvas class="js-cv-x" width="364" height="364"></canvas>
+              </div>
+              <div class="stat">
+                <span class="label">mean |corr| off-diagonal:</span> <b class="js-stat-x-moad">&hellip;</b>
+                &nbsp;|&nbsp; <span class="label">adjacent (j,j+1):</span> <b class="js-stat-x-adj">&hellip;</b>
+              </div>
+              <div class="note-diag">Off-diagonal pattern is scrambled &mdash; joint 3 is not geometrically "near" joint 4. No smooth structure along the dim axis to exploit.</div>
+            </div>
+          </div>
+
+          <div class="legend">
+            <div>
+              <div class="bar"></div>
+              <div class="ends"><span>-1</span><span>0</span><span>+1</span></div>
+            </div>
+          </div>
+
+          <div class="annotation">
+            <div><span class="label" style="color:var(--dim)">Adjacent-step correlation ratio:</span> <span class="big js-ratio-adj">&hellip;</span></div>
+            <div style="margin-top:6px">Time axis has <b class="js-ratio-adj-inline">&hellip;</b>&times; more <em>adjacent</em> correlation than the dim axis.
+            <span class="emph">DCT exploits this &mdash; that's why it runs along time, not dim.</span></div>
+            <div style="margin-top:6px; color:var(--dim); font-size:12px">
+              (Global mean |corr| off-diagonal is similar for both matrices because they include many unrelated pairs. The <em>structural</em> difference lives next to the diagonal, where smoothness matters.)
+            </div>
+          </div>
+
+          <div class="pull">
+            Time axis specifically &mdash; that's where the redundancy lives. Actions are smooth in time (temporal correlation), not in dimension index (categorical &mdash; joint 3 isn't "near" joint 4 geometrically). You don't DCT across dims.
+          </div>
+
+          <div class="viz-caption">Source: <span class="cite">fast_deep_dive_2026-04-14.md &sect;1</span>. Data: <span class="cite cite--mono">FASTData.CHUNK</span> (50&times;7 synthetic chunk at 50&nbsp;Hz).</div>
+        </section>
+      </div>
+      <div class="viz-explanation">
+        <p>Two decisions precede the math. First, transform along the time axis, not across dimensions. Actions are smooth in time &mdash; adjacent timesteps of joint 3 are nearly equal &mdash; but they are not smooth across the dimension index. Joint 3 is not geometrically "near" joint 4; the ordering is categorical. Transforming across dims would destroy structure, not concentrate it. Second, use the Discrete Cosine Transform rather than the DFT or a wavelet. DCT implicitly mirror-extends the signal before transforming, which kills the boundary discontinuities the DFT's periodic extension would inject. For smooth trajectories with arbitrary endpoints, mirroring concentrates energy into a handful of low-frequency coefficients. The paper is explicit that the JPEG analogy is the design, not a metaphor:</p>
+        <blockquote>"DCT is commonly used for compression algorithms (e.g., JPEG) due to its simplicity, computational efficiency, and strong compression property." (FAST &sect;3)</blockquote>
+        <p>One honest caveat: the authors did not ablate DCT against alternatives. The validated claim is "discretization plus frequency-domain compaction works"; DCT-specifically is the authors' default, not a proven optimum.</p>
+        <aside class="callout-quote">
+          <strong>What the viz shows:</strong> Three-panel comparison of the same action row under DFT (ringing at chunk boundaries), DCT (clean mirror extension, energy collapsed to low bins), and a Haar wavelet (blocky but viable). The panel makes the boundary-behavior argument visual; no equations needed.
+        </aside>
+        <p class="cite">Sources: FAST &sect;3, &sect;VI-D (arXiv 2501.09747).</p>
+      </div>
+    </article>
+  </main>
+
+  <footer>
+    <p>FAST Workshop Artifact &middot; Page 1 of 3 &middot; Sources: <a href="https://arxiv.org/abs/2501.09747">arXiv 2501.09747</a> (FAST)</p>
+  </footer>
+
+  <script src="data.js"></script>
+  <script src="shared.js"></script>
+  <script src="viz_1_2.js"></script>
+  <script src="viz_3.js"></script>
+  <script>
+    document.addEventListener('DOMContentLoaded', function () {
+      Viz1.init(document.getElementById('viz-1'));
+      Viz2.init(document.getElementById('viz-2'));
+      Viz3.init(document.getElementById('viz-3'));
+    });
+  </script>
+</body>
+</html>

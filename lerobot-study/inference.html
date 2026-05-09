@@ -1,0 +1,421 @@
+<!doctype html>
+<html lang="en" data-theme="dark">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Running a trained policy — LeRobot Study</title>
+  <link rel="stylesheet" href="shared/styles.css" />
+  <script defer src="shared/site.js"></script>
+</head>
+<body>
+
+<header class="site-header">
+  <h1><a href="index.html">LeRobot Study</a></h1>
+  <div class="subtitle">A friendly tour of LeRobot 0.4.4 &rarr; 0.5.0 for SO-101 hobbyists.</div>
+</header>
+
+<main class="page-grid">
+  <aside id="site-nav" aria-label="Site navigation">
+    <!-- injected by site.js from shared/nav.html -->
+  </aside>
+
+  <article class="page-content">
+    <div class="reading-order" role="navigation" aria-label="Reading order">
+      <a href="data.html">&larr; prev</a>
+      <span class="sep">&middot;</span>
+      <span>Running a trained policy</span>
+      <span class="sep">&middot;</span>
+      <a href="rl-on-top.html">next &rarr;</a>
+    </div>
+
+    <div class="eyebrow">Inference</div>
+    <h1>Running a trained policy</h1>
+    <p class="read-time">6 min read &middot; <span class="persona-tag">for SO-101 users</span></p>
+
+    <section class="tldr">
+      <p>
+        Once you've trained a policy, you have two ways to run it on your robot:
+        a simple synchronous one (<code>lerobot-eval</code>) and a fast async one
+        (a separate inference server talking to the robot over the network). The
+        async path is the one to use for 30 Hz real-time on big VLAs.
+      </p>
+    </section>
+
+    <p class="what-this-means">
+      If your robot moves slowly or you're doing sim eval, <code>lerobot-eval</code>
+      is fine. If you're trying to drive an SO-101 at 30 Hz with a Diffusion or
+      &pi;0 policy, the policy itself can take ~100 ms per inference &mdash; you
+      need the async path so the robot can keep moving while inference happens
+      in parallel.
+    </p>
+
+    <div class="mental-model">
+      <p>
+        <strong>Synchronous = walk-stop-think-walk.</strong> One program. The
+        robot waits while the policy thinks.
+        <strong>Async = the robot keeps moving while a separate computer thinks
+        ahead.</strong> Two programs talking over the network.
+      </p>
+<pre>Synchronous (lerobot-eval):
+  +-robot-+   obs    +-policy-+   action   +-robot-+
+  |       | -------&gt; | runs   | --------&gt; | moves |
+  | wait  |          | ~100ms |            |       |
+  +-------+          +--------+            +-------+
+
+Async (RobotClient + PolicyServer):
+  +-Robot host-+                    +-GPU host-+
+  | RobotClient| &lt;-- gRPC -------&gt; | Server   |
+  | executes   |                    | runs     |
+  | chunks     |                    | policy   |
+  +------------+                    +----------+</pre>
+    </div>
+
+    <h2>The basics</h2>
+
+    <h3>What is a policy doing at inference time?</h3>
+    <p>
+      A <em>policy</em> is the trained brain. At inference time it does one job:
+      look at what the robot sees right now (camera images + joint positions)
+      and output what the robot should do next. Training is over &mdash; just
+      forward passes.
+    </p>
+
+    <h3>Why action chunks?</h3>
+    <p>
+      Most modern policies don't predict one action at a time. They predict a
+      whole <em>chunk</em> of future actions in a single forward pass &mdash; ACT
+      and Diffusion typically chunk 8&ndash;100 steps; &pi;0 / &pi;0.5 / SmolVLA
+      do the same. The robot replays the chunk one step at a time while the
+      policy thinks about the next chunk in parallel. This is the trick that
+      makes 30 Hz feasible even when one inference call takes ~100 ms.
+    </p>
+
+    <h3>Synchronous vs async</h3>
+    <p>
+      <strong>Synchronous</strong> means one program does observation &rarr;
+      inference &rarr; action in a single loop, waiting at each step.
+      <code>lerobot-eval</code> works this way and it's perfect for sim
+      benchmarks or low-fps tasks. <strong>Async</strong> splits the work across
+      two processes (usually two machines) connected by a network channel
+      &mdash; the robot side keeps issuing actions on schedule, the policy side
+      keeps producing new chunks just-in-time.
+    </p>
+
+    <h3>What is RTC?</h3>
+    <p>
+      RTC (Real-Time Chunking) is <strong>not a policy</strong>. It's a
+      flow-matching trick that smooths the seam between consecutive chunks
+      when inference latency is uneven &mdash; only relevant for &pi;0 / &pi;0.5
+      / SmolVLA. You enable it via a config flag; you don't pick "RTC" as
+      a policy type.
+    </p>
+
+    <h3>Where do I run inference?</h3>
+    <p>
+      For ACT on an SO-101, run inference on the same machine as the robot.
+      For big VLAs (&pi;0, &pi;0.5, SmolVLA), run inference on a separate GPU
+      box and let the async stack ferry observations and actions across the
+      network.
+    </p>
+
+    <h2>How you actually use it</h2>
+
+    <p>The simple path &mdash; a sim-eval rollout on a trained policy:</p>
+
+    <div class="workflow">
+<span class="wf-comment"># Sim eval on your trained policy</span>
+<span class="wf-prompt"></span> lerobot-eval \
+    <span class="wf-flag">--policy.path</span>=outputs/act_run1 \
+    <span class="wf-flag">--env.type</span>=gym_pusht \
+    <span class="wf-flag">--eval.n_episodes</span>=20
+    </div>
+
+    <p>The async path &mdash; two terminals, one per machine:</p>
+
+    <div class="workflow">
+<span class="wf-comment"># Terminal 1 (GPU host): start the policy server</span>
+<span class="wf-comment"># Async server/client are run as Python modules, not console scripts</span>
+<span class="wf-prompt"></span> python -m lerobot.async_inference.policy_server <span class="wf-flag">--policy.path</span>=outputs/diffusion_run1
+
+<span class="wf-comment"># Terminal 2 (robot host): connect a robot client</span>
+<span class="wf-prompt"></span> python -m lerobot.async_inference.robot_client <span class="wf-flag">--robot.type</span>=so101_follower <span class="wf-flag">--server.host</span>=...
+    </div>
+
+    <h2>Things to know</h2>
+
+    <div class="callout callout-warn">
+      <div class="callout-title">Don't drive a real-time policy through <code>lerobot-record</code></div>
+      <p>
+        Its rollout loop is synchronous &mdash; you'll eat full inference latency
+        on every queue refill and miss your control deadline. Fine for low-fps
+        tasks; broken for 30 Hz on Diffusion / &pi;0 / SmolVLA.
+      </p>
+    </div>
+
+    <div class="callout callout-warn">
+      <div class="callout-title">Async transport is plain TCP, no auth</div>
+      <p>
+        The async stack speaks <em>gRPC</em> (a network protocol for
+        program-to-program calls) over plain TCP &mdash; no encryption, no
+        authentication. Co-locate the client and server on the same trusted
+        network.
+      </p>
+    </div>
+
+    <div class="callout callout-warn">
+      <div class="callout-title">Default replan threshold is 0.5</div>
+      <p>
+        The client requests new actions when it has half a chunk left. That's a
+        sensible default but tune it to your task &mdash; a slower policy needs
+        the request to fire earlier.
+      </p>
+    </div>
+
+    <div class="callout callout-info">
+      <div class="callout-title">Two extras worth knowing</div>
+      <ul>
+        <li>
+          <strong>ACT supports temporal ensembling.</strong> Predict a chunk
+          every step, blend the overlapping predictions. Useful at 30 Hz <em>if</em>
+          your inference budget allows the every-step call.
+        </li>
+        <li>
+          <strong>For pi-family policies, RTC is the cleaner fix</strong> for
+          chunk-boundary jitter than temporal ensembling.
+        </li>
+        <li>
+          <strong>The async stack is functionally unchanged 0.4.4 &rarr; 0.5.0</strong>
+          &mdash; just import shuffles. Whatever you build today keeps working.
+        </li>
+      </ul>
+    </div>
+
+    <div class="section-divider">Optional: under the hood</div>
+
+    <details class="deep-dive">
+      <summary>Show the gRPC architecture (services, RobotClient, PolicyServer)</summary>
+
+      <p>
+        The async stack is a two-process gRPC system: a <code>RobotClient</code>
+        on the robot host and a <code>PolicyServer</code> on a (typically GPU)
+        inference host. Wire format is gRPC over plain TCP, payloads are pickled
+        Python objects.
+      </p>
+
+      <p>
+        Four RPCs in
+        <span class="file-ref">src/lerobot/transport/services.proto:38-45</span>:
+      </p>
+
+      <ul>
+        <li><code>SendObservations(stream Observation) &rarr; Empty</code></li>
+        <li><code>GetActions(Empty) &rarr; Actions</code></li>
+        <li><code>SendPolicyInstructions(PolicySetup) &rarr; Empty</code></li>
+        <li><code>Ready(Empty) &rarr; Empty</code></li>
+      </ul>
+
+      <p>
+        Observations stream because they may exceed gRPC's 4 MB message limit
+        (<span class="file-ref">src/lerobot/transport/services.proto:73</span>).
+        Payloads are pickled into <code>services_pb2.Observation</code> chunks
+        (<span class="file-ref">src/lerobot/async_inference/robot_client.py:196-202</span>;
+        helper <code>transport.utils.send_bytes_in_chunks</code>).
+      </p>
+
+      <p>
+        Client init at
+        <span class="file-ref">async_inference/robot_client.py:110-114</span>
+        opens an insecure gRPC channel with
+        <code>grpc_channel_options(initial_backoff=f"{config.environment_dt:.4f}s")</code>
+        and constructs <code>AsyncInferenceStub</code>. Threading on the client
+        uses a <code>threading.Barrier(2)</code> (line 128) between an
+        action-receiver thread
+        (<span class="file-ref">async_inference/robot_client.py:269</span>,
+        pulls action chunks via <code>stub.GetActions(Empty)</code>) and the main
+        control loop
+        (<span class="file-ref">async_inference/robot_client.py:458</span>) which
+        performs actions when available and sends fresh observations whenever
+        queue occupancy drops below <code>chunk_size_threshold</code>
+        (default <code>0.5</code> per
+        <span class="file-ref">async_inference/configs.py:137</span>).
+      </p>
+
+      <p>
+        Server-side,
+        <span class="file-ref">async_inference/policy_server.py:216-260</span>
+        (<code>GetActions</code>) blocks on a <code>Queue(maxsize=1)</code>,
+        runs <code>_predict_action_chunk</code>
+        (<span class="file-ref">async_inference/policy_server.py:332-407</span>)
+        through full pre/postprocessor pipelines, slices the chunk to
+        <code>actions_per_chunk</code>, pickles, and returns. The server also
+        deliberately <code>time.sleep</code>s to a target
+        <code>inference_latency</code>
+        (<span class="file-ref">async_inference/policy_server.py:256-258</span>;
+        default <code>1/fps = 0.033 s</code> at
+        <span class="file-ref">async_inference/constants.py:20</span>) to avoid
+        stuffing the client.
+      </p>
+
+      <p>
+        When the client's queue empties, it tags the next observation
+        <code>must_go=True</code>
+        (<span class="file-ref">async_inference/robot_client.py:136, 427-437</span>),
+        forcing the server to enqueue and run inference even if the obs is
+        similar to the previous one. Default observation deduplication is an
+        L2-norm-in-joint-space filter at <code>atol=1</code>
+        (<span class="file-ref">async_inference/helpers.py:280-297</span>).
+      </p>
+    </details>
+
+    <details class="deep-dive">
+      <summary>Show how action chunks are dispatched per policy class</summary>
+
+      <p>
+        All chunked policies expose
+        <code>predict_action_chunk(batch) &rarr; (B, chunk_size, action_dim)</code>
+        plus a <code>select_action(batch) &rarr; (B, action_dim)</code> wrapper
+        that maintains an internal
+        <code>_action_queue = collections.deque(maxlen=n_action_steps)</code>
+        and re-plans only when the queue empties.
+      </p>
+
+      <p>
+        <strong>ACT &mdash; deque or temporal ensembler.</strong>
+        <span class="file-ref">src/lerobot/policies/act/modeling_act.py:92-122</span>.
+        <code>reset()</code> either initializes a temporal ensembler (if
+        <code>temporal_ensemble_coeff is not None</code>) or allocates the
+        action deque (line 97). With ensembling, every <code>select_action</code>
+        calls <code>predict_action_chunk</code> and feeds the full chunk to
+        <code>ACTTemporalEnsembler.update</code> (lines 109-112). Otherwise the
+        deque is filled once and popped one at a time (lines 116-122).
+        <code>ACTTemporalEnsembler</code> implements Algorithm 2 from the ACT
+        paper with exponential weights <code>w_i = exp(-coeff &middot; i)</code>;
+        default <code>coeff=0.01</code> weights older actions more heavily.
+      </p>
+
+      <p>
+        <strong>Diffusion &mdash; replan-every-N.</strong>
+        <span class="file-ref">src/lerobot/policies/diffusion/modeling_diffusion.py:82-139</span>.
+        Observation deques + an action deque of <code>maxlen=n_action_steps</code>.
+        Re-plan triggers on <code>len(_queues[ACTION]) == 0</code> (line 134).
+        No temporal ensembling.
+      </p>
+
+      <p>
+        <strong>&pi;0 / &pi;0.5 / SmolVLA</strong> use the same deque pattern as
+        Diffusion
+        (<span class="file-ref">src/lerobot/policies/pi05/modeling_pi05.py:1119-1228</span>,
+        <span class="file-ref">src/lerobot/policies/pi0/modeling_pi0.py:1144-1257</span>,
+        <span class="file-ref">src/lerobot/policies/smolvla/modeling_smolvla.py:251-347</span>).
+        <code>select_action</code> raises if RTC is enabled.
+        <code>predict_action_chunk</code> accepts
+        <code>**kwargs: Unpack[ActionSelectKwargs]</code> so RTC's
+        <code>inference_delay</code> / <code>prev_chunk_left_over</code> flow
+        through.
+      </p>
+
+      <p>
+        <strong>SAC</strong> is the odd one out:
+        <span class="file-ref">src/lerobot/policies/sac/modeling_sac.py:79-81</span>
+        explicitly raises
+        <code>NotImplementedError("SACPolicy does not support action chunking. It returns single actions!")</code>.
+        Relevant for the RL discussion &mdash; see the
+        <a href="rl-on-top.html">RL-on-top page</a>.
+      </p>
+    </details>
+
+    <details class="deep-dive">
+      <summary>Show what RTC actually does (flow-matching prefix anchoring)</summary>
+
+      <p>
+        <span class="file-ref">src/lerobot/policies/rtc/README.md:1-6</span> is
+        unambiguous: RTC is an inference enhancement for flow-matching policies
+        (&pi;0, &pi;0.5, SmolVLA), not a policy itself. It implements Black,
+        Galliker, Levine 2025 ("Real-Time Execution of Action Chunking Flow
+        Policies", arXiv:2506.07339).
+      </p>
+
+      <p>Three modules:</p>
+
+      <ul>
+        <li>
+          <code>RTCConfig</code>
+          (<span class="file-ref">src/lerobot/policies/rtc/configuration_rtc.py:30-55</span>):
+          <code>enabled</code>,
+          <code>prefix_attention_schedule &isin; {ZEROS, ONES, LINEAR, EXP}</code>
+          (default <code>LINEAR</code>),
+          <code>max_guidance_weight = 10.0</code>,
+          <code>execution_horizon = 10</code>.
+        </li>
+        <li>
+          <code>RTCProcessor</code>
+          (<span class="file-ref">src/lerobot/policies/rtc/modeling_rtc.py:37</span>)
+          wraps a flow-matching denoise step. The core method,
+          <code>denoise_step(x_t, prev_chunk_left_over, inference_delay, time, ...)</code>
+          (<span class="file-ref">src/lerobot/policies/rtc/modeling_rtc.py:116-248</span>),
+          reverses time (<code>tau = 1 - time</code>, line 164), pads the
+          previous-chunk leftover to current chunk shape (lines 195-198), builds
+          prefix weights (line 204-209), and applies an autograd-based
+          correction:
+          <code>x1_t = x_t - time*v_t</code>,
+          <code>err = (prev_chunk_left_over - x1_t) * weights</code>,
+          <code>correction = autograd.grad(x1_t, x_t, err)</code> (lines 215-218),
+          with corrected velocity
+          <code>v_t - guidance_weight * correction</code> (line 228). Guidance
+          weight is
+          <code>clamp((1-tau)/tau &middot; ((1-tau)&sup2; + tau&sup2;)/(1-tau)&sup2;, max_guidance_weight)</code>
+          (lines 220-226). The "inpainting" formulation: the prefix anchors the
+          new chunk to the leftover unexecuted prefix, smoothing the handoff.
+        </li>
+        <li>
+          <code>ActionQueue</code>
+          (<span class="file-ref">src/lerobot/policies/rtc/action_queue.py:35-219</span>):
+          thread-safe queue with two tensors &mdash; <code>original_queue</code>
+          (raw, used to compute the next chunk's <code>prev_chunk_left_over</code>)
+          and <code>queue</code> (post-processed, fed to the robot).
+        </li>
+      </ul>
+
+      <p>
+        In pi0 / pi05 / smolvla, <code>select_action</code> raises if RTC is
+        enabled (comment "RTC is not supported for select_action, use it with
+        predict_action_chunk" at
+        <span class="file-ref">src/lerobot/policies/pi05/modeling_pi05.py:1216-1217</span>,
+        <span class="file-ref">src/lerobot/policies/pi0/modeling_pi0.py:1245-1246</span>,
+        <span class="file-ref">src/lerobot/policies/smolvla/modeling_smolvla.py:332-333</span>).
+        RTC must be driven via
+        <code>predict_action_chunk(batch, inference_delay=&hellip;, prev_chunk_left_over=&hellip;)</code>
+        from a manual rollout loop &mdash; the
+        <code>examples/rtc/eval_with_real_robot.py</code> two-thread pattern is
+        the supported template (a <code>get_actions</code> daemon refills the
+        queue while an <code>actor_control</code> daemon consumes one action per
+        <code>1/fps</code> tick).
+      </p>
+    </details>
+
+    <div class="next-up">
+      <strong>Where to go next &rarr;</strong>
+      <p>
+        You've got policies running on the robot. The next question most users
+        ask is whether they can layer reinforcement learning on top to push
+        success rates higher. <a href="rl-on-top.html">Can I add RL to my
+        policy?</a> &mdash; the direct answer.
+      </p>
+    </div>
+
+  </article>
+</main>
+
+<button id="to-top" aria-label="Back to top" title="Back to top">&uarr;</button>
+
+<footer class="site-footer">
+  <div>Built 2026-05-08 &middot; pinned tags
+    <a href="https://github.com/huggingface/lerobot/tree/v0.4.4" target="_blank" rel="noopener">v0.4.4</a>
+    /
+    <a href="https://github.com/huggingface/lerobot/tree/v0.5.0" target="_blank" rel="noopener">v0.5.0</a>
+    &middot; <a href="https://github.com/huggingface/lerobot/compare/v0.4.4...v0.5.0" target="_blank" rel="noopener">compare</a>
+  </div>
+</footer>
+
+</body>
+</html>
