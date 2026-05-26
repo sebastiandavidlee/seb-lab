@@ -1,4 +1,58 @@
 {
+  "1BgPQN887g0": {
+    "video_id": "1BgPQN887g0",
+    "title": "It's Time To Pay Attention",
+    "calendar_date": "2026-04-22",
+    "video_url": "https://www.youtube.com/watch?v=1BgPQN887g0",
+    "transcript_path": "youtube/transcripts-top/crypto-currently/undated-it-s-time-to-pay-attention.md",
+    "extractor_confidence": 0.9,
+    "holdings": [
+      {
+        "asset": "BTC",
+        "confidence": 0.9,
+        "evidence_quote": "I trimmed a tiny bit of my Bitcoin allocation on Monday morning.",
+        "instrument": "spot",
+        "size": "tiny",
+        "weight_pct": null
+      },
+      {
+        "asset": "USD",
+        "confidence": 0.85,
+        "evidence_quote": "Not because I think it will go down, but because I am trying to keep my cash position near its target in case we haven't seen the worst of this bare market quite yet.",
+        "instrument": "cash",
+        "size": "medium",
+        "weight_pct": null
+      }
+    ],
+    "actions": [
+      {
+        "asset": "BTC",
+        "confidence": 0.9,
+        "direction": "TRIM",
+        "evidence_quote": "I trimmed a tiny bit of my Bitcoin allocation on Monday morning.",
+        "size_hint": "tiny",
+        "weight_delta_pct": null,
+        "when_relative": "Monday morning"
+      },
+      {
+        "asset": "USD",
+        "confidence": 0.85,
+        "direction": "BUY",
+        "evidence_quote": "Not because I think it will go down, but because I am trying to keep my cash position near its target in case we haven't seen the worst of this bare market quite yet.",
+        "size_hint": "medium",
+        "weight_delta_pct": null,
+        "when_relative": "near its target in case we haven't seen the worst of this bare market quite yet"
+      }
+    ],
+    "cash_position": {
+      "asset": "USD",
+      "confidence": 0.85,
+      "evidence_quote": "Not because I think it will go down, but because I am trying to keep my cash position near its target in case we haven't seen the worst of this bare market quite yet.",
+      "instrument": "cash",
+      "size": "medium",
+      "weight_pct": null
+    }
+  },
   "DytVHqxTpz0": {
     "video_id": "DytVHqxTpz0",
     "title": "We're Almost There",
