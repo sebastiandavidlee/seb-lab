@@ -1,0 +1,101 @@
+{
+  "DytVHqxTpz0": {
+    "video_id": "DytVHqxTpz0",
+    "title": "We're Almost There",
+    "calendar_date": "2026-04-30",
+    "video_url": "https://www.youtube.com/watch?v=DytVHqxTpz0",
+    "transcript_path": "youtube/transcripts-top/crypto-currently/undated-we-re-almost-there.md",
+    "extractor_confidence": 0.8,
+    "holdings": [
+      {
+        "asset": "BTC",
+        "confidence": 0.9,
+        "evidence_quote": "\"I already have 80% of my portfolio allocated to Bitcoin\"",
+        "instrument": "spot",
+        "size": "large",
+        "weight_pct": null
+      },
+      {
+        "asset": "USD",
+        "confidence": 0.7,
+        "evidence_quote": "\"I'm saving 20% for better buying opportunities if we get them\"",
+        "instrument": "cash",
+        "size": "medium",
+        "weight_pct": null
+      }
+    ],
+    "actions": [
+      {
+        "asset": "BTC",
+        "confidence": 0.5,
+        "direction": "BUY",
+        "evidence_quote": "\"I accumulate in those price regions and know that as long as I'm right on Bitcoin in the long term, these will be good buying opportunities I'll look back on a few years from now\"",
+        "size_hint": null,
+        "weight_delta_pct": null,
+        "when_relative": null
+      }
+    ],
+    "cash_position": {
+      "asset": "USD",
+      "confidence": 0.7,
+      "evidence_quote": "\"I'm saving 20% for better buying opportunities if we get them\"",
+      "instrument": "cash",
+      "size": "medium",
+      "weight_pct": null
+    }
+  },
+  "cWxt74ARhWo": {
+    "video_id": "cWxt74ARhWo",
+    "title": "I Can't Believe This",
+    "calendar_date": "2026-05-06",
+    "video_url": "https://www.youtube.com/watch?v=cWxt74ARhWo",
+    "transcript_path": "youtube/transcripts-top/crypto-currently/undated-i-can-t-believe-this.md",
+    "extractor_confidence": 0.9,
+    "holdings": [
+      {
+        "asset": "BTC",
+        "confidence": 0.9,
+        "evidence_quote": "\"I want to have 80% spot exposure for upside in case that was the lowest price is going to go.\"",
+        "instrument": "spot",
+        "size": "large",
+        "weight_pct": null
+      },
+      {
+        "asset": "MSTR",
+        "confidence": 0.7,
+        "evidence_quote": "\"MSTR itself, it is struggling to maintain above its old range high at that pivotal $180 level that was a resistance for most of 2024 and now here a lot of 2026.\"",
+        "instrument": "spot",
+        "size": "small",
+        "weight_pct": null
+      }
+    ],
+    "actions": [
+      {
+        "asset": "BTC",
+        "confidence": 0.9,
+        "direction": "BUY",
+        "evidence_quote": "\"I want to have 80% spot exposure for upside in case that was the lowest price is going to go.\"",
+        "size_hint": null,
+        "weight_delta_pct": null,
+        "when_relative": null
+      },
+      {
+        "asset": "MSTR",
+        "confidence": 0.7,
+        "direction": "SELL",
+        "evidence_quote": "\"MSTR itself, it is struggling to maintain above its old range high at that pivotal $180 level that was a resistance for most of 2024 and now here a lot of 2026.\"",
+        "size_hint": null,
+        "weight_delta_pct": -20.0,
+        "when_relative": null
+      }
+    ],
+    "cash_position": {
+      "asset": "USD",
+      "confidence": 0.8,
+      "evidence_quote": "\"I do have this dry powder on the sidelines in case we do end up getting that better buying opportunity later in the year.\"",
+      "instrument": "cash",
+      "size": "medium",
+      "weight_pct": null
+    }
+  }
+}

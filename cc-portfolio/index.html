@@ -1,0 +1,80 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>cc-portfolio — Crypto Currently's stated portfolio across 232 videos</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Source+Serif+4:ital,wght@0,400;0,600;0,700;1,400&family=Inter:wght@400;500;700&family=JetBrains+Mono:wght@400;600&display=swap">
+  <link rel="stylesheet" href="css/style.css">
+  <script src="https://cdn.jsdelivr.net/npm/echarts@5/dist/echarts.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/papaparse@5/papaparse.min.js"></script>
+  <script type="module" src="js/main.js"></script>
+</head>
+<body>
+
+<header id="cc-header" class="cc-header">
+  <div class="cc-header-title">
+    <span class="cc-mark">seb-lab / cc-portfolio</span>
+    <span class="cc-sub">· Crypto Currently — one YouTuber's stated portfolio across 232 videos</span>
+  </div>
+  <nav class="cc-header-nav">
+    <a href="https://sebastiandavidlee.github.io/seb-lab/" rel="noopener">&larr; seb-lab</a>
+  </nav>
+</header>
+
+<main class="cc-main">
+
+  <section id="cc-hero" class="cc-hero">
+    <blockquote class="cc-quote">
+      <p>Welcome back to my 10 favorite people.</p>
+      <cite>— Crypto Currently</cite>
+    </blockquote>
+  </section>
+
+  <section id="cc-kpis" class="cc-kpis" aria-label="key metrics">
+    <div class="cc-kpi" data-kpi="n_videos_extracted">
+      <div class="cc-kpi-label">videos extracted</div>
+      <div class="cc-kpi-value">—</div>
+    </div>
+    <div class="cc-kpi" data-kpi="mean_cash_pct">
+      <div class="cc-kpi-label">mean cash %</div>
+      <div class="cc-kpi-value">—</div>
+    </div>
+    <div class="cc-kpi" data-kpi="top3_concentration_pct">
+      <div class="cc-kpi-label">top-3 concentration</div>
+      <div class="cc-kpi-value">—</div>
+    </div>
+    <div class="cc-kpi" data-kpi="last_video_date">
+      <div class="cc-kpi-label">last video</div>
+      <div class="cc-kpi-value">—</div>
+    </div>
+    <div class="cc-kpi" data-kpi="pct_holdings_with_weight_pct">
+      <div class="cc-kpi-label">holdings w/ weight</div>
+      <div class="cc-kpi-value">—</div>
+    </div>
+  </section>
+
+  <div class="cc-grid">
+
+    <div class="cc-grid-charts">
+      <section id="cc-chart-ribbon" class="cc-card" aria-label="conviction ribbon"></section>
+      <section id="cc-chart-actions" class="cc-card" aria-label="action strip"></section>
+      <section id="cc-chart-smallmult" class="cc-card" aria-label="per-asset small multiples"></section>
+    </div>
+
+    <aside id="cc-detail-panel" class="cc-card cc-detail-panel" aria-label="video detail">
+      <div class="cc-empty">click a day in the chart, or a video below</div>
+    </aside>
+
+  </div>
+
+</main>
+
+<footer id="cc-provenance" class="cc-provenance">
+  <span>loading provenance…</span>
+</footer>
+
+</body>
+</html>

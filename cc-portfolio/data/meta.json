@@ -1,0 +1,28 @@
+{
+  "generated_at": "2026-05-25T22:58:51",
+  "n_videos_total": 232,
+  "n_videos_extracted": 2,
+  "n_videos_dated": 2,
+  "n_holdings": 6,
+  "n_actions": 3,
+  "date_source_counts": {
+    "portfolio": 2,
+    "filename": 0,
+    "backfill": 0
+  },
+  "extractor_model": "qwen2.5:7b-instruct (local, Ollama)",
+  "extraction_in_progress": true,
+  "asset_palette": {
+    "BTC": "#F7931A",
+    "ETH": "#627EEA",
+    "SOL": "#14F195",
+    "ADA": "#0033AD",
+    "AVAX": "#E84142",
+    "LINK": "#2A5ADA",
+    "DOGE": "#C2A633",
+    "XRP": "#23292F",
+    "MSTR": "#1D1D1F",
+    "USD": "#7FAE6C",
+    "OTHER": "#888888"
+  }
+}
