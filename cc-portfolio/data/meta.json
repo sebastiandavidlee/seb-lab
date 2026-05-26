@@ -1,14 +1,14 @@
 {
-  "generated_at": "2026-05-26T07:15:48",
+  "generated_at": "2026-05-26T10:10:06",
   "n_videos_total": 232,
   "n_videos_extracted": 210,
-  "n_videos_dated": 50,
+  "n_videos_dated": 206,
   "n_holdings": 576,
   "n_actions": 242,
   "date_source_counts": {
     "portfolio": 50,
     "filename": 0,
-    "backfill": 0
+    "backfill": 156
   },
   "extractor_model": "qwen2.5:7b-instruct (local, Ollama)",
   "extraction_in_progress": true,
