@@ -1,0 +1,292 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Model × Hardware Feasibility — Findings</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Source+Serif+4:ital,wght@0,400;0,600;0,700;1,400&family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;600&display=swap">
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+
+<p class="mark">Model × Hardware Feasibility</p>
+<h1>Which AI models can I actually run, and on what?</h1>
+<p class="tagline">A 6-agent study mapping ~40 models against ~40 devices, plus a 6-agent council to decide what to actually buy. Built 2026-05.</p>
+
+<div class="verdict">
+  <div class="label">Final verdict</div>
+  <p><strong>Skip the GPU upgrade. Use cloud A100 on demand.</strong></p>
+  <p>The council twice recommended a 24 GB GPU upgrade ($500-800 assumption). Corrected real-world numbers — used 3090 is $800-1050, stian's PSU caps at single-GPU, Lambda A100 80 GB is $2.49/hr — flip the math. At ~5 LoRAs/year × 6h ≈ $75/yr of cloud, a local 24 GB card only amortizes past ~340 training hours/year. That's not the actual cadence. <strong>Keep the 4080 for inference and dev; rent A100 when LoRA work needs it.</strong></p>
+</div>
+
+<div class="actions">
+  <p style="margin: 0 0 0.8rem; font-family: 'Inter', sans-serif; font-size: 0.78rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.1em; color: var(--ink-muted);">Top 2 actions</p>
+  <ol>
+    <li>
+      <strong>Pin stian's NVIDIA driver</strong> to stop unattended-upgrades from corrupting a mid-sweep. One config change. The cheapest, highest-EV move on the entire menu — directly motivated by a prior debug incident.
+    </li>
+    <li>
+      <strong>Pre-stage a Lambda A100 80 GB workflow</strong> for VLA LoRA. Persistent volume with the π0.5 dataset + training scripts ready to spin. ~30 min one-time setup; ~$0 idle. Turns "I need to fine-tune" from a multi-hour yak-shave into a 5-minute SSH. This is the cloud-bridge that replaces the GPU buy.
+    </li>
+  </ol>
+</div>
+
+<div class="toc">
+  <strong>What this page is</strong>
+  <a href="#takeaways"><span class="num">01</span> Key takeaways</a>
+  <a href="#dashboard"><span class="num">02</span> Personal dashboard — what fits where</a>
+  <a href="#feasibility"><span class="num">03</span> Where boundaries are (and why)</a>
+  <a href="#cost"><span class="num">04</span> What a dollar buys</a>
+  <a href="#vlas"><span class="num">05</span> VLAs: inference vs fine-tuning</a>
+  <a href="#quality"><span class="num">06</span> Quality vs size — is local actually good?</a>
+  <a href="#council"><span class="num">07</span> The council deliberation</a>
+  <a href="#triggers"><span class="num">08</span> What would flip the verdict</a>
+</div>
+
+<!-- ============================================ -->
+<h2 id="takeaways">01 — Key takeaways</h2>
+
+<p>The whole study reduces to a small number of robust physical and economic facts. They explain every plot below and every recommendation above.</p>
+
+<div class="kbd-grid">
+  <div class="item">
+    <h4>Memory is the master gate</h4>
+    <p>Before bandwidth or compute matter, weights + KV must <em>fit</em>. All 288 no-go pairs are capacity failures.</p>
+  </div>
+  <div class="item">
+    <h4>Bandwidth sets local LLM speed</h4>
+    <p>Single-stream decode is bandwidth-bound. M5 Max 614 GB/s sits exactly 2× above M5 Pro 307 GB/s — same capacity, twice the speed.</p>
+  </div>
+  <div class="item">
+    <h4>MoE decouples storage from speed</h4>
+    <p>DeepSeek-V3, Qwen3-235B are huge to store (read: own) but cheap to run. Sparsity routes only active params per token.</p>
+  </div>
+  <div class="item">
+    <h4>Mac × VLA is a wall, not a wait</h4>
+    <p>openpi (π0/π0.5), Octo, OpenVLA, Foundry are JAX-CUDA or pin flash-attn / bitsandbytes. No MPS path. CUDA-only stack means Mac sits out robotics regardless of RAM.</p>
+  </div>
+  <div class="item">
+    <h4>Pareto flattens at ~30B for LLMs</h4>
+    <p>Qwen3-30B-A3B (MoE, 78 MMLU-Pro at ~15GB) is the sweet spot. Frontier (Qwen3-235B 84.4) costs 8× the memory for 6 points.</p>
+  </div>
+  <div class="item">
+    <h4>OFT moves boundaries via software</h4>
+    <p>OpenVLA-OFT: same backbone as OpenVLA-7B, same memory, but parallel-decode + K=8 action chunking gives ~26× throughput. The one arrow on these plots that points down without spending a dollar.</p>
+  </div>
+  <div class="item">
+    <h4>API quality &gt; local quality, durably</h4>
+    <p>Claude Opus (~84+ MMLU-Pro) outperforms any local model the user could run. Stated default — "Claude API for daily work" — is the correct posture.</p>
+  </div>
+  <div class="item">
+    <h4>Cloud rental beats local-GPU at real cadence</h4>
+    <p>At ~5 VLA LoRAs/year × 6h on Lambda A100 ≈ $75. A local 24GB card only wins past ~340 hr/yr. Not the actual workload.</p>
+  </div>
+</div>
+
+<!-- ============================================ -->
+<h2 id="dashboard">02 — Personal dashboard: what fits where</h2>
+
+<p>The most useful single picture in the study. Rows = your decision menu (current hardware + upgrade options, A100 cap, Mac ≤$6000). Columns = models you'd actually run. Cell color = inference/LoRA verdict. Gray-hatched = CUDA-only stack (Mac can't run regardless of memory).</p>
+
+<figure>
+  <img src="plots/plot11_personal_decision.png" alt="Personal hardware decision dashboard — inference and LoRA feasibility across 8 devices and 16 models">
+  <figcaption><strong>Plot 11 — Personal decision view.</strong> YOU ARE HERE markers on M5 Pro 24GB (laptop) and RTX 4080 16GB (desktop). Inference left, LoRA right. The diagonal staircase is the memory wall; the gray-hatched VLA columns on every Mac row are the CUDA wall.</figcaption>
+</figure>
+
+<p>And the per-device top-3 picks ranked by quality × popularity:</p>
+
+<figure>
+  <img src="plots/plot15_recommendations.png" alt="Personal recommendation dashboard: best LLM, VLM, VLA per device, plus LoRA feasibility">
+  <figcaption><strong>Plot 15 — Recommendation grid.</strong> For each device, the best inference pick in each category and whether the best VLA is LoRA-trainable. Mac × VLA always reads "Not runnable (CUDA-only)."</figcaption>
+</figure>
+
+<table>
+  <thead>
+    <tr><th>Category</th><th>The pick for the user's tier</th><th>Why</th></tr>
+  </thead>
+  <tbody>
+    <tr><td>Daily coding</td><td>Claude Code (Opus/Sonnet, API)</td><td>~84+ MMLU-Pro dominates any local model</td></tr>
+    <tr><td>Local LLM (batch, offline, OpenClaw)</td><td><strong>Qwen3-30B-A3B</strong> (Q4_K_M)</td><td>78 MMLU-Pro at ~15GB int4. MoE keeps decode fast (3B active).</td></tr>
+    <tr><td>Local VLM</td><td><strong>Qwen2.5-VL-7B</strong></td><td>58.6 MMMU, Pareto-optimal at the tier, Ollama+MLX support</td></tr>
+    <tr><td>VLA inference (stian only)</td><td><strong>OpenVLA-OFT</strong></td><td>97.1 LIBERO (SOTA), real-time on a 4090; runs on 4080 too</td></tr>
+    <tr><td>VLA LoRA (cloud)</td><td>π0.5 or OpenVLA-OFT on Lambda A100 80GB</td><td>Documented LoRA = 22.5-27 GB; 4080 can't, A100 can. Cloud is the bridge.</td></tr>
+    <tr><td>Task-specific (1 task, ~50 demos)</td><td><strong>ACT</strong> or <strong>Diffusion Policy</strong></td><td>Different evaluation regime. 80-95% in-distribution success.</td></tr>
+  </tbody>
+</table>
+
+<!-- ============================================ -->
+<h2 id="feasibility">03 — Where the boundaries are, and why</h2>
+
+<p>Five orthogonal views of the same physics. Each cliff has a single underlying reason.</p>
+
+<figure>
+  <img src="plots/plot1_fit_scatter.png" alt="Memory fit scatter: model footprint vs device memory, with the y=x diagonal as the no-go boundary">
+  <figcaption><strong>Plot 1 — The memory wall (<code>y = x</code>).</strong> Every one of 288 no-go pairs sits on or below the diagonal. Memory <em>capacity</em>, not compute, is the master gate. A 70B model is no-go on a 24GB 4090 even at 3-bit; usable on a 128GB M5 Max.</figcaption>
+</figure>
+
+<figure>
+  <img src="plots/plot2_perf_scatter.png" alt="Decode tokens per second vs model size, one line per device, log-log">
+  <figcaption><strong>Plot 2 — The bandwidth fan.</strong> Decode tok/s = bandwidth ÷ bytes-per-token. M5 Max sits <em>exactly</em> 2× above M5 Pro across all model sizes (614 vs 307 GB/s). H200 (4.8 TB/s) sustains &gt;100 tok/s even at 70B. This is why bandwidth, not TFLOPS, sets interactive feel.</figcaption>
+</figure>
+
+<figure>
+  <img src="plots/plot3_heatmap.png" alt="Feasibility heatmap: 44 models × 39 devices, colored by verdict, sorted by size and capability">
+  <figcaption><strong>Plot 3 — The staircase.</strong> Models (rows, ascending size) × devices (cols, ascending memory). The green→orange→red staircase is the headline: usable size climbs monotonically with device memory. 16GB consumer cards cap at sub-4B comfortable; only datacenter stays green into the 235B-MoE row.</figcaption>
+</figure>
+
+<figure>
+  <img src="plots/plot4_value_frontier.png" alt="Value frontier: device price vs largest comfortably runnable model">
+  <figcaption><strong>Plot 4 — The price cliff.</strong> Apple Silicon and consumer RTX scale smoothly up to ~$8K / ~46B params, then a hard discontinuity at ~$8.5K–$37K where only datacenter GPUs unlock 76B+ comfortably. HBM is manufactured and priced in a different regime than GDDR/LPDDR.</figcaption>
+</figure>
+
+<figure>
+  <img src="plots/plot5_vla_hz.png" alt="VLA control loop Hz achievable per device, with 10/30/50 Hz thresholds">
+  <figcaption><strong>Plot 5 — VLA control-loop feasibility.</strong> Tiny policies (ACT 80M, Octo) saturate at 200 Hz on any laptop. OpenVLA-7B needs an H100-class GPU to first cross 30 Hz at int4; diffusion policies (50 denoising steps) only clear 50 Hz around the Blackwell tier.</figcaption>
+</figure>
+
+<!-- ============================================ -->
+<h2 id="cost">04 — What a dollar buys</h2>
+
+<p>Capacity and compute are <em>orthogonal</em> purchases. Mac dollars and NVIDIA dollars buy fundamentally different things.</p>
+
+<figure>
+  <img src="plots/plot6_price_curves.png" alt="Three-panel price curves: $ vs memory GB, $ vs bandwidth GB/s, $ vs FP16 TFLOPS, Apple vs NVIDIA consumer vs datacenter">
+  <figcaption><strong>Plot 6 — The two purchase families.</strong> $ per GB: Apple wins (cheap unified memory scales to 128–192 GB at laptop prices; NVIDIA hard-caps at 24–32 GB). $ per TFLOPS / $ per GB/s: NVIDIA wins decisively. <strong>Mac dollar = cheap capacity, dear compute. NVIDIA dollar = cheap compute, capped capacity.</strong></figcaption>
+</figure>
+
+<figure>
+  <img src="plots/plot7_model_requirements.png" alt="Model requirement scatter: footprint vs required bandwidth (LLMs) and footprint vs required TFLOPS (VLAs)">
+  <figcaption><strong>Plot 7 — Models, demand-side.</strong> Each model placed at (footprint, required-bandwidth or required-compute). The MoE surprise: DeepSeek-V3 and Qwen3-235B sit far-right (huge to store) but low (tiny active-param demand) — expensive to own, cheap to operate.</figcaption>
+</figure>
+
+<figure>
+  <img src="plots/plot8_hardware_regions.png" alt="Hero figure: hardware as rectangles, models as points, two panels (LLM bandwidth lens and VLA compute lens)">
+  <figcaption><strong>Plot 8 — The hero.</strong> Hardware = cost-labeled rectangles (width = usable GB, height = bandwidth or compute). Models = points. A point inside a rectangle means that device runs it well. Mac is <em>wide but short</em>: big LLMs fit but bandwidth caps low. NVIDIA consumer is <em>narrow but tall</em>: high compute, VRAM-capped. Datacenter is wide AND tall. The geometry IS the answer.</figcaption>
+</figure>
+
+<!-- ============================================ -->
+<h2 id="vlas">05 — VLAs: inference vs fine-tuning, the cliff that matters</h2>
+
+<p>Robotics models are CUDA-only and have a documented LoRA cliff at 22.5 GB. This is where the local-vs-cloud decision actually plays out.</p>
+
+<figure>
+  <img src="plots/plot9_vla_inference.png" alt="VLA inference plot: 7 robotics models as points against device capability knees, OpenVLA-OFT and OpenVLA connected by arrow showing 8× compute reduction">
+  <figcaption><strong>Plot 9 — VLA inference.</strong> Device frontiers drawn as L-shaped <em>knees</em> (vertical = memory wall, horizontal = compute ceiling). Inference memory is never the gate — even a 16GB 4080 clears every VLA. Compute is. The arrow from OpenVLA-7B to OpenVLA-OFT shows the software-only win: ~8× less compute per emitted action, ~26× higher achievable Hz (4.2 → 109.7 Hz on A100).</figcaption>
+</figure>
+
+<figure>
+  <img src="plots/plot10_vla_finetuning.png" alt="VLA fine-tuning plot: LoRA vs full-FT memory for each model, connected by lines showing the jump, device knees, OpenVLA full-FT clamped at right edge as node-scale">
+  <figcaption><strong>Plot 10 — VLA fine-tuning.</strong> Each model appears twice: circle = LoRA, square = full-FT, connected by a line. <strong>π0.5 LoRA (&gt;22.5GB) clears a 24GB 4090 but NOT a 16GB 4080.</strong> Full-FT (&gt;70GB) needs A100 80GB. OpenVLA full-FT (~560GB) is node-scale — 8×A100. This is the cliff the corrected verdict navigates by going cloud.</figcaption>
+</figure>
+
+<div class="callout">
+  ACT and Diffusion Policy are <em>task-specific</em>, not generalist. They're not on LIBERO because they're trained per-task. Judge them by sample-efficiency: ACT hits 80–95% on bimanual ALOHA with ~50 demos; DP near-100% on Robomimic with 200 demos. Different problem, not inferior.
+</div>
+
+<!-- ============================================ -->
+<h2 id="quality">06 — Quality vs size: is local actually any good?</h2>
+
+<p>The missing dimension. Fitting and being fast doesn't mean the model is useful. These three plots add MMLU-Pro / MMMU / LIBERO so the question "can I run it" becomes "should I run it."</p>
+
+<figure>
+  <img src="plots/plot12_llm_quality.png" alt="LLM quality vs size: MMLU-Pro on Y, footprint at int4 on X, hardware tier vertical lines, Pareto frontier dashed">
+  <figcaption><strong>Plot 12 — LLM quality vs size.</strong> The Pareto frontier flattens hard around 30B. <strong>Qwen3-30B-A3B at 15GB int4 scores 78 MMLU-Pro</strong> — 6 points below the frontier ceiling at &lt;10% the cost. Your YOU lines (16/24GB) cross the frontier right at this point. For comparison, Qwen3-235B (84.4) needs &gt;117GB.</figcaption>
+</figure>
+
+<figure>
+  <img src="plots/plot13_vlm_quality.png" alt="VLM quality vs size: MMMU on Y, marker size by popularity, InternVL3 and Qwen2.5-VL annotated with the benchmark-vs-popularity divergence">
+  <figcaption><strong>Plot 13 — VLM quality vs size.</strong> The benchmark winner ≠ the community winner. InternVL3-8B scores higher on MMMU but has 35× fewer HF downloads and no Ollama listing. Qwen2.5-VL-7B is the right pick at the tier because it actually runs in the tools you'd use. Deployment friction beats raw benchmarks.</figcaption>
+</figure>
+
+<figure>
+  <img src="plots/plot14_vla_quality.png" alt="VLA quality plot: LIBERO score vs size for generalist VLAs, plus side callout for ACT and Diffusion Policy task-specific policies">
+  <figcaption><strong>Plot 14 — VLA quality.</strong> Generalist VLAs scored on LIBERO. OpenVLA-OFT leads at 97.1% (parallel decode + K=8 chunking on top of OpenVLA's backbone). π0.5 strong real-world generalist. π*0.6 would be new SOTA but weights aren't released. ACT and DP get a side panel because they don't compete on LIBERO — they're trained per-task.</figcaption>
+</figure>
+
+<!-- ============================================ -->
+<h2 id="council">07 — The council deliberation</h2>
+
+<p>After the data was in, six agents argued the decision. Five advocates, one chair, run twice independently with no cross-contamination. <strong>Both rounds converged on the same verdict</strong> — buy a 24 GB upgrade for ~$500-800 — before the cost inputs were corrected. The council was structurally right (cloud beats local at the user's actual cadence is the same answer); the corrected numbers just made the cloud-only conclusion explicit by removing the cheap-GPU path.</p>
+
+<table>
+  <thead>
+    <tr><th>Advocate</th><th>Position</th><th>Cost</th></tr>
+  </thead>
+  <tbody>
+    <tr><td>The Roboticist</td><td>Buy 4090 24 GB — unlock VLA LoRA</td><td>$500–800 (assumed)</td></tr>
+    <tr><td>The LLM Advocate</td><td>Upgrade Mac to M5 Max 48 GB — daily-driver bandwidth</td><td>$1,900</td></tr>
+    <tr><td>The Cloud Economist</td><td>Buy nothing; rent A100 on demand</td><td>$0 cap</td></tr>
+    <tr><td>The Portability Strategist</td><td>Mac 48-64 GB — CVPR is in 12 days</td><td>$1,900-2,500</td></tr>
+    <tr><td>The Patient Investor</td><td>Wait 6-9 months for M6 / RTX 60-series</td><td>$0</td></tr>
+    <tr><td><em>Both Chairs (independent)</em></td><td><em>Buy 4090, hold Mac, after CVPR</em></td><td><em>$500-800</em></td></tr>
+    <tr><td><strong>Reality (corrected)</strong></td><td><strong>Skip GPU. Cloud A100 on Lambda when needed.</strong></td><td><strong>$0 + $75/yr</strong></td></tr>
+  </tbody>
+</table>
+
+<div class="callout">
+  The corrected numbers: used 3090 24GB = $800-1050 (not $500-800); stian PSU caps dual-GPU; Lambda A100 = $2.49/hr (not $1.79); user cadence ≈ 5 LoRAs/yr × 6h ≈ $75/yr cloud spend. Breakeven point for a local 24GB upgrade is ~340 GPU-hours/year, well above realistic usage.
+</div>
+
+<!-- ============================================ -->
+<h2 id="triggers">08 — What would flip the verdict</h2>
+
+<p>The "skip GPU, cloud-only" decision holds today. These are the observable events that would change it:</p>
+
+<table>
+  <thead>
+    <tr><th>Trigger</th><th>Action</th></tr>
+  </thead>
+  <tbody>
+    <tr><td>Cloud spend exceeds ~$250/mo (≈100 hr/mo) for 3 consecutive months</td><td>Re-evaluate local 24GB or 32GB GPU. The cadence has flipped.</td></tr>
+    <tr><td>Cold-start friction on Lambda becomes a documented research bottleneck</td><td>Buy the GPU. Per-iteration friction is what cloud trades for cost.</td></tr>
+    <tr><td>RTX 50-series 24GB lands at &lt;$700 used</td><td>Reconsider — different math at lower price floor.</td></tr>
+    <tr><td>M6 Max releases with &gt;30% bandwidth gain at similar pricing</td><td>Skip M5 Max; wait for M6 if local LLM use turns daily.</td></tr>
+    <tr><td>π*0.6 or successor releases with LoRA requiring &gt;24GB</td><td>Cloud-only is forced anyway; A100 80GB stays the answer.</td></tr>
+    <tr><td>Sustained &gt;60 min/day of local LLM on the MBP for 30 days</td><td>The Mac upgrade case becomes real (vs current stated API-default).</td></tr>
+  </tbody>
+</table>
+
+<!-- ============================================ -->
+<h2 id="appendix">Appendix — methodology & artifacts</h2>
+
+<p>Built as a 6-agent pipeline: Hardware Profiler → Model Cataloger → Memory/Quant Analyst → Performance Estimator → Feasibility Classifier → Visualization Architect. Plus follow-on benchmarks (LLM/VLM/VLA), Pareto synthesis, and a 6-agent deliberation council (run twice).</p>
+
+<p>All inputs and outputs are deterministic CSVs; every plot is regenerable from <code>compute_*.py</code> and <code>make_plots_v*.py</code> against <code>data/*.csv</code>.</p>
+
+<h4>Data</h4>
+<ul>
+  <li>39 devices (Apple M1→M5 laptops, RTX 30→50 series, RTX 6000 Ada/Blackwell, A100/H100/H200/B200/GB200) — capacity, bandwidth, FP16 TFLOPS, INT8/INT4 TOPS, price, confidence</li>
+  <li>44 models (LLMs 0.5B → 671B MoE, VLMs 2B → 90B, VLAs π0/π0.5/π*0.6/OpenVLA/OFT/Octo/Foundry/ACT/DP), plus benchmark scores (MMLU-Pro/MMMU/LIBERO)</li>
+  <li>20,592-row headroom matrix · 5,148-row performance matrix · 1,716 feasibility verdicts · 1,716 quality-Pareto rows</li>
+</ul>
+
+<h4>Key assumptions</h4>
+<ul>
+  <li>Weight memory = params × bits/8. MoE uses <em>total</em> params (all experts resident). KV cache held at fp16 even when weights are quantized.</li>
+  <li>Apple unified memory usable fraction = 0.75 (macOS default). Runtime overhead ×1.15.</li>
+  <li>Decode tok/s = bandwidth × MBU(0.75) / bytes-per-token (active params for MoE).</li>
+  <li>Prefill = compute-bound at MFU(0.4). VLA control Hz = 1 / forward-pass latency.</li>
+  <li>DeepSeek-V3/R1 use MLA — KV corrected via <code>kv_lora_rank=512</code> (otherwise overestimates by ~64×).</li>
+  <li>All performance numbers are first-order roofline estimates, cross-checked against published llama.cpp / vLLM / lerobot benchmarks where available.</li>
+</ul>
+
+<h4>VLA documented numbers</h4>
+<ul>
+  <li>π0 / π0.5: inference &gt;8 GB, LoRA &gt;22.5 GB, full FT &gt;70 GB (openpi README)</li>
+  <li>OpenVLA-7B: inference ~15 GB bf16 / ~7 GB 4-bit, LoRA ~27 GB, full FT ~560 GB (8×A100)</li>
+  <li>OpenVLA-OFT: same backbone, LIBERO 97.1% with wrist cam, ~26× throughput vs OpenVLA (arXiv:2502.19645)</li>
+  <li>π*0.6: arXiv:2511.14759, Gemma-3-4B + 860M flow-matching expert, ~5.5B deployed, 50 Hz, weights NOT officially released</li>
+  <li>TRI vla_foundry: training framework shipping Foundry-VLA-1.7B + Foundry-Qwen3VLA-2.1B; no VRAM published</li>
+</ul>
+
+<footer>
+  Built 2026-05 · 6-agent pipeline + 6-agent council ×2 ·
+  Artifacts at <code>research/builds/model-hardware-feasibility/</code> ·
+  Plots are PNGs; scripts deterministic from CSV inputs ·
+  Verdict pinned in <code>memory/project_local_model_hardware.md</code>
+</footer>
+
+</body>
+</html>
