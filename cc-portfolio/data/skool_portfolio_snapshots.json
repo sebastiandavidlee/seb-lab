@@ -442,6 +442,45 @@
     "source": "allocations-after"
   },
   {
+    "post_id": "e3f1b4b4b3b6464d86ee2b9b13fc1665",
+    "post_name": "portfolio-and-charts-update-weekly-report",
+    "date": "2026-04-27",
+    "created_at": "2026-04-27T17:19:58.396737Z",
+    "allocation": {
+      "USD": 19.7,
+      "BTC": 64.8,
+      "ETH": 12.8,
+      "SOL": 2.7
+    },
+    "source": "inline-fallback"
+  },
+  {
+    "post_id": "06239ff9d669458293bcbfdd2877c1c4",
+    "post_name": "crypto-portfolio-and-charts-update-weekly-report",
+    "date": "2026-05-04",
+    "created_at": "2026-05-04T18:25:09.614046Z",
+    "allocation": {
+      "USD": 19.3,
+      "BTC": 65.4,
+      "ETH": 12.7,
+      "SOL": 2.7
+    },
+    "source": "portfolio-plain"
+  },
+  {
+    "post_id": "2b273b5c001642e78831dfbc34b774ce",
+    "post_name": "crypto-portfolio-and-charts-update-weekly-report-2",
+    "date": "2026-05-11",
+    "created_at": "2026-05-11T20:13:28.461277Z",
+    "allocation": {
+      "USD": 19.9,
+      "BTC": 64.7,
+      "ETH": 12.4,
+      "SOL": 3.0
+    },
+    "source": "portfolio-after"
+  },
+  {
     "post_id": "380213a669fa4095a32154074a313024",
     "post_name": "portfolio-update-weekly-report-404a9134",
     "date": "2026-05-18",
