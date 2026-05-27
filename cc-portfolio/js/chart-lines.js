@@ -51,10 +51,9 @@ async function render(data) {
         total += v;
       }
       if (total <= 0) return null;
-      // Re-normalize each row to 100 so lines reflect comparable proportions
-      // even when some allocations were stripped (e.g. SOL=0 after a sale).
       for (const k of ASSETS) shares[k] = (shares[k] / total) * 100;
-      return { ts, date: s.date, shares };
+      const filled = String(s.source || '').startsWith('forward-fill');
+      return { ts, date: s.date, source: s.source, shares, filled };
     })
     .filter(Boolean)
     .sort((a, b) => a.ts - b.ts);
@@ -62,16 +61,25 @@ async function render(data) {
   if (!rows.length) { renderEmpty(el, 'snapshots failed to load'); return; }
 
   const palette = (data.meta && data.meta.asset_palette) || {};
+  const color = (a) => palette[a] || '#888';
   const series = ASSETS.map((asset) => ({
     name: asset,
     type: 'line',
     smooth: 0.15,
     showSymbol: true,
+    symbol: 'circle',
     symbolSize: 5,
-    itemStyle: { color: palette[asset] || '#888' },
-    lineStyle: { width: 2, color: palette[asset] || '#888' },
+    itemStyle: { color: color(asset) },
+    lineStyle: { width: 2, color: color(asset) },
     emphasis: { focus: 'series', lineStyle: { width: 3 } },
-    data: rows.map((r) => [r.ts, +r.shares[asset].toFixed(2)]),
+    data: rows.map((r) => ({
+      value: [r.ts, +r.shares[asset].toFixed(2)],
+      // Hollow ring for forward-filled (no-change weeks); solid for parsed.
+      itemStyle: r.filled
+        ? { color: '#fdfcfa', borderColor: color(asset), borderWidth: 1.5 }
+        : { color: color(asset) },
+      symbolSize: r.filled ? 4 : 5,
+    })),
   }));
 
   const earliest = rows[0].ts;
