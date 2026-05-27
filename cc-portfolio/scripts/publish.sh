@@ -14,6 +14,7 @@ mkdir -p "$SITE_DIR/data"
 cp -f "$PIPELINE/4-report/out/portfolio_holdings_long.csv" "$SITE_DIR/data/" 2>/dev/null || true
 cp -f "$PIPELINE/4-report/out/portfolio_actions_long.csv"  "$SITE_DIR/data/" 2>/dev/null || true
 cp -f "$PIPELINE/4-report/out/portfolio_snapshot_wide.csv" "$SITE_DIR/data/" 2>/dev/null || true
+cp -f "$PIPELINE/data/skool_portfolio_snapshots.json"      "$SITE_DIR/data/" 2>/dev/null || true
 
 echo "[publish] build meta..."
 python3 "$HERE/build_meta.py"

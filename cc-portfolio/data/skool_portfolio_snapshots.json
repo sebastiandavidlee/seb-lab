@@ -1,0 +1,287 @@
+[
+  {
+    "post_id": "5d54726daabe464ea67aa8c22292fa4a",
+    "post_name": "portfolio-update-weekly-report-1f851b0b",
+    "date": "2025-07-21",
+    "created_at": "2025-07-21T13:42:44.885409Z",
+    "source": "portfolio-after-rebalance (block)",
+    "allocation": {
+      "USD": 31.3,
+      "BTC": 38.2,
+      "ETH": 20.3,
+      "SOL": 10.2
+    }
+  },
+  {
+    "post_id": "33e985ed721d405c8f9663185ca138d2",
+    "post_name": "portfolio-update-weekly-report-ed6710b8",
+    "date": "2025-08-25",
+    "created_at": "2025-08-25T15:45:55.063959Z",
+    "source": "portfolio-after (block)",
+    "allocation": {
+      "BTC": 37.9,
+      "ETH": 21.0,
+      "SOL": 10.8,
+      "USD": 30.2
+    }
+  },
+  {
+    "post_id": "198fd1813ce847a898599db2b190d2dc",
+    "post_name": "portfolio-update-weekly-report-9137a4cb",
+    "date": "2025-09-15",
+    "created_at": "2025-09-15T15:42:19.947173Z",
+    "source": "portfolio-plain (block)",
+    "allocation": {
+      "BTC": 38.2,
+      "ETH": 20.2,
+      "SOL": 10.4,
+      "USD": 31.2
+    }
+  },
+  {
+    "post_id": "d483c7dca74e483cb9015d162be52705",
+    "post_name": "portfolio-update-weekly-report-203f35c2",
+    "date": "2025-09-29",
+    "created_at": "2025-09-29T15:06:20.790461Z",
+    "source": "portfolio-after (block)",
+    "allocation": {
+      "BTC": 39.9,
+      "ETH": 19.7,
+      "SOL": 9.8,
+      "USD": 30.5
+    }
+  },
+  {
+    "post_id": "5d19deb533624398a75ca992df8ebd0e",
+    "post_name": "portfolio-update-weekly-report-6e5c071f",
+    "date": "2025-11-24",
+    "created_at": "2025-11-24T15:43:01.155161Z",
+    "source": "portfolio-after-rebalance",
+    "allocation": {
+      "USD": 30.0,
+      "BTC": 42.6,
+      "ETH": 18.8,
+      "SOL": 8.6
+    }
+  },
+  {
+    "post_id": "dd48348302a84552a92c2e16dc19e02e",
+    "post_name": "portfolio-update-weekly-report-e4dbe32e",
+    "date": "2025-12-08",
+    "created_at": "2025-12-08T17:09:12.569404Z",
+    "source": "portfolio-after-rebalance",
+    "allocation": {
+      "USD": 30.2,
+      "BTC": 41.8,
+      "ETH": 19.4,
+      "SOL": 8.7
+    }
+  },
+  {
+    "post_id": "180ffe6095cf4672927de57d20de6eaf",
+    "post_name": "portfolio-update-weekly-report-e559e4bb",
+    "date": "2026-01-19",
+    "created_at": "2026-01-19T15:03:26.773926Z",
+    "source": "portfolio-after",
+    "allocation": {
+      "USD": 29.7,
+      "BTC": 45.5,
+      "ETH": 17.7,
+      "SOL": 7.1
+    }
+  },
+  {
+    "post_id": "11bfd02e07eb4e519e0409b22d696c46",
+    "post_name": "portfolio-update-weekly-report-fedb959a",
+    "date": "2026-01-26",
+    "created_at": "2026-01-26T17:00:02.078798Z",
+    "source": "portfolio-after",
+    "allocation": {
+      "USD": 31.2,
+      "BTC": 48.1,
+      "ETH": 14.8,
+      "SOL": 5.9
+    }
+  },
+  {
+    "post_id": "bc27eb1209ac44d5935e08176e13dc86",
+    "post_name": "portfolio-update-new-target-portfolio",
+    "date": "2026-02-02",
+    "created_at": "2026-02-02T16:25:50.736887Z",
+    "source": "portfolio-after",
+    "allocation": {
+      "USD": 31.4,
+      "BTC": 50.1,
+      "ETH": 13.1,
+      "SOL": 5.4
+    }
+  },
+  {
+    "post_id": "be739a19858c48bba0b3b3edd936efc6",
+    "post_name": "portfolio-update-weekly-report-b9f3ba7f",
+    "date": "2026-02-09",
+    "created_at": "2026-02-09T16:59:24.977648Z",
+    "source": "portfolio-after",
+    "allocation": {
+      "USD": 31.2,
+      "BTC": 51.4,
+      "ETH": 12.5,
+      "SOL": 4.9
+    }
+  },
+  {
+    "post_id": "86e47cde0d6840f09ec9c5dfbdff28c9",
+    "post_name": "portfolio-update-weekly-report-dfb842e0",
+    "date": "2026-02-16",
+    "created_at": "2026-02-16T16:55:52.387007Z",
+    "source": "portfolio-after",
+    "allocation": {
+      "USD": 28.7,
+      "BTC": 54.2,
+      "ETH": 12.2,
+      "SOL": 4.9
+    }
+  },
+  {
+    "post_id": "cf257feb01aa4a60b3474056742fc943",
+    "post_name": "portfolio-update-weekly-report-b811d29f",
+    "date": "2026-02-23",
+    "created_at": "2026-02-23T17:39:00.865962Z",
+    "source": "portfolio-after",
+    "allocation": {
+      "USD": 26.4,
+      "BTC": 56.7,
+      "ETH": 12.1,
+      "SOL": 4.8
+    }
+  },
+  {
+    "post_id": "0573cbf07bb94bcd85c8e16edf6d99ae",
+    "post_name": "portfolio-update-weekly-report-f4c2b7e6",
+    "date": "2026-03-02",
+    "created_at": "2026-03-02T17:00:16.797289Z",
+    "source": "portfolio-after",
+    "allocation": {
+      "USD": 22.2,
+      "BTC": 60.3,
+      "ETH": 12.4,
+      "SOL": 5.1
+    }
+  },
+  {
+    "post_id": "e2fdb5fc169a4e189e465fb802411575",
+    "post_name": "portfolio-update-weekly-report-f79e9b8f",
+    "date": "2026-03-09",
+    "created_at": "2026-03-09T16:30:17.514266Z",
+    "source": "portfolio-after",
+    "allocation": {
+      "USD": 19.4,
+      "BTC": 63.4,
+      "ETH": 12.3,
+      "SOL": 4.9
+    }
+  },
+  {
+    "post_id": "0ca377a8b2a741f5a286e6e9c7039ff2",
+    "post_name": "portfolio-update-weekly-report-0b3d4b56",
+    "date": "2026-03-16",
+    "created_at": "2026-03-16T17:57:34.952096Z",
+    "source": "portfolio-after",
+    "allocation": {
+      "USD": 20.3,
+      "BTC": 63.6,
+      "ETH": 13.0,
+      "SOL": 3.1
+    }
+  },
+  {
+    "post_id": "dd1ef3a1813546f793eb68a1a74f1b8b",
+    "post_name": "portfolio-update-weekly-report-09f19b4d",
+    "date": "2026-03-23",
+    "created_at": "2026-03-23T16:20:17.051158Z",
+    "source": "current-allocations",
+    "allocation": {
+      "USD": 20.7,
+      "BTC": 63.4,
+      "ETH": 12.8,
+      "SOL": 3.1
+    }
+  },
+  {
+    "post_id": "9d67e417db7644828d39ab07bd1c8d7c",
+    "post_name": "portfolio-update-weekly-report-0d7d3300",
+    "date": "2026-03-30",
+    "created_at": "2026-03-30T14:08:29.107421Z",
+    "source": "allocations-after",
+    "allocation": {
+      "USD": 19.9,
+      "BTC": 63.8,
+      "ETH": 13.3,
+      "SOL": 3.0
+    }
+  },
+  {
+    "post_id": "89dc69f33c39480b96280632a3c207bb",
+    "post_name": "portfolio-update-weekly-report-f165b467",
+    "date": "2026-04-06",
+    "created_at": "2026-04-06T18:30:54.73878Z",
+    "source": "current-allocations",
+    "allocation": {
+      "USD": 19.2,
+      "BTC": 64.0,
+      "ETH": 13.9,
+      "SOL": 2.8
+    }
+  },
+  {
+    "post_id": "ff06b65d684642e48ad238de324cf3f6",
+    "post_name": "portfolio-update-weekly-report-25eabd05",
+    "date": "2026-04-13",
+    "created_at": "2026-04-13T19:35:57.012552Z",
+    "source": "allocations-after",
+    "allocation": {
+      "USD": 19.8,
+      "BTC": 64.5,
+      "ETH": 13.0,
+      "SOL": 2.8
+    }
+  },
+  {
+    "post_id": "d6d89f59359c429393fb8a079bd4b6be",
+    "post_name": "portfolio-update-weekly-report-814cb83a",
+    "date": "2026-04-20",
+    "created_at": "2026-04-20T17:10:14.029764Z",
+    "source": "allocations-after",
+    "allocation": {
+      "USD": 20.0,
+      "BTC": 64.2,
+      "ETH": 13.0,
+      "SOL": 2.8
+    }
+  },
+  {
+    "post_id": "380213a669fa4095a32154074a313024",
+    "post_name": "portfolio-update-weekly-report-404a9134",
+    "date": "2026-05-18",
+    "created_at": "2026-05-18T19:28:06.513119Z",
+    "source": "allocations-after",
+    "allocation": {
+      "USD": 20.1,
+      "BTC": 64.3,
+      "ETH": 12.8,
+      "SOL": 2.8
+    }
+  },
+  {
+    "post_id": "38e1ed00a3104114ac9b016463c98f1a",
+    "post_name": "portfolio-update-weekly-report-f4b14c31",
+    "date": "2026-05-26",
+    "created_at": "2026-05-26T20:18:02.769703Z",
+    "source": "allocations-after",
+    "allocation": {
+      "USD": 25.2,
+      "BTC": 64.3,
+      "ETH": 10.5
+    }
+  }
+]

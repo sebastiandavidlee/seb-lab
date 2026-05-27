@@ -1,10 +1,10 @@
 {
-  "generated_at": "2026-05-26T21:31:11",
+  "generated_at": "2026-05-26T22:14:17",
   "n_videos_total": 232,
   "n_videos_extracted": 210,
   "n_videos_dated": 210,
-  "n_holdings": 559,
-  "n_actions": 228,
+  "n_holdings": 434,
+  "n_actions": 123,
   "date_source_counts": {
     "portfolio": 50,
     "filename": 0,

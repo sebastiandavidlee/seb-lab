@@ -139,7 +139,7 @@ async function boot() {
 
   // Cache-bust on every load so updates land without manual hard-refresh.
   // Date-stamp updates daily; bump manually for same-day fixes if needed.
-  const v = '2026-05-26-2';
+  const v = '2026-05-26-3';
   await Promise.all([
     loadChart(`./chart-composition.js?v=${v}`, data),
     loadChart(`./chart-ribbon.js?v=${v}`, data),

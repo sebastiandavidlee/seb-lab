@@ -1,13 +1,11 @@
-// chart-composition.js — 100% stacked area, per-video granularity.
-// One data point per dated video, normalized to {BTC, USD, ETH, SOL} only
-// (everything else dropped, then the 4 are renormalized to sum to 100%).
-// Default zoom: last 4 months. Drag the dataZoom slider to pan/zoom.
+// chart-composition.js — 100% stacked area of GROUND-TRUTH portfolio allocations.
+// Source: data/skool_portfolio_snapshots.json — one entry per Skool weekly-update
+// post where the speaker stated his exact {BTC, ETH, SOL, USD} %.
+// No LLM inference. No averaging. One stack column per stated update.
 
 const MOUNT_ID = 'cc-chart-composition';
 const ASSETS = ['BTC', 'ETH', 'SOL', 'USD'];
-const SIZE_WEIGHT = { small: 1, medium: 2, large: 3 };
-const DEFAULT_WEIGHT = 1.5;
-const DEFAULT_WINDOW_DAYS = 120; // ~4 months
+const DEFAULT_WINDOW_DAYS = 120; // ~4 months default zoom
 
 let chart = null;
 
@@ -17,83 +15,78 @@ function parseDate(iso) {
   return Number.isFinite(t) ? t : null;
 }
 
-function buildPerVideoSeries(data) {
-  const byVideo = data.byVideo || {};
-  const rows = [];
-  for (const vid of Object.keys(byVideo)) {
-    const rec = byVideo[vid];
-    if (!rec) continue;
-    const ts = parseDate(rec.calendar_date || rec.date);
-    if (ts == null) continue;
-
-    // Sum size-weighted "voice" per asset (restricted to the 4 displayed).
-    const sums = { BTC: 0, ETH: 0, SOL: 0, USD: 0 };
-    const addVoice = (asset, size) => {
-      if (!ASSETS.includes(asset)) return;
-      const w = SIZE_WEIGHT[size] != null ? SIZE_WEIGHT[size] : DEFAULT_WEIGHT;
-      sums[asset] += w;
-    };
-    for (const h of rec.holdings || []) addVoice(h.asset, h.size);
-    if (rec.cash_position && rec.cash_position.asset) {
-      addVoice(rec.cash_position.asset, rec.cash_position.size);
-    }
-    const total = sums.BTC + sums.ETH + sums.SOL + sums.USD;
-    if (total <= 0) continue; // skip videos with no mention of the 4 displayed assets
-
-    rows.push({
-      ts,
-      date: rec.calendar_date || rec.date,
-      title: rec.title || vid,
-      vid,
-      shares: {
-        BTC: (sums.BTC / total) * 100,
-        ETH: (sums.ETH / total) * 100,
-        SOL: (sums.SOL / total) * 100,
-        USD: (sums.USD / total) * 100,
-      },
-    });
+async function loadSnapshots() {
+  try {
+    const r = await fetch('./data/skool_portfolio_snapshots.json');
+    if (!r.ok) return [];
+    return await r.json();
+  } catch {
+    return [];
   }
-  rows.sort((a, b) => a.ts - b.ts);
-  return rows;
 }
 
 function renderEmpty(el, msg) {
-  el.innerHTML = `<div class="cc-empty">${msg || 'no dated videos yet'}</div>`;
+  el.innerHTML = `<div class="cc-empty">${msg || 'no portfolio snapshots'}</div>`;
 }
 
-function render(data) {
+async function render(data) {
   const el = document.getElementById(MOUNT_ID);
   if (!el) return;
   if (!window.echarts) {
     el.innerHTML = '<div class="cc-empty">echarts failed to load</div>';
     return;
   }
-  const rows = buildPerVideoSeries(data);
-  if (!rows.length) { renderEmpty(el, 'no dated videos mentioning BTC/ETH/SOL/USD'); return; }
+
+  const snaps = await loadSnapshots();
+  if (!snaps.length) { renderEmpty(el, 'awaiting portfolio snapshots'); return; }
+
+  // Normalize: each snapshot has {date, allocation: {BTC, ETH, SOL, USD}}.
+  // Missing assets default to 0. Re-normalize each row to sum to 100 to
+  // guarantee the stacks line up cleanly.
+  const rows = snaps
+    .map((s) => {
+      const ts = parseDate(s.date || s.created_at);
+      if (ts == null) return null;
+      const a = s.allocation || {};
+      const shares = {};
+      let total = 0;
+      for (const k of ASSETS) {
+        const v = Number(a[k]) || 0;
+        shares[k] = v;
+        total += v;
+      }
+      if (total <= 0) return null;
+      for (const k of ASSETS) shares[k] = (shares[k] / total) * 100;
+      return { ts, date: s.date, source: s.source, shares };
+    })
+    .filter(Boolean)
+    .sort((a, b) => a.ts - b.ts);
+
+  if (!rows.length) { renderEmpty(el, 'snapshots failed to load'); return; }
 
   const palette = (data.meta && data.meta.asset_palette) || {};
   const series = ASSETS.map((asset) => ({
     name: asset,
     type: 'line',
     stack: 'composition',
-    smooth: 0.18,
+    smooth: 0.15,
     showSymbol: true,
-    symbolSize: 4,
-    areaStyle: { color: palette[asset] || '#888', opacity: 0.85 },
+    symbolSize: 5,
+    areaStyle: { color: palette[asset] || '#888', opacity: 0.88 },
     itemStyle: { color: palette[asset] || '#888' },
     lineStyle: { width: 0.5, color: palette[asset] || '#888' },
     emphasis: { focus: 'series' },
     data: rows.map((r) => [r.ts, +r.shares[asset].toFixed(2)]),
   }));
 
-  // Default zoom: last DEFAULT_WINDOW_DAYS, or full range if shorter.
-  const latest = rows[rows.length - 1].ts;
+  // Default zoom: last DEFAULT_WINDOW_DAYS, or all of it if shorter.
   const earliest = rows[0].ts;
+  const latest = rows[rows.length - 1].ts;
   const winStart = Math.max(earliest, latest - DEFAULT_WINDOW_DAYS * 24 * 3600 * 1000);
   const startPct = ((winStart - earliest) / Math.max(1, latest - earliest)) * 100;
 
-  // Keep mount empty-card chrome, mount echarts in a child div so the
-  // existing header (h3 + sub) renders above the chart.
+  const rowByTs = new Map(rows.map((r) => [r.ts, r]));
+
   const existing = el.querySelector('.cc-chart-canvas');
   if (existing) existing.remove();
   const wrap = document.createElement('div');
@@ -103,9 +96,6 @@ function render(data) {
   el.appendChild(wrap);
   if (chart) chart.dispose();
   chart = window.echarts.init(wrap, null, { renderer: 'canvas' });
-
-  // Index rows by ms-timestamp for tooltip lookup.
-  const rowByTs = new Map(rows.map((r) => [r.ts, r]));
 
   chart.setOption({
     grid: { left: 52, right: 16, top: 36, bottom: 72 },
@@ -131,8 +121,7 @@ function render(data) {
         const ts = params[0].value[0];
         const r = rowByTs.get(ts);
         const date = r ? r.date : new Date(ts).toISOString().slice(0, 10);
-        const title = r ? r.title : '';
-        const rows = params
+        const lines = params
           .slice()
           .sort((a, b) => (b.value[1] || 0) - (a.value[1] || 0))
           .map((p) => {
@@ -140,8 +129,7 @@ function render(data) {
             return `<div style="display:flex;align-items:center;gap:8px;font-size:12px;line-height:1.7"><span style="width:10px;height:10px;border-radius:2px;background:${p.color}"></span><span style="flex:1">${p.seriesName}</span><span style="font-variant-numeric:tabular-nums">${v}%</span></div>`;
           })
           .join('');
-        const head = `<div style="font-weight:600;margin-bottom:2px">${date}</div><div style="font-size:11px;color:#6b6558;margin-bottom:6px;max-width:280px;white-space:normal">${title}</div>`;
-        return head + rows;
+        return `<div style="font-weight:600;margin-bottom:4px">${date}</div>${lines}`;
       },
     },
     xAxis: {
