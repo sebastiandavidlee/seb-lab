@@ -10,7 +10,7 @@
   <link rel="stylesheet" href="css/style.css">
   <script src="https://cdn.jsdelivr.net/npm/echarts@5/dist/echarts.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/papaparse@5/papaparse.min.js"></script>
-  <script type="module" src="js/main.js?v=2026-05-26-3"></script>
+  <script type="module" src="js/main.js?v=2026-05-26-4"></script>
 </head>
 <body>
 
@@ -49,10 +49,17 @@
     </div>
   </section>
 
-  <section id="cc-chart-composition" class="cc-card" aria-label="portfolio composition over time">
+  <section id="cc-chart-composition" class="cc-card" aria-label="ground-truth portfolio composition from Skool">
     <header class="cc-chart-header">
-      <h3>stated portfolio — one point per weekly update</h3>
-      <span class="cc-chart-sub">ground truth from Skool · post-change allocation · BTC · ETH · SOL · USD · drag to zoom</span>
+      <h3>stated portfolio — ground truth (Skool weekly updates)</h3>
+      <span class="cc-chart-sub">22 weekly snapshots · post-change allocation · BTC · ETH · SOL · USD · drag slider to zoom</span>
+    </header>
+  </section>
+
+  <section id="cc-chart-composition-llm" class="cc-card" aria-label="inferred portfolio composition from YouTube transcripts">
+    <header class="cc-chart-header">
+      <h3>inferred portfolio — from YouTube transcripts (qwen2.5 7b)</h3>
+      <span class="cc-chart-sub">one point per dated video · LLM-inferred from spoken-word holdings · size-weighted</span>
     </header>
   </section>
 
