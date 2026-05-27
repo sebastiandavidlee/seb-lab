@@ -1,0 +1,170 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>LeWorldModel — Planner</title>
+  <meta name="description" content="How LeWorldModel acts without a policy network: Cross-Entropy Method MPC over a latent world model. 300 samples × 5-step rollout × 30 iterations, no gradients.">
+  <meta property="og:type" content="article">
+  <meta property="og:title" content="LeWorldModel — the CEM-MPC planner">
+  <meta property="og:description" content="300 samples × 5-step latent rollout × 30 CEM iterations. The model is the cost oracle; the planner is the policy.">
+  <meta property="og:image" content="assets/plots/cem_iteration_trace.png">
+  <meta name="twitter:card" content="summary_large_image">
+  <link rel="stylesheet" href="assets/styles.css">
+</head>
+<body>
+
+<a class="skip" href="#main">Skip to main content</a>
+
+<nav class="nav-bar" aria-label="Primary">
+  <a class="nav-link" href="index.html">Landing</a>
+  <a class="nav-link" href="pusht.html">Push-T</a>
+  <a class="nav-link" href="world-model.html">World Model</a>
+  <a class="nav-link nav-current" href="planner.html" aria-current="page">Planner</a>
+  <a class="nav-link" href="tworoom.html">TwoRoom</a>
+  <a class="nav-link" href="results.html">Results</a>
+</nav>
+
+<main id="main" class="wrap">
+
+  <header class="section" id="hero">
+    <h1 class="page-title">The Planner — CEM-MPC turns a world model into a controller</h1>
+    <p class="tldr">
+      LeWorldModel has no policy network. To choose an action, the system samples 300 candidate 5-step action sequences, rolls each forward through the latent predictor, scores them by squared distance to a goal latent, and refits a Gaussian over the top-30 elites for 30 iterations. It then executes the first action and replans. This is the Cross-Entropy Method applied as Model-Predictive Control (<strong>CEM-MPC</strong>) — sampling-based, <strong>no gradients flow through the planner</strong>. The model is used as a cost oracle; the planner is the policy.
+    </p>
+  </header>
+
+  <section class="section" id="why-mpc" aria-labelledby="why-mpc-h">
+    <h2 id="why-mpc-h">1. Why MPC, not a learned policy</h2>
+    <p>
+      LeWorldModel does not contain a policy network. The model just predicts latents: given a context latent and an action sequence, the predictor outputs the next latent. To act, we treat the model as a <em>cost oracle</em> and search action sequences against it. This is Model-Predictive Control (MPC) — the model <em>is</em> the policy, in the sense that every action choice is the argmin of an optimization over the model's predictions, not the output of a feed-forward network trained on demonstrations.
+    </p>
+    <p class="muted">
+      Trade-off: no behavior-cloning step, no policy distillation, no actor-critic. The cost of acting is paid online, every step, in forward passes through the predictor (see §6 below).
+    </p>
+  </section>
+
+  <section class="section" id="cem-60s" aria-labelledby="cem-60s-h">
+    <h2 id="cem-60s-h">2. CEM in 60 seconds</h2>
+    <p>
+      The Cross-Entropy Method (CEM) is sampling-based optimization. <strong>No gradients.</strong> The planner never differentiates the cost — it only evaluates it. Each CEM iteration does five things:
+    </p>
+    <ol>
+      <li>Sample 300 candidate action sequences from a Gaussian over the H=5 future actions.</li>
+      <li>Roll each candidate forward 5 steps in latent space using the predictor (the world model from the previous page).</li>
+      <li>Score each candidate by squared distance from the predicted final latent to the goal latent.</li>
+      <li>Keep the top-30 elites (lowest cost).</li>
+      <li>Refit the Gaussian's mean and per-dimension std to those elites; repeat for 30 iterations.</li>
+    </ol>
+    <p>
+      After the last iteration, the first action of the best sequence is executed in the environment. Everything else is discarded.
+    </p>
+    <p>
+      A useful metaphor: think evolutionary breeding. Spawn many candidate plans, keep the best, breed from them, repeat. CEM is not random search — the population narrows toward low-cost regions iteration by iteration.
+    </p>
+
+    <figure class="fig" id="cem-anim-fig">
+      <img
+        src="assets/videos/cem_sampling_anim.gif"
+        alt="Animated visualisation of CEM sampling on a Push-T episode: on the left, 300 first-step action vectors are plotted as dots in the 2-d action space, coloured by predicted cost (yellow = low cost, dark = high cost); a blue ellipse showing the fitted Gaussian shrinks and re-centres across iterations toward the yellow region. On the right, the current Push-T scene the planner is reasoning about."
+        loading="lazy"
+      >
+      <figcaption class="fig-caption">
+        Left: 300 first-step actions, coloured by predicted cost (yellow = low). The fitted Gaussian (blue ellipse) collapses toward low-cost regions across iterations — the distribution narrows, it does not jump. Right: the env scene the planner is reasoning about. Source: <code>tools/cem_trace.py</code>; one Push-T episode instrumented per-iter.
+      </figcaption>
+    </figure>
+  </section>
+
+  <section class="section" id="cost-latent" aria-labelledby="cost-latent-h">
+    <h2 id="cost-latent-h">3. The cost function lives in latent space</h2>
+    <p>
+      The cost CEM minimises is <code>‖ẑ_predicted − z_goal‖²</code> — squared Euclidean distance <strong>in the 192-d latent space</strong>, not in pixels. This is load-bearing: there is no pixel decoder in LeWorldModel, so a pixel-space cost would be impossible to evaluate against the model's predictions.
+    </p>
+    <p>
+      The goal is supplied as an <em>image</em> of the desired Push-T configuration. The pipeline is:
+    </p>
+    <p class="muted">
+      goal image → encoder (ViT-tiny) → <code>z_goal</code> (192-d) → distance(<code>ẑ_t</code>, <code>z_goal</code>) at each predicted step.
+    </p>
+    <p>
+      <code>z_goal</code> is computed once at the start of the episode and reused every step. The encoder is the same one trained with the predictor (see the World Model page); the goal latent and the predicted latents therefore live in the <em>same</em> learned space, which is what makes their squared distance a meaningful cost.
+    </p>
+    <p class="honesty-note">
+      What this rules out: any cost term that depends on un-encoded RGB. What it does <em>not</em> rule out: the cost being well-shaped only locally around <code>z_goal</code> — squared distance in a learned 192-d space is not guaranteed to be convex, smooth, or even monotone with task progress. CEM tolerates this because it never differentiates the cost; it only ranks samples.
+    </p>
+  </section>
+
+  <section class="section" id="cem-trace" aria-labelledby="cem-trace-h">
+    <h2 id="cem-trace-h">4. CEM convergence trace — the distribution actually collapses</h2>
+    <figure class="fig" id="cem-trace-fig">
+      <img
+        src="assets/plots/cem_iteration_trace.png"
+        alt="Two-panel line plot. Left panel: elite cost on the y-axis (linear scale, starting at 0) versus CEM iteration index 1 to 30 on the x-axis; the curve drops from ~352 at iteration 1 to ~3.5 at iteration 30, a roughly 100-fold reduction, monotonically decreasing. Right panel: action-distribution standard deviation on the y-axis versus iteration index; std drops from ~0.99 at iteration 1 to ~0.24 at iteration 30, also monotonically decreasing."
+        loading="lazy"
+      >
+      <figcaption class="fig-caption">
+        Across 30 CEM iterations on one Push-T episode, elite cost drops from 351.9 → 3.54 (≈100× reduction) and the action-distribution std collapses 0.99 → 0.24 (≈4× tightening). The collapse is monotonic — CEM is genuinely converging, not random search. Source: <code>data/cem_traces.json</code> (instrumented planner, one episode).
+      </figcaption>
+    </figure>
+    <p>
+      Two things to read off this plot. First, elite cost falls by two orders of magnitude — the Gaussian is finding low-cost regions, not just averaging over random samples. Second, action std falls by ~4× — the population is concentrating, not staying diffuse. Both curves are monotonic over the 30-iteration budget, so the budget is not obviously over-spent (no long flat tail) or under-spent (no still-falling cost at iteration 30 of the order of the early drop).
+    </p>
+  </section>
+
+  <section class="section" id="receding-horizon" aria-labelledby="receding-horizon-h">
+    <h2 id="receding-horizon-h">5. Receding horizon — closed-loop replanning</h2>
+    <figure class="fig" id="planning-loop-fig">
+      <img
+        src="assets/figures/planning_loop_diagram.svg"
+        alt="Diagram of the receding-horizon MPC loop: an arrow from 'env observation' enters an 'encoder' box producing 'context latent z_t'; z_t and the goal latent z_goal feed into a 'CEM planner' box, which contains an inner loop labelled '30 iterations: sample 300 action sequences → predict 5 latents ahead → score by distance to z_goal → keep top 30 elites → refit Gaussian'; the planner outputs a single first action a_t which is applied in the env, producing a new observation, and the loop restarts."
+        loading="lazy"
+      >
+      <figcaption class="fig-caption">
+        Receding-horizon MPC loop: encode the current observation, run CEM for 30 iterations against the latent predictor, execute the first action of the best sequence, re-encode the new observation, repeat. The 4 remaining planned actions are discarded each step.
+      </figcaption>
+    </figure>
+    <p>
+      A useful metaphor: GPS rerouting. You don't compute the entire route once and then follow it blindly — the GPS recomputes constantly given where you actually are. MPC is the same. The planner produces a 5-step plan, executes only the first action, observes the new env state, and re-plans from scratch.
+    </p>
+    <p>
+      Why throw away 4 of the 5 planned actions? Because the predictor's accuracy decays with horizon (see the World Model page's latent-error-vs-horizon plot): predicted latents at k=5 are already meaningfully worse than at k=1, so committing to the later steps of the plan would mean acting on increasingly stale predictions. Replanning each step keeps every executed action grounded in a fresh observation.
+    </p>
+  </section>
+
+  <section class="section" id="compute" aria-labelledby="compute-h">
+    <h2 id="compute-h">6. Compute cost per step</h2>
+    <p>
+      One CEM call = 300 samples × 5-step rollout × 30 iterations = <strong>45,000 forward passes</strong> through the latent predictor, per env step. The predictor is small (6-layer transformer over 192-d latents), so on the RTX 4080 a full Push-T episode (50 env steps, ≈30 s of CEM wall-time per step batched) takes about <strong>60 s end-to-end</strong>. The encoder runs once per env step on the new observation.
+    </p>
+    <p class="muted">
+      Key knobs (and their values in this replication): horizon H=5, samples N=300, iterations T=30, elite fraction 0.1 (30 elites), action block = 5. Halving any of {N, T, H} roughly halves planning cost — and, empirically in the original paper, costs success rate. We did not sweep these knobs in this replication.
+    </p>
+  </section>
+
+  <section class="section" id="meaning" aria-labelledby="meaning-h">
+    <h2 id="meaning-h">7. What this means for the world model</h2>
+    <p>
+      The planner does the heavy lifting. The world model only needs to be <em>locally</em> accurate — a few steps ahead — because CEM only plans H=5 steps deep and then the loop closes on a fresh observation. Far-horizon predictions matter less: they are never the basis of an executed action.
+    </p>
+    <p>
+      This is why the predictor's poor k≥10 accuracy (see the World Model page) does not, by itself, tank the system. The MPC loop is designed exactly around the assumption that long-horizon prediction is unreliable, and it limits the planner's exposure to that unreliability by replanning every env step. The honest version of this argument: the system works <em>despite</em> the predictor's mediocre k=5 MSE (only ~8% below a predict-last baseline), not because the predictor is itself a strong forward model.
+    </p>
+    <p class="honesty-note">
+      The CEM trace shown above is a single Push-T episode. The convergence picture is consistent across logged episodes, but we have not plotted distribution-over-episodes of the per-iter trace; treat the 100×/4× numbers as a representative point estimate, not an aggregate.
+    </p>
+  </section>
+
+</main>
+
+<footer class="site-footer" role="contentinfo">
+  <span>LeWorldModel replication · static site, no build step · last updated 2026-05-27</span>
+  <span class="footer-meta">
+    <a href="https://arxiv.org/abs/2603.19312">arXiv:2603.19312</a> ·
+    <a href="README.md">README</a> ·
+    <a href="CHANGELOG.md">changelog</a>
+  </span>
+</footer>
+
+<script src="assets/reduced_motion.js" defer></script>
+</body>
+</html>

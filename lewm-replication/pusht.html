@@ -1,0 +1,192 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>LeWorldModel — Push-T</title>
+<meta name="description" content="The Push-T benchmark: 2D non-prehensile manipulation. 224×224 RGB observations, 2-D push velocity actions, sparse overlap reward. The task before the model.">
+<meta property="og:type" content="article">
+<meta property="og:title" content="LeWorldModel — Push-T task">
+<meta property="og:description" content="The Push-T benchmark: 2D non-prehensile manipulation. 224×224 RGB, 2-D push velocity, sparse reward.">
+<meta property="og:image" content="assets/plots/episode_trajectory_panel.png">
+<meta name="twitter:card" content="summary_large_image">
+<link rel="stylesheet" href="assets/styles.css">
+</head>
+<body>
+
+<a class="skip" href="#main">Skip to main content</a>
+
+<nav class="nav-bar" aria-label="Primary">
+  <a class="nav-link" href="index.html">Landing</a>
+  <a class="nav-link nav-current" href="pusht.html" aria-current="page">Push-T</a>
+  <a class="nav-link" href="world-model.html">World Model</a>
+  <a class="nav-link" href="planner.html">Planner</a>
+  <a class="nav-link" href="tworoom.html">TwoRoom</a>
+  <a class="nav-link" href="results.html">Results</a>
+</nav>
+
+<main id="main" class="wrap">
+
+  <header>
+    <h1>Push-T: the task before the model</h1>
+    <p class="tldr">
+      <strong>TL;DR.</strong> Push-T is a 2D non-prehensile manipulation benchmark: a
+      circular end-effector pushes a T-shaped block from a random starting pose to a fixed
+      green target pose. Observations are 224&times;224 RGB; actions are 2-D push velocities;
+      reward is sparse and triggered by overlap with the goal pose. Each evaluation seed draws
+      50 random start/goal pairs from a pool of roughly 1.87M expert-trajectory steps, so
+      seed-to-seed variation reflects binomial sampling at n=50 &mdash; not model stochasticity.
+    </p>
+  </header>
+
+  <!-- Section 1: Task + animation -->
+  <section class="section">
+    <h2>The task in one paragraph</h2>
+    <p>
+      An agent (a small circular puck, the end-effector) lives in a 2D arena with a gray
+      T-shaped block. A green outline marks the target pose. The agent has no gripper,
+      no fingers, no suction &mdash; it can only nudge the block by making contact with it.
+      The episode ends when the gray T sufficiently overlaps the green target, or when the
+      50-step budget runs out. Below: a full three-panel view of the task &mdash; agent on
+      the left, an expert demonstration in the middle, the goal configuration on the right.
+    </p>
+    <figure class="fig">
+      <img src="assets/videos/pusht_task_anim.gif"
+           loading="lazy"
+           alt="Three-panel animated GIF of the Push-T environment. Left panel: a small blue circular end-effector pushing a gray T-shaped block across a light arena. Middle panel: an expert demonstration trajectory of the same scene. Right panel: the static green target pose the T must be aligned with.">
+      <figcaption class="fig-caption">
+        Push-T environment, three-panel view. Left: agent (circular end-effector) and
+        T-block in motion. Middle: an expert demonstration from the dataset. Right: the
+        green goal pose.
+      </figcaption>
+    </figure>
+  </section>
+
+  <!-- Section 2: Spec table -->
+  <section class="section">
+    <h2>Observation, action, reward</h2>
+    <table class="spec-table">
+      <thead>
+        <tr><th scope="col">property</th><th scope="col">value</th></tr>
+      </thead>
+      <tbody>
+        <tr><th scope="row">observation</th><td>RGB image, 3 &times; 224 &times; 224</td></tr>
+        <tr><th scope="row">action</th><td>2-D vector (x, y push velocity); <code>action_block=5</code> chunks five actions per planner step</td></tr>
+        <tr><th scope="row">reward</th><td>sparse: success threshold on overlap (IoU) between the T-block and the goal pose</td></tr>
+        <tr><th scope="row">episode budget</th><td>50 environment steps</td></tr>
+        <tr><th scope="row">dataset</th><td><code>quentinll/lewm-pusht</code> &mdash; 18,685 expert demonstrations, ~2.3M steps</td></tr>
+      </tbody>
+    </table>
+  </section>
+
+  <!-- Section 3: Why hard -->
+  <section class="section">
+    <h2>Why Push-T is hard</h2>
+    <p>
+      Non-prehensile pushing means the T-block has its own rigid-body dynamics that nobody
+      controls directly: when the end-effector contacts the T off-center, the block
+      <em>rotates</em> in ways that depend on the exact contact geometry, the friction at
+      the contact point, and the residual angular momentum already in the block. A small
+      misalignment at one step compounds over several steps. The cleanest analogy is
+      <strong>parallel parking with a T-shape, using only a circular bumper</strong>: you
+      cannot grip, you cannot rotate the object directly, and any nudge that is even slightly
+      off the block's center of mass induces a rotation you then have to plan around on the
+      next push.
+    </p>
+  </section>
+
+  <!-- Section 4: Success criterion -->
+  <section class="section">
+    <h2>What counts as success</h2>
+    <p>
+      Success is overlap-based, not pose-based: the environment computes the intersection-
+      over-union (IoU) between the current gray T-block footprint and the green target
+      footprint, and declares the episode <em>done</em> when that overlap crosses a fixed
+      threshold and stays above it. Concretely: when the gray T overlaps the green target
+      sufficiently and stays there, the env returns <code>done=True</code> and the episode
+      counts as a success. There is no shaped reward and no partial credit &mdash; an
+      episode either crosses the threshold or it doesn't.
+    </p>
+  </section>
+
+  <!-- Section 5: Eval cadence -->
+  <section class="section">
+    <h2>How evaluation is sampled</h2>
+    <p>
+      Each evaluation seed draws 50 random (start-pose, goal-pose) pairs from a pool of
+      roughly 1.87 million points spanned by the 18,685 expert demonstrations. Different
+      seeds draw different subsets of 50, so the spread in per-seed success rate that you
+      will see on the <a href="results.html">Results</a> page reflects binomial sampling
+      noise at n=50 on top of any planner stochasticity. With 23 seeds &times; 50
+      episodes, our pooled denominator is 1,150 trials &mdash; large enough that the
+      paper-vs-ours gap is far outside binomial sampling uncertainty.
+    </p>
+  </section>
+
+  <!-- Section 6: Segue to world model -->
+  <section class="section">
+    <h2>What the model is asked to predict</h2>
+    <p>
+      One thing to flag before the next page: the model never produces an action directly.
+      It is trained only to <strong>predict the next latent</strong> &mdash; a 192-d vector
+      summary of the next observation, given the current latent and a candidate action. The
+      planner (CEM-MPC) is what turns that predictor into a controller: it samples action
+      sequences, rolls them out in latent space using the predictor, scores each by
+      cost-to-goal, and refines toward the lowest-cost sequence. Only the first chunk of
+      that sequence is executed in the real environment before replanning. See the
+      <a href="world-model.html">World Model</a> page for the architecture and the
+      <a href="planner.html">Planner</a> page for the CEM-MPC loop.
+    </p>
+    <p class="honesty-note">
+      Honesty note: throughout this site we avoid shorthand that attributes pushing
+      behavior to the model. A more accurate statement is this: the model predicts
+      latents which, when consumed by the planner, give rise to actions that push the
+      T-block toward the goal. The model itself never sees a reward and never emits
+      an action.
+    </p>
+  </section>
+
+  <!-- Section 7: Failure preview -->
+  <section class="section">
+    <h2>A first look at how it fails</h2>
+    <p>
+      Failures cluster into a small number of recognizable patterns (contact slip,
+      oscillation, overshoot, and a handful of others). The bar chart below is a
+      hand-labeled preview from n=6 episodes; a full taxonomy over the 180 failed
+      episodes has not been done (see the <a href="results.html#failure-modes">Results</a>
+      page for that caveat).
+    </p>
+    <figure class="fig">
+      <img src="assets/plots/failure_mode_bar.png"
+           loading="lazy"
+           alt="Horizontal bar chart of Push-T failure categories on a hand-labeled sample. Bars are sorted longest at top; categories include contact slip, oscillation, and overshoot. X-axis is failure count.">
+      <figcaption class="fig-caption">
+        Failure mode distribution &mdash; <strong>n=6, illustrative only</strong>. Hand-labeled
+        preview; proportions are not meaningful at this n. A full taxonomy over the 180
+        failed episodes has not been done &mdash; see
+        <a href="results.html#failure-modes">Results</a> for that caveat.
+      </figcaption>
+    </figure>
+  </section>
+
+  <footer class="muted">
+    <p>
+      Next: <a href="world-model.html">the world model</a> &mdash; encoder, latent
+      predictor, and why there is no pixel decoder.
+    </p>
+  </footer>
+
+</main>
+
+<footer class="site-footer" role="contentinfo">
+  <span>LeWorldModel replication · static site, no build step · last updated 2026-05-27</span>
+  <span class="footer-meta">
+    <a href="https://arxiv.org/abs/2603.19312">arXiv:2603.19312</a> ·
+    <a href="README.md">README</a> ·
+    <a href="CHANGELOG.md">changelog</a>
+  </span>
+</footer>
+
+<script src="assets/reduced_motion.js" defer></script>
+</body>
+</html>

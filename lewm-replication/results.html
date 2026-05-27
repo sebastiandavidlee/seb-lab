@@ -1,0 +1,296 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>LeWorldModel — Results &amp; Limits</title>
+<meta name="description" content="The 11.65 pp gap, ranked-equal hypotheses, method limits, and reproducibility paths for our LeWorldModel replication.">
+<meta property="og:type" content="article">
+<meta property="og:title" content="LeWorldModel — Results &amp; Limits">
+<meta property="og:description" content="84.35% vs paper 96.0% vs random 3.33% on Push-T. Three hypotheses for the 11.65 pp gap, ranked equally.">
+<meta property="og:image" content="assets/plots/pooled_ci_gap_v2.png">
+<meta name="twitter:card" content="summary_large_image">
+<link rel="stylesheet" href="assets/styles.css">
+</head>
+<body>
+
+<a class="skip" href="#main">Skip to main content</a>
+
+<nav class="nav-bar" aria-label="Primary">
+  <a class="nav-link" href="index.html">Landing</a>
+  <a class="nav-link" href="pusht.html">Push-T</a>
+  <a class="nav-link" href="world-model.html">World Model</a>
+  <a class="nav-link" href="planner.html">Planner</a>
+  <a class="nav-link" href="tworoom.html">TwoRoom</a>
+  <a class="nav-link nav-current" href="results.html" aria-current="page">Results</a>
+</nav>
+
+<main id="main" class="wrap">
+
+  <header>
+    <h1>Results &amp; Limits: the 11.65 pp gap, framed honestly</h1>
+    <p class="tldr">
+      <strong>TL;DR.</strong> Across 23 seeds &times; 50 episodes = 1,150 pooled Push-T evaluations, our
+      replication of LeWorldModel reaches <strong>84.35% &plusmn; 5.18%</strong> success &mdash; an 81-point
+      lift over the 3.33% random baseline, but <strong>11.65 percentage points below the paper's
+      reported 96.0 &plusmn; 2.83</strong>. The pooled binomial test against the paper's claim returns
+      <em>p</em> &asymp; 3 &times; 10<sup>&minus;54</sup>. This is not sampling noise.
+    </p>
+    <p class="honesty-note">
+      We do not claim the paper is wrong, and we do not claim we reproduced it. Under our
+      documented eval config and the released weights, we get 84.35%. We do not yet know why
+      we do not get 96.0%. Three candidate explanations follow; we rank none above the others.
+    </p>
+  </header>
+
+  <!-- Section 1: Pooled comparison -->
+  <section class="section" id="pooled" aria-labelledby="pooled-h">
+    <h2 id="pooled-h">Pooled comparison &mdash; ours, paper, random</h2>
+    <p>
+      Pooled success on Push-T is 970 / 1150 = 84.35% (Wilson 95% CI 82.13&ndash;86.33). The
+      paper's 96.0% is a point estimate with no released CI; the random-action baseline pools
+      to 5 / 150 = 3.33%. The one-sided binomial test of our pool against the paper's null
+      gives <em>p</em> &asymp; 3 &times; 10<sup>&minus;54</sup>.
+    </p>
+
+    <figure class="fig">
+      <img src="assets/plots/pooled_ci_gap_v2.png"
+           loading="lazy"
+           alt="Bar/error-bar plot comparing three Push-T success rates: random baseline near 3.33%, our pooled replication at 84.35% with a Wilson 95% confidence interval from 82.13 to 86.33, and the paper's reported point estimate at 96.0% drawn as a dashed line with no confidence interval. The gap between our upper CI bound and the paper line is clearly visible.">
+      <figcaption class="fig-caption">
+        Pooled Push-T success rate: random baseline vs ours (with Wilson 95% CI) vs paper
+        (point estimate, no released variance). Y-axis starts at 0; random baseline included.
+      </figcaption>
+    </figure>
+
+    <figure class="fig">
+      <img src="assets/plots/per_seed_scatter_v2.png"
+           loading="lazy"
+           alt="Per-seed scatter of Push-T success rates across all 23 seeds, each point shown with its Wilson 95% confidence interval. Horizontal reference lines mark the random baseline at 3.33%, the pooled mean at 84.35%, and the paper's 96.0%. Every per-seed point sits below the paper line; the highest seed reaches 92.0%.">
+      <figcaption class="fig-caption">
+        Every one of our 23 seeds sits below the paper's 96.0% claim. Best seed: 92.0% &mdash;
+        still 4 pp below the paper. Per-seed range 74.0&ndash;92.0%; std 5.18; n=50 episodes per seed.
+      </figcaption>
+    </figure>
+  </section>
+
+  <!-- Section 2: Cross-task -->
+  <section class="section" id="cross-task" aria-labelledby="cross-task-h">
+    <h2 id="cross-task-h">Cross-task comparison</h2>
+    <p>
+      Our second task evaluated independently is TwoRoom (navigation): 3 seeds &times; 50 episodes,
+      pooled 134 / 150 = 89.33% (Wilson 83.38&ndash;93.33, std 5.03 across seeds). The original
+      paper publishes only a bar chart for TwoRoom &mdash; no precise reference value &mdash; so we
+      cannot compute a paper-vs-ours gap for it.
+    </p>
+
+    <figure class="fig">
+      <img src="assets/plots/pusht_vs_tworoom_bars.png"
+           loading="lazy"
+           alt="Side-by-side bar chart with two task groups: Push-T and TwoRoom. Push-T shows our 84.35% bar with Wilson CI 82.13 to 86.33 and the paper's 96.0% reference as a dashed line. TwoRoom shows our 89.33% bar with Wilson CI 83.38 to 93.33 and a note that no paper reference value is released.">
+      <figcaption class="fig-caption">
+        Push-T (n=23&times;50) and TwoRoom (n=3&times;50). Push-T has a numeric paper claim (96.0%,
+        no CI). TwoRoom's paper number is a chart only &mdash; not a usable reference. TwoRoom
+        n=3 seeds is preliminary; do not read it as evidence of generality across tasks.
+      </figcaption>
+    </figure>
+  </section>
+
+  <!-- Section 3: The gap -- three hypotheses ranked equally -->
+  <section class="section" id="gap" aria-labelledby="gap-h">
+    <h2 id="gap-h">The 11.65 pp gap &mdash; three hypotheses</h2>
+    <div class="gap-callout">
+      <p>
+        <strong>We rank none of these above the others.</strong> We have no controlled comparison
+        to discriminate among them. Each is consistent with what we observed; none has been
+        falsified by our current data.
+      </p>
+    </div>
+
+    <ol>
+      <li>
+        <strong>H1: undocumented eval-config differences.</strong> The paper does not fully specify
+        the evaluation harness. Candidate knobs that could shift pooled success by &gt;10 pp include
+        <code>goal_offset_steps</code>, the success-overlap threshold &epsilon;, the episode-pool
+        subset (which subset of the ~1.87M expert-trajectory points seeds draw from), the
+        max-episode-steps budget, and the rendering / resize pipeline that produces the 224&times;224
+        observation. Any one of these, set differently from the paper's internal value, could
+        explain the gap without anything else changing.
+      </li>
+      <li>
+        <strong>H2: released weights &ne; paper-final.</strong> The publicly released HuggingFace
+        checkpoint may be an earlier-stage, ablation-stage, or differently-seeded model than the
+        one that produced the paper's headline 96.0%. We have no released training log to verify
+        this, and the paper does not commit to a checkpoint hash.
+      </li>
+      <li>
+        <strong>H3: vendor <code>stable-worldmodel</code> code drift.</strong> We run against the
+        unreleased newer <code>swm</code> via our <code>vendor/</code> copy. Subtle behavior changes
+        between the version the paper used and the version we use &mdash; planner inner loops,
+        latent normalization, batched-rollout numerics &mdash; would propagate directly into pooled
+        success without showing up as a crash or a visible regression on individual episodes.
+      </li>
+    </ol>
+
+    <p class="honesty-note">
+      All three hypotheses share the property that they would <em>not</em> be visible without
+      a controlled re-run. None of them imply "the model is broken" (the 81-pp lift over random
+      rules that out); none imply "the paper is wrong" (the paper's number could be the true
+      ceiling under its own config). The honest position is: under documented config and
+      released weights, we get 84.35%. We do not know why we do not get 96.0%.
+    </p>
+  </section>
+
+  <!-- Section 4: A subtler caveat -- the world model itself -->
+  <section class="section" id="predictor-caveat" aria-labelledby="predictor-caveat-h">
+    <h2 id="predictor-caveat-h">A subtler caveat &mdash; the world model itself</h2>
+    <p>
+      A separate observation, orthogonal to the three hypotheses above, comes from inspecting
+      the released predictor directly. At the planner's working horizon (<em>k</em>=5 in latent
+      space), the predictor's MSE (0.953) is only <strong>8.2% lower</strong> than the trivial
+      predict-last baseline (1.038). Most of the lift toward our 84% success rate appears to
+      come from the planner, not the predictor's raw accuracy. This suggests the released
+      weights may carry a weaker predictor than the paper trained with &mdash; which would also
+      be consistent with H2 above.
+    </p>
+    <p>
+      Full curve, baselines, and methodology on the <a href="world-model.html">World Model page</a>.
+    </p>
+  </section>
+
+  <!-- Section 5: Variance -->
+  <section class="section" id="variance" aria-labelledby="variance-h">
+    <h2 id="variance-h">Variance is what binomial sampling predicts</h2>
+    <p>
+      Our seed-to-seed std (5.18 pp) almost exactly matches the binomial-sampling expectation
+      for n=50 at p=0.84: &radic;(0.84&middot;0.16/50) &asymp; 0.052 = 5.2 pp. In other words,
+      the spread across our 23 seeds is what you would see if the only source of variation
+      were drawing 50 episodes from a stationary success distribution.
+    </p>
+    <p>
+      The paper's reported std (2.83 pp) is roughly half of that. Three readings, none of which
+      we can adjudicate from the released artifacts: either the paper evaluated &gt;100 episodes
+      per seed (driving binomial std down by &radic;2), or its episode draw was deterministic
+      across seeds (collapsing one variance component), or its number is smoothed across many
+      more seeds than reported. This itself is reproducibility-relevant: the variance gap is
+      independent of the mean gap.
+    </p>
+  </section>
+
+  <!-- Section 6: Failure-mode taxonomy -->
+  <section class="section" id="failure-modes" aria-labelledby="failure-modes-h">
+    <h2 id="failure-modes-h">Failure-mode taxonomy (illustrative)</h2>
+    <figure class="fig">
+      <img src="assets/plots/failure_mode_bar.png"
+           loading="lazy"
+           alt="Horizontal bar chart of hand-labeled failure modes from a small sample of LeWorldModel Push-T failures. Categories include contact slip, oscillation, and overshoot; counts are single-digit. The chart is labeled as illustrative with n=6.">
+      <figcaption class="fig-caption">
+        Hand-labeled sample of 6 LeWM failures &mdash; illustrative, not a statistical taxonomy.
+        Categories (contact slip, oscillation, overshoot) reflect what the labeler observed;
+        with n=6 the proportions are not meaningful. T3-B's audit flagged this as blocker B6:
+        a real taxonomy would need a labeled set of order ~50&ndash;100 failures with a documented
+        coding scheme. We have not done that work.
+      </figcaption>
+    </figure>
+  </section>
+
+  <!-- Section 7: Per-seed x episode outcome grid -->
+  <section class="section" id="outcome-grid" aria-labelledby="outcome-grid-h">
+    <h2 id="outcome-grid-h">Per-seed &times; episode outcome grid</h2>
+    <figure class="fig">
+      <img src="assets/plots/success_by_init_heatmap.png"
+           loading="lazy"
+           alt="A 23-row by 50-column grid heatmap. Each row corresponds to one of 23 seeds; each column corresponds to an episode index 1 through 50 within that seed. Cells are colored blue for success and vermillion with an x marker for failure. Failures appear distributed across rows and columns rather than clustered in obvious patterns.">
+      <figcaption class="fig-caption">
+        Each row is one of 23 seeds; each column is an episode index within that seed (1..50).
+        Blue = success, vermillion &times; = failure. <strong>Note:</strong> the same episode index
+        across seeds does <em>not</em> mean the same start state &mdash; each seed independently
+        draws its own random start-point IDs from the ~1.87M-point pool. Column alignment carries
+        no information about init similarity.
+      </figcaption>
+    </figure>
+  </section>
+
+  <!-- Section 8: Method limits -->
+  <section class="section" id="method-limits" aria-labelledby="method-limits-h">
+    <h2 id="method-limits-h">Method limits &mdash; what LeWM doesn't do</h2>
+    <p>
+      Independent of the paper-vs-ours gap, the method itself has intrinsic limits that anyone
+      reading this site should know before adopting it:
+    </p>
+    <ul>
+      <li><strong>No language conditioning.</strong> Goals are images only; there is no text-goal
+        interface.</li>
+      <li><strong>Single-task.</strong> Each checkpoint is trained for one task; no multi-task
+        adaptation, no in-context task switching.</li>
+      <li><strong>Short open-loop horizon.</strong> The latent predictor degrades fast; useful
+        open-loop horizon is under roughly 8 steps before predict-last identity is competitive.</li>
+      <li><strong>Sampling-based planner is compute-heavy.</strong> ~60 s per episode on an RTX 4080
+        for Push-T, dominated by 300-sample &times; 30-iteration CEM rollouts in latent space. Not
+        a real-time policy.</li>
+      <li><strong>Two tasks only.</strong> We evaluated Push-T and TwoRoom &mdash; both 2D toy
+        domains. Nothing here demonstrates real-world manipulation capability, generality, or
+        transfer.</li>
+    </ul>
+  </section>
+
+  <!-- Section 9: What would close the gap -->
+  <section class="section" id="what-would-close" aria-labelledby="what-would-close-h">
+    <h2 id="what-would-close-h">What would close the gap</h2>
+    <p>
+      Each item below would isolate one of the three hypotheses. None of them require new
+      modeling work &mdash; they are reproducibility tasks.
+    </p>
+    <ul>
+      <li><strong>Reproduce with the original eval code.</strong> Would isolate <strong>H1</strong>
+        by holding eval config fixed against the paper's internal harness.</li>
+      <li><strong>Compare HuggingFace weights to a re-trained checkpoint.</strong> Would isolate
+        <strong>H2</strong> by separating "released weights" from "this architecture trained on
+        this data."</li>
+      <li><strong>Re-run with the published <code>stable-worldmodel</code> version, not our vendor
+        copy.</strong> Would isolate <strong>H3</strong> by holding the inference codebase fixed.</li>
+    </ul>
+    <p class="muted">
+      A combined ablation across all three would be required to attribute the gap, since the
+      hypotheses are not mutually exclusive.
+    </p>
+  </section>
+
+  <!-- Section 10: Reproducibility -->
+  <section class="section" id="repro" aria-labelledby="repro-h">
+    <h2 id="repro-h">Reproducibility &mdash; raw artifact paths</h2>
+    <p>
+      Every number on this page is derived from the files below. They are checked in alongside
+      the site under <code>outputs/</code> in the <code>leworldmodel</code> tree.
+    </p>
+    <ul>
+      <li><strong>23 Push-T seeds (50 episodes each):</strong>
+        <code>outputs/faithful/pusht/seed{0..22}/result.json</code></li>
+      <li><strong>3 TwoRoom seeds (50 episodes each):</strong>
+        <code>outputs/faithful/tworoom/seed{0,1,2}/result.json</code></li>
+      <li><strong>3 random-policy Push-T seeds (50 episodes each):</strong>
+        <code>outputs/faithful/pusht_random/seed{0,1,2}/result.json</code></li>
+      <li><strong>Aggregated master data (every number on this site):</strong>
+        <code>outputs/demo/data/site_data.json</code>, schema_version 1, generated 2026-05-26.</li>
+    </ul>
+    <p class="honesty-note">
+      Pooled Push-T: 970 successes / 1150 episodes. Pooled TwoRoom: 134 / 150. Pooled random
+      Push-T: 5 / 150. Wilson 95% CIs and binomial test computed in
+      <code>tools/t2h_aggregate.py</code>; no smoothing, no seed exclusion.
+    </p>
+  </section>
+
+</main>
+
+<footer class="site-footer" role="contentinfo">
+  <span>LeWorldModel replication · static site, no build step · last updated 2026-05-27</span>
+  <span class="footer-meta">
+    <a href="https://arxiv.org/abs/2603.19312">arXiv:2603.19312</a> ·
+    <a href="README.md">README</a> ·
+    <a href="CHANGELOG.md">changelog</a>
+  </span>
+</footer>
+
+<script src="assets/reduced_motion.js" defer></script>
+</body>
+</html>

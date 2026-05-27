@@ -1,0 +1,248 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>LeWorldModel — TwoRoom</title>
+<meta name="description" content="TwoRoom: a second task evaluated independently. Same encoder, predictor, CEM-MPC planner. 3 seeds × 50 episodes. Pooled 89.33% success. Not a transfer experiment.">
+<meta property="og:type" content="article">
+<meta property="og:title" content="LeWorldModel — TwoRoom (second task evaluated)">
+<meta property="og:description" content="Same model class, different task. 3 seeds × 50 episodes. 89.33% pooled. Preliminary; not evidence of generality.">
+<meta property="og:image" content="assets/poster/tworoom_rollout_loop.png">
+<meta name="twitter:card" content="summary_large_image">
+<link rel="stylesheet" href="assets/styles.css">
+</head>
+<body>
+
+<a class="skip" href="#main">Skip to main content</a>
+
+<nav class="nav-bar" aria-label="Primary">
+  <a class="nav-link" href="index.html">Landing</a>
+  <a class="nav-link" href="pusht.html">Push-T</a>
+  <a class="nav-link" href="world-model.html">World Model</a>
+  <a class="nav-link" href="planner.html">Planner</a>
+  <a class="nav-link nav-current" href="tworoom.html" aria-current="page">TwoRoom</a>
+  <a class="nav-link" href="results.html">Results</a>
+</nav>
+
+<main id="main" class="wrap">
+
+  <header>
+    <h1>TwoRoom &mdash; second task evaluated</h1>
+    <p class="tldr">
+      <strong>Same model class, different task. Preliminary result (n=3 seeds).</strong>
+      We took the LeWM recipe &mdash; encoder, latent predictor, CEM-MPC planner &mdash;
+      unchanged from Push-T, retrained on the TwoRoom navigation dataset, and evaluated
+      across 3 seeds &times; 50 episodes. Pooled success rate is
+      <strong>89.33%</strong> (134 / 150, Wilson 95% CI [83.38, 93.33]). This is
+      <em>preliminary</em>: three seeds is too few for a tight CI, and the paper provides
+      only a bar chart for TwoRoom &mdash; no precise numeric reference &mdash; so we cannot
+      compute a paper-vs-ours gap for this task.
+    </p>
+  </header>
+
+  <!-- Section 1: The TwoRoom task -->
+  <section class="section">
+    <h2>The TwoRoom task</h2>
+    <p>
+      TwoRoom is a 2-D top-down navigation environment. The agent starts in one of two
+      rooms and must traverse to a target position, typically in the other room, by
+      issuing 2-D velocity actions. Observations are the same RGB shape as Push-T
+      (3 &times; 224 &times; 224); the episode budget is similar. There is no
+      manipulable object &mdash; the task is purely "get the agent to the goal location" &mdash;
+      and the reward is sparse: the episode either reaches the goal or it doesn't.
+    </p>
+    <figure class="fig">
+      <video src="assets/videos/tworoom_rollout_loop.mp4"
+             poster="assets/poster/tworoom_rollout_loop.png"
+             controls loop muted playsinline
+             aria-label="Looping rollout video of the TwoRoom environment: a top-down 2-D arena split into two rooms, with an agent navigating from a start position toward a goal in the adjacent room.">
+        Your browser does not support the video tag.
+      </video>
+      <figcaption class="fig-caption">
+        TwoRoom rollout, looped. Top-down 2-D arena, two rooms separated by a wall with a
+        gap; the agent traverses from a start position to a target. Unlike Push-T, there
+        is no manipulable object and no contact dynamics beyond the walls &mdash; the cost
+        is purely navigation.
+      </figcaption>
+    </figure>
+  </section>
+
+  <!-- Section 2: Spec table -->
+  <section class="section">
+    <h2>Observation, action, reward</h2>
+    <table class="spec-table">
+      <thead>
+        <tr><th scope="col">property</th><th scope="col">value</th></tr>
+      </thead>
+      <tbody>
+        <tr><th scope="row">observation</th><td>RGB image, 3 &times; 224 &times; 224</td></tr>
+        <tr><th scope="row">action</th><td>2-D vector (velocity)</td></tr>
+        <tr><th scope="row">reward</th><td>sparse &mdash; success on reaching the goal position, no partial credit</td></tr>
+        <tr><th scope="row">dataset</th><td><code>quentinll/lewm-tworooms</code> &mdash; 10,000 episodes, ~920K steps</td></tr>
+        <tr><th scope="row">comparison to Push-T</th><td>sparser reward, longer effective horizons, simpler contact (walls only, no manipulated block)</td></tr>
+      </tbody>
+    </table>
+  </section>
+
+  <!-- Section 3: What changes vs Push-T -->
+  <section class="section">
+    <h2>What changes vs Push-T</h2>
+    <p>
+      Mechanically, TwoRoom is simpler than Push-T: there is no T-block, no
+      non-prehensile contact dynamics, and no need to coordinate the pose of a separate
+      rigid body. The agent only has to move itself. The cost on the reward side runs the
+      other direction &mdash; rewards are noticeably sparser, because there is no IoU-style
+      partial overlap signal during the episode; you either arrive at the goal location or
+      you don't. The model class &mdash; the ViT-tiny encoder, the 6-layer latent
+      predictor, and the CEM-MPC planner with the same horizon, sample count, and elite
+      fraction as Push-T &mdash; is unchanged. Only the training data and the action /
+      reward semantics of the environment differ.
+    </p>
+  </section>
+
+  <!-- Section 4: Results -->
+  <section class="section">
+    <h2>Results &mdash; 3 seeds &times; 50 episodes</h2>
+    <p>
+      Across three independent seeds (50 episodes each), per-seed success rates are
+      <strong>90.0%, 94.0%, 84.0%</strong>. Mean &plusmn; std across seeds:
+      <strong>89.33 &plusmn; 5.03%</strong>. Pooled across all 150 trials:
+      <strong>134 / 150 = 89.33%</strong>, Wilson 95% CI
+      <strong>[83.38, 93.33]</strong>. For side-by-side context, our Push-T pooled
+      result is <strong>84.35 &plusmn; 5.18%</strong> across 23 seeds &times; 50
+      episodes &mdash; but note the seed budgets are very different (n=3 vs n=23), so the
+      TwoRoom interval is intrinsically much wider per-seed.
+    </p>
+    <figure class="fig">
+      <img src="assets/plots/pusht_vs_tworoom_bars.png"
+           loading="lazy"
+           alt="Side-by-side bar chart of pooled success rates for Push-T (left, 84.35%, n=23 seeds × 50 episodes) and TwoRoom (right, 89.33%, n=3 seeds × 50 episodes), each with a 95% confidence interval. Y-axis starts at 0 and runs to 100%.">
+      <figcaption class="fig-caption">
+        Pooled success rate &mdash; Push-T (n=23 seeds &times; 50 ep) vs TwoRoom
+        (n=3 seeds &times; 50 ep), each with Wilson 95% CI. The TwoRoom interval is wider
+        because n=3 is preliminary; no paper reference number is plotted for TwoRoom
+        because the paper provides only a bar chart (Fig. 2 of arXiv:2603.19312) with no
+        precise numeric value.
+      </figcaption>
+    </figure>
+  </section>
+
+  <!-- Section 5: What this tells us -->
+  <section class="section">
+    <h2>What this tells us</h2>
+    <p class="honesty-note">
+      TwoRoom evaluates the <strong>same model class</strong> (encoder, predictor,
+      CEM planner) on a <strong>different task</strong>. With n=3 seeds, this is
+      <strong>preliminary</strong> evidence that the LeWM recipe is not Push-T-specific.
+      It is <strong>not</strong> evidence of "transfer" (we didn't fine-tune or do
+      zero-shot anything &mdash; the model was retrained from scratch on the TwoRoom
+      dataset) and it is <strong>not</strong> evidence of "general-purpose" capability
+      (we ran two toy tasks, both 2-D, both with RGB 224 observations). The paper provides
+      only a bar chart for TwoRoom (Fig. 2 of arXiv:2603.19312), no precise numeric
+      reference &mdash; so we cannot compute a paper-vs-ours gap for this task.
+    </p>
+    <p>
+      The honest one-sentence summary: <em>the LeWM recipe runs end-to-end on a second
+      task we evaluated independently, with a pooled success rate of 89.33% on n=3 seeds,
+      and we have no paper number to compare it against</em>.
+    </p>
+  </section>
+
+  <!-- Section 6: Sample rollouts -->
+  <section class="section">
+    <h2>Sample rollouts</h2>
+    <p>
+      Three click-to-play episodes from the evaluation: two successes and one failure.
+      All three are drawn from the same seed&rsquo;s 50-episode evaluation; the success
+      and failure clips below were selected to be representative, not cherry-picked best.
+    </p>
+    <figure class="fig">
+      <video src="assets/videos/tworoom_ep0_success.mp4"
+             poster="assets/poster/tworoom_ep0_success.png"
+             controls muted playsinline
+             aria-label="TwoRoom evaluation episode 0: success. The agent navigates from its start position through the gap between the two rooms to the goal location.">
+        Your browser does not support the video tag.
+      </video>
+      <figcaption class="fig-caption">
+        Episode 0 &mdash; <strong>success</strong>. Agent reaches the goal within the
+        episode budget.
+      </figcaption>
+    </figure>
+    <figure class="fig">
+      <video src="assets/videos/tworoom_ep2_success.mp4"
+             poster="assets/poster/tworoom_ep2_success.png"
+             controls muted playsinline
+             aria-label="TwoRoom evaluation episode 2: success. A second example of the agent successfully traversing the two rooms to the goal location.">
+        Your browser does not support the video tag.
+      </video>
+      <figcaption class="fig-caption">
+        Episode 2 &mdash; <strong>success</strong>. A second successful traversal with a
+        different start/goal configuration.
+      </figcaption>
+    </figure>
+    <figure class="fig">
+      <video src="assets/videos/tworoom_ep1_fail.mp4"
+             poster="assets/poster/tworoom_ep1_fail.png"
+             controls muted playsinline
+             aria-label="TwoRoom evaluation episode 1: failure. The agent fails to reach the goal within the episode budget.">
+        Your browser does not support the video tag.
+      </video>
+      <figcaption class="fig-caption">
+        Episode 1 &mdash; <strong>failure</strong>. The agent does not reach the goal
+        within the episode budget. This is the kind of clip the pooled 89.33% &mdash; the
+        remaining ~11% &mdash; is made of.
+      </figcaption>
+    </figure>
+  </section>
+
+  <!-- Section 7: What we don't know -->
+  <section class="section">
+    <h2>What we DON&rsquo;T know about TwoRoom</h2>
+    <ul>
+      <li>
+        <strong>No precise paper reference number.</strong> arXiv:2603.19312 reports
+        TwoRoom only in a bar chart (Fig. 2); we cannot read off a numeric value, so
+        there is no paper-vs-ours gap to compute here. The Push-T gap analysis on the
+        <a href="results.html">Results</a> page does not extend to TwoRoom.
+      </li>
+      <li>
+        <strong>n=3 is too few seeds for a tight CI.</strong> The Wilson 95% interval
+        [83.38, 93.33] is ~10 points wide; with 23 seeds (as on Push-T) it would shrink
+        substantially. Treat the 89.33% as preliminary, not as a settled headline number.
+      </li>
+      <li>
+        <strong>No TwoRoom random baseline this session.</strong> We have a random-policy
+        baseline for Push-T (3.33% pooled) that anchors the chance floor; we did not run
+        the equivalent baseline for TwoRoom, so we cannot say how far above chance 89.33%
+        actually is for this environment.
+      </li>
+      <li>
+        <strong>Two tasks is not generality.</strong> Push-T and TwoRoom share the same
+        observation shape, the same 2-D action space, and a similar overall task length.
+        We have no evidence about behavior outside these conditions.
+      </li>
+    </ul>
+  </section>
+
+  <footer class="muted">
+    <p>
+      Next: <a href="results.html">results &amp; limits</a> &mdash; the pooled Push-T
+      numbers, the 11.65 pp paper gap, and where the recipe&rsquo;s intrinsic limits show up.
+    </p>
+  </footer>
+
+</main>
+
+<footer class="site-footer" role="contentinfo">
+  <span>LeWorldModel replication · static site, no build step · last updated 2026-05-27</span>
+  <span class="footer-meta">
+    <a href="https://arxiv.org/abs/2603.19312">arXiv:2603.19312</a> ·
+    <a href="README.md">README</a> ·
+    <a href="CHANGELOG.md">changelog</a>
+  </span>
+</footer>
+
+<script src="assets/reduced_motion.js" defer></script>
+</body>
+</html>

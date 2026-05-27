@@ -1,0 +1,200 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>LeWorldModel — World Model</title>
+  <meta name="description" content="How LeWorldModel's encoder + latent predictor work, why it has no pixel decoder, and how well the latent actually contains the future at the planner's working horizon.">
+  <meta property="og:type" content="article">
+  <meta property="og:title" content="LeWorldModel — the world model">
+  <meta property="og:description" content="ViT-tiny encoder → 192-d latent → 6-layer predictor. No pixel decoder. NN-decoded retrievals, not generation.">
+  <meta property="og:image" content="assets/poster/nn_imagined_rollout.png">
+  <meta name="twitter:card" content="summary_large_image">
+  <link rel="stylesheet" href="assets/styles.css">
+</head>
+<body>
+
+<a class="skip" href="#main">Skip to main content</a>
+
+<nav class="nav-bar" aria-label="Primary">
+  <a class="nav-link" href="index.html">Landing</a>
+  <a class="nav-link" href="pusht.html">Push-T</a>
+  <a class="nav-link nav-current" href="world-model.html" aria-current="page">World Model</a>
+  <a class="nav-link" href="planner.html">Planner</a>
+  <a class="nav-link" href="tworoom.html">TwoRoom</a>
+  <a class="nav-link" href="results.html">Results</a>
+</nav>
+
+<main id="main" class="wrap">
+
+  <header class="section" id="hero">
+    <h1 class="page-title">The world model — predicting the future, but only in latent space</h1>
+    <p class="tldr">
+      LeWorldModel's defining choice is what it does <em>not</em> have: a pixel decoder. The encoder maps a 224×224 RGB frame to a 192-dimensional latent vector; the predictor outputs the <em>next</em> latent given a short history of latents and actions. There is no module that turns latents back into pixels. This page walks the architecture, then asks the hard question — does that predicted latent actually contain the future? At the planner's working horizon (k=5), the predictor's MSE (0.953) is only <strong>8.2% lower</strong> than the trivial "predict last" baseline (1.038). The model is doing real work near the present, but its open-loop horizon is short.
+    </p>
+  </header>
+
+  <section class="section" id="jepa-bet" aria-labelledby="jepa-bet-h">
+    <h2 id="jepa-bet-h">1. The JEPA bet</h2>
+    <p>
+      LeWorldModel is a <strong>JEPA (Joint Embedding Predictive Architecture)</strong>: it predicts in <em>latent space</em>, not in pixel space. The bet is simple — if the goal is control, the model never needs to draw a frame; it only needs to know enough about the next state to score candidate actions. Skipping the pixel decoder frees the network from spending capacity on wallpaper textures, lighting gradients, and other detail that is irrelevant to whether the T-block reaches its goal.
+    </p>
+    <p>
+      A useful metaphor: the latent is like a real-estate listing for the scene. It keeps things like "T at 30 degrees, table to left, pusher near top-right" and throws away the wallpaper texture. The encoder is the listing agent; the predictor is the agent guessing what next week's listing will say given a few recent listings and a planned move.
+    </p>
+    <p class="muted">
+      Trade-off (named explicitly): JEPA cannot render its predictions. You cannot show a user the frame the model "outputs" because the model never outputs a frame — only a 192-d vector. Visualization requires a workaround, covered in §5 below.
+    </p>
+  </section>
+
+  <section class="section" id="architecture" aria-labelledby="architecture-h">
+    <h2 id="architecture-h">2. Architecture walk-through</h2>
+    <p>
+      Two learned modules, one notable absence:
+    </p>
+    <ul>
+      <li><strong>Encoder</strong> — ViT-tiny, 12 layers, 192-d hidden. Input: a single RGB frame, 3 × 224 × 224. Output: a 192-d latent vector <em>z<sub>t</sub></em>.</li>
+      <li><strong>Predictor</strong> — 6-layer transformer. Input: 3 most recent latents (<em>z<sub>t-2</sub></em>, <em>z<sub>t-1</sub></em>, <em>z<sub>t</sub></em>) plus 3 action embeddings. Output: predicted next latent <em>ẑ<sub>t+1</sub></em>.</li>
+      <li><strong>Pixel decoder</strong> — <s>absent by design</s>. The struck-out box in the diagram below is the deliberate hole in the architecture.</li>
+    </ul>
+    <p>Total: <strong>18.03M parameters</strong>.</p>
+
+    <figure class="fig architecture-block" id="arch-fig">
+      <object type="image/svg+xml" data="assets/figures/arch_diagram.svg" aria-label="Block diagram of LeWorldModel: RGB input feeds a ViT-tiny encoder producing a 192-d latent. Three recent latents plus three action embeddings feed a 6-layer transformer predictor that outputs the next latent. A pixel decoder block is shown struck out, indicating the architecture deliberately omits it.">
+        <img src="assets/figures/arch_diagram.svg" alt="Block diagram of LeWorldModel: encoder produces 192-d latent; predictor takes 3 latents plus 3 actions and outputs next latent; pixel decoder is struck out.">
+      </object>
+      <figcaption class="fig-caption">
+        Data flow: RGB <code>3×224×224</code> → ViT-tiny encoder (12 layers, 192-d) → latent <em>z<sub>t</sub></em> (192-d). A history of 3 latents and 3 action embeddings feeds a 6-layer transformer predictor that outputs <em>ẑ<sub>t+1</sub></em>. 18.03M parameters total. The struck-out "Pixel Decoder" box is the architectural choice that defines the method.
+      </figcaption>
+    </figure>
+  </section>
+
+  <section class="section" id="tensor-shapes" aria-labelledby="tensor-shapes-h">
+    <h2 id="tensor-shapes-h">3. Tensor shapes — one forward pass</h2>
+    <figure class="fig" id="shapes-fig">
+      <object type="image/svg+xml" data="assets/figures/tensor_shapes.svg" aria-label="Tensor shapes diagram showing the data flow with concrete shapes: input RGB tensor of shape batch by 3 by 224 by 224, encoder output of shape batch by 192, history stack of shape batch by 3 by 192, action embeddings of shape batch by 3 by action_dim, predictor output of shape batch by 192.">
+        <img src="assets/figures/tensor_shapes.svg" alt="Tensor shapes from RGB input through encoder, history stacking, and predictor output.">
+      </object>
+      <figcaption class="fig-caption">
+        Tensor shapes through one forward pass — verified against the released checkpoint. The shared 192-d input/output space is what lets the predictor's output be fed back as the next input for multi-step rollout (see prose below).
+      </figcaption>
+    </figure>
+    <p>
+      Walking through it: a Push-T observation arrives as an RGB tensor of shape <code>[B, 3, 224, 224]</code>. The ViT-tiny encoder maps each frame to a 192-d vector, producing <code>[B, 192]</code>. The predictor reads a rolling window of the 3 most recent encoded latents — <code>[B, 3, 192]</code> — plus 3 action embeddings, and outputs the predicted next latent <code>[B, 192]</code>. The output and input live in the same 192-d space, which is what makes multi-step rollouts in latent space possible: feed <em>ẑ<sub>t+1</sub></em> back in as if it were a real observation, shift the window, and predict again.
+    </p>
+    <p class="honesty-note">
+      <strong>Footnote — <code>action_block</code> vs <code>horizon</code>:</strong> these are two distinct knobs that are easy to confuse. <code>action_block=5</code> means the planner outputs 5 actions at a time, packed into a 10-dimensional vector (5 actions × 2-D Push-T action). <code>horizon=5</code> means the planner predicts 5 steps ahead in latent space when scoring a candidate plan. The values happen to match in this config, but they refer to different things: action_block is about how the planner emits decisions; horizon is about how far the predictor is unrolled inside each candidate evaluation.
+    </p>
+  </section>
+
+  <section class="section" id="latent-error" aria-labelledby="latent-error-h">
+    <h2 id="latent-error-h">4. Does the latent contain the future?</h2>
+    <p>
+      The architecture only matters if the predictor's output is closer to the true next latent than a trivial baseline. So we encode held-out episodes, unroll the predictor for <em>k</em> steps, and compare predicted latent against encoded ground truth (MSE in the 192-d space). Two baselines anchor the scale: <strong>predict-last</strong> (just re-use <em>z<sub>t</sub></em> as the prediction at every horizon) and <strong>random-pair</strong> (MSE between two randomly drawn latents, mean ≈ 1.245).
+    </p>
+
+    <figure class="fig" id="latent-error-fig">
+      <img src="assets/plots/latent_error_vs_horizon.png"
+           loading="lazy"
+           alt="Latent prediction MSE as a function of predictor unroll horizon k from 1 to 15. Model MSE rises from 0.104 at k=1 to 1.328 at k=15. Predict-last baseline rises from 0.139 to 1.464. Mean-latent baseline rises from 0.485 to 0.785. Random-pair MSE marked at 1.245. Predictor curve crosses the mean-latent curve between k=3 and k=5.">
+      <figcaption class="fig-caption">
+        Latent prediction MSE vs predictor unroll horizon. Curves: trained predictor (blue), predict-last identity baseline (orange), mean-latent baseline (grey), random-pair reference (dashed). Lower is better. Per-horizon means computed over n=200 samples from 8 held-out episodes.
+      </figcaption>
+    </figure>
+
+    <p>The per-horizon numbers (mean MSE, n=200 samples per horizon):</p>
+
+    <table class="numbers-table">
+      <caption>Predictor MSE vs trivial baselines, by horizon. The predictor's working horizon for the CEM planner is k=5.</caption>
+      <thead>
+        <tr>
+          <th scope="col">Predictor steps <em>k</em></th>
+          <th scope="col">Env steps</th>
+          <th scope="col">Model MSE</th>
+          <th scope="col">Predict-last MSE</th>
+          <th scope="col">Mean-latent MSE</th>
+          <th scope="col">Model vs predict-last</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr><td>1</td><td>5</td><td>0.104</td><td>0.139</td><td>0.485</td><td>−25.2%</td></tr>
+        <tr><td>2</td><td>10</td><td>0.327</td><td>0.407</td><td>0.542</td><td>−19.6%</td></tr>
+        <tr><td>3</td><td>15</td><td>0.559</td><td>0.658</td><td>0.589</td><td>−15.1%</td></tr>
+        <tr class="row-emph"><td><strong>5</strong></td><td>25</td><td><strong>0.953</strong></td><td><strong>1.038</strong></td><td>0.661</td><td><strong>−8.2%</strong></td></tr>
+        <tr><td>8</td><td>40</td><td>1.201</td><td>1.259</td><td>0.703</td><td>−4.6%</td></tr>
+        <tr><td>10</td><td>50</td><td>1.274</td><td>1.354</td><td>0.728</td><td>−5.9%</td></tr>
+        <tr><td>12</td><td>60</td><td>1.340</td><td>1.460</td><td>0.764</td><td>−8.2%</td></tr>
+        <tr><td>15</td><td>75</td><td>1.328</td><td>1.464</td><td>0.785</td><td>−9.3%</td></tr>
+      </tbody>
+    </table>
+
+    <p class="honesty-note">
+      <strong>The honest reading:</strong> at the planner's working horizon (k=5), the predictor's MSE (0.953) is only <strong>8.2% lower</strong> than the trivial "predict last" baseline (1.038). The model beats identity, but barely — most of the lift toward task success comes from the <em>planner</em>, not the predictor's outright accuracy. By k≈8–10 the predictor's MSE has overshot the mean-latent baseline (0.703 at k=8): a constant predictor that always outputs the dataset's average latent would be more accurate than the trained model at long horizons. By k=15 the model MSE (1.328) is closing on the random-pair reference (1.245) — i.e. its prediction has roughly the geometry of a random latent draw. The model is doing real work near the present, but its open-loop horizon is short.
+    </p>
+  </section>
+
+  <section class="section" id="nn-decode" aria-labelledby="nn-decode-h">
+    <h2 id="nn-decode-h">5. The NN-decoding trick — how we "see" what the model predicts</h2>
+    <p>
+      Because LeWorldModel has no pixel decoder, we cannot render what the predictor outputs. To visualize a rollout, we encode 20,000 training frames into latent space and build a nearest-neighbour index. For each predicted latent <em>ẑ<sub>t+k</sub></em>, we look up the closest training-set latent and display the original frame it came from. The top row is ground-truth observations; the bottom row is retrieval against the model's predictions.
+    </p>
+
+    <figure class="fig" id="nn-rollout-fig">
+      <video
+        src="assets/videos/nn_imagined_rollout.mp4"
+        poster="assets/poster/nn_imagined_rollout.png"
+        autoplay loop muted playsinline
+        preload="metadata"
+        aria-label="Side-by-side animation. Top row: ground-truth Push-T frames over a 10-step rollout. Bottom row: nearest-neighbour retrievals from a 20,000-frame training subset, indexed by the model's predicted latents. Both rows carry a visible watermark reading 'NN-decoded retrieval — not generation'. Bottom-row frames track the top row closely for the first several steps then drift visibly by step 8 onward."
+      ></video>
+      <figcaption class="fig-caption">
+        <strong>[NN-decoded retrieval — not generation]</strong> Top: ground-truth frames. Bottom: nearest-neighbour retrievals from a 20k-frame training subset, indexed by the predictor's outputs at k=1..10. The bottom row is <em>retrieval, not generation</em> — the model never produced those pixels. Cosine similarity between predicted latent and ground-truth latent drops from 0.999 at k=1 to 0.865 at k=10. Per-step latent MSE rises from 0.65 at k=1 to 51.6 at k=10. Drift visible at k≥8 reflects compounding error in the open-loop rollout.
+      </figcaption>
+    </figure>
+
+    <p>
+      Two things to keep separate when watching the video:
+    </p>
+    <ul>
+      <li>The bottom-row pixels are <strong>real training frames</strong>, picked because the predictor's output landed near them in 192-d space. They are not the model's drawings.</li>
+      <li>What the model is being judged on is whether the <em>predicted latent</em> is close to the <em>encoded next observation</em>. NN-retrieval is a presentation layer on top of that judgement; it inherits the predictor's error but adds a quantization step (you can only retrieve frames that exist in the index).</li>
+    </ul>
+  </section>
+
+  <section class="section" id="no-decoder" aria-labelledby="no-decoder-h">
+    <h2 id="no-decoder-h">6. No decoder = no reconstruction tax</h2>
+    <p>
+      It is tempting to read "no pixel decoder" as a limitation. It is closer to a feature. In pixel-prediction world models, a large fraction of model capacity is spent reconstructing task-irrelevant detail — wallpaper textures, the exact gradient on a table edge, motion-blur on background pixels. The reconstruction loss treats those details as first-class, because pixel MSE has no notion of what matters for control. The model pays a "reconstruction tax" on parameters and gradient signal that buys nothing for the planner.
+    </p>
+    <p>
+      Latent-space prediction removes that tax. Every parameter of the predictor focuses on the dynamics in encoder-space — the same space the planner scores plans in. The encoder is still trained (via the upstream JEPA objective on the LeRobot Push-T dataset), but its job is to produce a representation that is <em>predictable from history + actions</em>, not one that is <em>invertible to pixels</em>. The two objectives compete in pixel-prediction models; JEPA refuses to host that fight.
+    </p>
+    <p class="muted">
+      That framing also reframes §4's honest result: the predictor is mediocre at long horizons, but it is mediocre on a representation that was shaped to make control work, not on raw pixels. Whether that trade is paying off is exactly what the next page — the planner — has to demonstrate.
+    </p>
+  </section>
+
+  <section class="section" id="whats-next" aria-labelledby="whats-next-h">
+    <h2 id="whats-next-h">7. What's next</h2>
+    <p>
+      The world model only predicts. It does not choose actions. Choosing actions is the planner's job — sampling 300 candidate sequences, rolling each one out in latent space using the predictor on this page, scoring by a cost-to-goal computed entirely in latent space, refining over 30 CEM iterations, taking the first action, and replanning. That's the next page.
+    </p>
+    <p>
+      <a class="nav-link" href="planner.html">Continue → The Planner</a>
+    </p>
+  </section>
+
+</main>
+
+<footer class="site-footer" role="contentinfo">
+  <span>LeWorldModel replication · static site, no build step · last updated 2026-05-27</span>
+  <span class="footer-meta">
+    <a href="https://arxiv.org/abs/2603.19312">arXiv:2603.19312</a> ·
+    <a href="README.md">README</a> ·
+    <a href="CHANGELOG.md">changelog</a>
+  </span>
+</footer>
+
+<script src="assets/reduced_motion.js" defer></script>
+</body>
+</html>

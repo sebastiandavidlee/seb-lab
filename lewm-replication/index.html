@@ -1,0 +1,179 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>LeWorldModel — Landing</title>
+  <meta name="description" content="A from-scratch replication of LeWorldModel on Push-T and TwoRoom. 23 seeds, 50 episodes each. 11.65 pp below the paper, p ≈ 3×10⁻⁵⁴.">
+  <meta property="og:type" content="article">
+  <meta property="og:title" content="LeWorldModel replication — the 11.65 pp gap">
+  <meta property="og:description" content="23 seeds × 50 episodes on Push-T. 84.35% vs paper's 96.0% vs 3.33% random. The gap, the data, the framing.">
+  <meta property="og:image" content="assets/poster/hero_3policy_loop.png">
+  <meta name="twitter:card" content="summary_large_image">
+  <link rel="stylesheet" href="assets/styles.css">
+</head>
+<body>
+
+<a class="skip" href="#main">Skip to main content</a>
+
+<nav class="nav-bar" aria-label="Primary">
+  <a class="nav-link nav-current" href="index.html" aria-current="page">Landing</a>
+  <a class="nav-link" href="pusht.html">Push-T</a>
+  <a class="nav-link" href="world-model.html">World Model</a>
+  <a class="nav-link" href="planner.html">Planner</a>
+  <a class="nav-link" href="tworoom.html">TwoRoom</a>
+  <a class="nav-link" href="results.html">Results</a>
+</nav>
+
+<main id="main" class="wrap">
+
+  <header class="section" id="hero">
+    <h1 class="page-title">LeWorldModel, replicated end-to-end — and the 11.65 pp gap we cannot explain</h1>
+    <p class="tldr">
+      A from-scratch replication of LeWorldModel on Push-T and TwoRoom — 23 seeds × 50 episodes — with the gap, the data, and the honest framing.
+      On Push-T our pooled success rate is <strong>84.35%</strong> (95% Wilson CI 82.13–86.33, n=1150 episodes) against the paper's reported <strong>96.0%</strong> — a <strong>11.65 percentage-point</strong> gap with a one-sided binomial <em>p</em> ≈ 3×10⁻⁵⁴. A random-action baseline scores 3.33% on the same eval (n=150), so the model is doing real work; it just doesn't reach the paper's number.
+    </p>
+
+    <figure class="fig" id="hero-fig">
+      <video
+        src="assets/videos/hero_3policy_loop.mp4"
+        poster="assets/poster/hero_3policy_loop.png"
+        autoplay loop muted playsinline
+        preload="metadata"
+        aria-label="Side-by-side rollouts on Push-T comparing a random-action policy, our replicated LeWorldModel policy, and a successful episode. The random policy fails to align the T-block; our policy aligns it in most cases."
+      ></video>
+      <figcaption class="fig-caption">
+        Three Push-T policies side by side: random action (3.33% pooled, n=150), our replication (84.35% pooled, n=1150), and one successful rollout. The visual gap between random and replication is the 81 pp lift; the gap between replication and the paper's 96.0% claim is the 11.65 pp we cannot yet explain.
+      </figcaption>
+    </figure>
+  </header>
+
+  <section class="section" id="headline-numbers" aria-labelledby="headline-numbers-h">
+    <h2 id="headline-numbers-h">Headline numbers</h2>
+    <p class="muted">Push-T, paper-budget eval (50 episodes/seed). All three numbers on the same task, same eval config, same success criterion.</p>
+
+    <table class="numbers-table headline-numbers">
+      <caption>Push-T success rate: paper claim vs our replication vs random baseline.</caption>
+      <thead>
+        <tr>
+          <th scope="col">Policy</th>
+          <th scope="col">Success rate</th>
+          <th scope="col">95% CI</th>
+          <th scope="col">n (episodes)</th>
+          <th scope="col">Source</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <th scope="row">Paper (LeWorldModel)</th>
+          <td>96.0%</td>
+          <td>not reported with CI</td>
+          <td>not stated per-seed</td>
+          <td>reported in paper</td>
+        </tr>
+        <tr>
+          <th scope="row">Ours (replication)</th>
+          <td><strong>84.35%</strong> ± 5.18 (per-seed std)</td>
+          <td>82.13–86.33 (Wilson, pooled)</td>
+          <td>1150 (23 seeds × 50 ep)</td>
+          <td>this work</td>
+        </tr>
+        <tr>
+          <th scope="row">Random action baseline</th>
+          <td>3.33%</td>
+          <td>—</td>
+          <td>150 (3 seeds × 50 ep)</td>
+          <td>this work</td>
+        </tr>
+      </tbody>
+    </table>
+
+    <p class="honesty-note">
+      Gap = 11.65 pp (paper − ours). One-sided binomial test of our pooled 970/1150 against the paper's claimed 96.0% null gives <em>p</em> ≈ 3×10⁻⁵⁴ — the gap is not sampling noise from our seeds. The paper does not publish a CI, so we cannot run a symmetric test against its variance. We rank no hypothesis above the others (see Results).
+    </p>
+  </section>
+
+  <section class="section" id="story" aria-labelledby="story-h">
+    <h2 id="story-h">The 90-second story</h2>
+    <ul>
+      <li>
+        <strong>What LeWorldModel is.</strong> A Joint Embedding Predictive Architecture (JEPA) latent world model — ViT-tiny encoder → 6-layer predictor, 192-d latents, no pixel decoder — plus a Cross-Entropy Method Model-Predictive Control (CEM-MPC) planner that samples action sequences and scores them in latent space.
+        <a href="world-model.html">Read the World Model page →</a>
+      </li>
+      <li>
+        <strong>On Push-T, paper-budget eval.</strong> Pooled success 84.35% (Wilson 82.13–86.33) across 23 seeds × 50 episodes. Per-seed range 74.0%–92.0% (std 5.18).
+        <a href="results.html">Read the Results page →</a>
+      </li>
+      <li>
+        <strong>The paper reports 96.0%.</strong> Our pooled estimate is 11.65 pp below that, with a one-sided binomial <em>p</em> ≈ 3×10⁻⁵⁴ against the paper's claim. We list three candidate explanations and rank none above the others.
+        <a href="results.html#gap">Read the gap analysis →</a>
+      </li>
+      <li>
+        <strong>A random-action policy scores 3.33%</strong> on the same eval (5/150 episodes). The replicated model is ~81 pp above random, so it is doing real work — the gap is not "the model is broken."
+        <a href="pusht.html">Read the Push-T page →</a>
+      </li>
+      <li>
+        <strong>Same model class on TwoRoom.</strong> Pooled 89.33% across 3 seeds × 50 episodes (Wilson 83.38–93.33, std 5.03). TwoRoom n=3 seeds — preliminary; not evidence of generality.
+        <a href="tworoom.html">Read the TwoRoom page →</a>
+      </li>
+    </ul>
+  </section>
+
+  <section class="section" id="three-ideas" aria-labelledby="three-ideas-h">
+    <h2 id="three-ideas-h">The three ideas in LeWorldModel</h2>
+
+    <div class="fig" role="group" aria-label="Three idea cards">
+
+      <article class="card" aria-labelledby="card-wm-h">
+        <h3 id="card-wm-h">1. A latent world model with no pixel decoder</h3>
+        <p>RGB frames are encoded to 192-d latents; a transformer predictor rolls the latent forward one step at a time. There is no decoder back to pixels — the bet is that prediction in latent space is enough.</p>
+        <p><a href="world-model.html">Read the World Model page →</a></p>
+      </article>
+
+      <article class="card" aria-labelledby="card-pl-h">
+        <h3 id="card-pl-h">2. Sampling-based planning in latent space</h3>
+        <p>At each step the planner draws 300 candidate action sequences (horizon 5), rolls each forward in the latent predictor, scores them by a goal cost computed on latents, and refines the population with CEM over 30 iterations.</p>
+        <p><a href="planner.html">Read the Planner page →</a></p>
+      </article>
+
+      <article class="card" aria-labelledby="card-rs-h">
+        <h3 id="card-rs-h">3. An eval that confronts the gap</h3>
+        <p>23 seeds × 50 episodes on Push-T, plus a 3-seed × 50-episode pass on TwoRoom and a 3-seed × 50-episode random baseline — reported as pooled success with Wilson CIs alongside the paper number and the random baseline on every plot.</p>
+        <p><a href="results.html">Read the Results page →</a></p>
+      </article>
+
+    </div>
+  </section>
+
+  <section class="section" id="honest-framing" aria-labelledby="honest-framing-h">
+    <h2 id="honest-framing-h">Honest framing</h2>
+
+    <blockquote class="banned-callout">
+      <p>
+        On Push-T, our faithful replication of LeWM reaches 84.35% ± 5.18 coverage across 23 seeds, an 81-point lift over the 3.33% random baseline — but 11.65 points below the paper's reported 96.0 ± 2.83, a gap we cannot currently explain.
+      </p>
+    </blockquote>
+
+    <p class="honesty-note">
+      Three things this site does not claim: (a) that our replication reproduces the paper — the gap is statistically significant against the paper's point estimate; (b) that LeWorldModel is general — we evaluated two toy tasks; (c) that the latent predictor is internally faithful at the planner's working horizon — at k=5 the predictor's MSE is only ~8% below a predict-last identity baseline (details on the World Model page).
+    </p>
+
+    <p class="muted">
+      Every number on this page comes from <code>outputs/demo/data/site_data.json</code>, generated 2026-05-26. Push-T: 970 successes / 1150 episodes across 23 seeds. TwoRoom: 134/150 across 3 seeds. Random: 5/150 across 3 seeds.
+    </p>
+  </section>
+
+</main>
+
+<footer class="site-footer" role="contentinfo">
+  <span>LeWorldModel replication · static site, no build step · last updated 2026-05-27</span>
+  <span class="footer-meta">
+    <a href="https://arxiv.org/abs/2603.19312">arXiv:2603.19312</a> ·
+    <a href="README.md">README</a> ·
+    <a href="CHANGELOG.md">changelog</a>
+  </span>
+</footer>
+
+<script src="assets/reduced_motion.js" defer></script>
+</body>
+</html>

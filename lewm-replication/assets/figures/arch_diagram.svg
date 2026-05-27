@@ -1,0 +1,245 @@
+<?xml version="1.0" encoding="utf-8" standalone="no"?>
+<!DOCTYPE svg PUBLIC "-//W3C//DTD SVG 1.1//EN"
+  "http://www.w3.org/Graphics/SVG/1.1/DTD/svg11.dtd">
+<svg xmlns:xlink="http://www.w3.org/1999/xlink" width="790.56pt" height="457.92pt" viewBox="0 0 790.56 457.92" xmlns="http://www.w3.org/2000/svg" version="1.1" role="img" aria-labelledby="arch-svg-title arch-svg-desc">
+ <title id="arch-svg-title">LeWorldModel latent-space architecture block diagram</title>
+ <desc id="arch-svg-desc">Block diagram of the LeWorldModel system. An RGB input of shape 3 by 224 by 224 feeds a ViT-tiny encoder (12 layers, hidden dimension 192), which outputs a 192-dimensional latent z_t. A history of three recent latents and three action embeddings feeds a 6-layer transformer predictor that outputs the next predicted latent. The predicted latents and a goal latent feed a cost head computing squared Euclidean distance in latent space, which a CEM-MPC planner (300 samples, 30 iterations, horizon 5) consumes to choose the next action to execute in the environment. A "Pixel Decoder" box near the top is drawn struck-out, indicating the architecture deliberately omits any module that decodes latents back to pixels. Total parameter count is 18.03 million.</desc>
+ <metadata>
+  <rdf:RDF xmlns:dc="http://purl.org/dc/elements/1.1/" xmlns:cc="http://creativecommons.org/ns#" xmlns:rdf="http://www.w3.org/1999/02/22-rdf-syntax-ns#">
+   <cc:Work>
+    <dc:type rdf:resource="http://purl.org/dc/dcmitype/StillImage"/>
+    <dc:date>2026-05-26T23:26:50.592622</dc:date>
+    <dc:format>image/svg+xml</dc:format>
+    <dc:creator>
+     <cc:Agent>
+      <dc:title>Matplotlib v3.10.9, https://matplotlib.org/</dc:title>
+     </cc:Agent>
+    </dc:creator>
+   </cc:Work>
+  </rdf:RDF>
+ </metadata>
+ <defs>
+  <style type="text/css">*{stroke-linejoin: round; stroke-linecap: butt}</style>
+ </defs>
+ <g id="figure_1">
+  <g id="patch_1">
+   <path d="M 0 457.92 
+L 790.56 457.92 
+L 790.56 0 
+L 0 0 
+z
+" style="fill: #ffffff"/>
+  </g>
+  <g id="axes_1">
+   <g id="patch_2">
+    <path d="M 28.2672 252.2448 
+L 163.5408 252.2448 
+Q 169.0848 252.2448 169.0848 246.7008 
+L 169.0848 166.8672 
+Q 169.0848 161.3232 163.5408 161.3232 
+L 28.2672 161.3232 
+Q 22.7232 161.3232 22.7232 166.8672 
+L 22.7232 246.7008 
+Q 22.7232 252.2448 28.2672 252.2448 
+z
+" clip-path="url(#p00a9fe641f)" style="fill: #0072b2; opacity: 0.92; stroke: #0072b2; stroke-width: 1.5; stroke-linejoin: miter"/>
+   </g>
+   <g id="patch_3">
+    <path d="M 194.5872 252.2448 
+L 352.0368 252.2448 
+Q 357.5808 252.2448 357.5808 246.7008 
+L 357.5808 166.8672 
+Q 357.5808 161.3232 352.0368 161.3232 
+L 194.5872 161.3232 
+Q 189.0432 161.3232 189.0432 166.8672 
+L 189.0432 246.7008 
+Q 189.0432 252.2448 194.5872 252.2448 
+z
+" clip-path="url(#p00a9fe641f)" style="fill: #0072b2; opacity: 0.92; stroke: #0072b2; stroke-width: 1.5; stroke-linejoin: miter"/>
+   </g>
+   <g id="patch_4">
+    <path d="M 383.0832 252.2448 
+L 507.2688 252.2448 
+Q 512.8128 252.2448 512.8128 246.7008 
+L 512.8128 166.8672 
+Q 512.8128 161.3232 507.2688 161.3232 
+L 383.0832 161.3232 
+Q 377.5392 161.3232 377.5392 166.8672 
+L 377.5392 246.7008 
+Q 377.5392 252.2448 383.0832 252.2448 
+z
+" clip-path="url(#p00a9fe641f)" style="fill: #0072b2; opacity: 0.92; stroke: #0072b2; stroke-width: 1.5; stroke-linejoin: miter"/>
+   </g>
+   <g id="patch_5">
+    <path d="M 538.3152 252.2448 
+L 751.2048 252.2448 
+Q 756.7488 252.2448 756.7488 246.7008 
+L 756.7488 166.8672 
+Q 756.7488 161.3232 751.2048 161.3232 
+L 538.3152 161.3232 
+Q 532.7712 161.3232 532.7712 166.8672 
+L 532.7712 246.7008 
+Q 532.7712 252.2448 538.3152 252.2448 
+z
+" clip-path="url(#p00a9fe641f)" style="fill: #0072b2; opacity: 0.92; stroke: #0072b2; stroke-width: 1.5; stroke-linejoin: miter"/>
+   </g>
+   <g id="patch_6">
+    <path d="M 169.976496 206.784 
+Q 179.061876 206.784 186.134795 206.784 
+" clip-path="url(#p00a9fe641f)" style="fill: none; stroke: #000000; stroke-width: 1.8; stroke-linecap: round"/>
+    <path d="M 180.534795 203.984 
+L 186.134795 206.784 
+L 180.534795 209.584 
+z
+" clip-path="url(#p00a9fe641f)" style="stroke: #000000; stroke-width: 1.8; stroke-linecap: round"/>
+   </g>
+   <g id="patch_7">
+    <path d="M 358.472496 206.784 
+Q 367.557876 206.784 374.630795 206.784 
+" clip-path="url(#p00a9fe641f)" style="fill: none; stroke: #000000; stroke-width: 1.8; stroke-linecap: round"/>
+    <path d="M 369.030795 203.984 
+L 374.630795 206.784 
+L 369.030795 209.584 
+z
+" clip-path="url(#p00a9fe641f)" style="stroke: #000000; stroke-width: 1.8; stroke-linecap: round"/>
+   </g>
+   <g id="patch_8">
+    <path d="M 513.704496 206.784 
+Q 522.789876 206.784 529.862795 206.784 
+" clip-path="url(#p00a9fe641f)" style="fill: none; stroke: #000000; stroke-width: 1.8; stroke-linecap: round"/>
+    <path d="M 524.262795 203.984 
+L 529.862795 206.784 
+L 524.262795 209.584 
+z
+" clip-path="url(#p00a9fe641f)" style="stroke: #000000; stroke-width: 1.8; stroke-linecap: round"/>
+   </g>
+   <g id="patch_9">
+    <path d="M 315.4464 396.3888 
+L 475.1136 396.3888 
+Q 479.5488 396.3888 479.5488 391.9536 
+L 479.5488 359.7984 
+Q 479.5488 355.3632 475.1136 355.3632 
+L 315.4464 355.3632 
+Q 311.0112 355.3632 311.0112 359.7984 
+L 311.0112 391.9536 
+Q 311.0112 396.3888 315.4464 396.3888 
+z
+" clip-path="url(#p00a9fe641f)" style="fill: #ffffff; stroke: #999999; stroke-width: 1.4; stroke-linejoin: miter"/>
+   </g>
+   <g id="patch_10">
+    <path d="M 644.749245 253.134098 
+Q 643.430624 375.129652 482.22918 375.86332 
+" clip-path="url(#p00a9fe641f)" style="fill: none; stroke: #999999; stroke-width: 1.6; stroke-linecap: round"/>
+    <path d="M 487.841865 378.637805 
+L 482.22918 375.86332 
+L 487.816378 373.037863 
+z
+" clip-path="url(#p00a9fe641f)" style="fill: #999999; stroke: #999999; stroke-width: 1.6; stroke-linecap: round"/>
+   </g>
+   <g id="patch_11">
+    <path d="M 310.122026 375.873325 
+Q 97.633146 375.302965 95.943069 254.921077 
+" clip-path="url(#p00a9fe641f)" style="fill: none; stroke: #999999; stroke-width: 1.6; stroke-linecap: round"/>
+    <path d="M 93.221957 260.559832 
+L 95.943069 254.921077 
+L 98.821406 260.481219 
+z
+" clip-path="url(#p00a9fe641f)" style="fill: #999999; stroke: #999999; stroke-width: 1.6; stroke-linecap: round"/>
+   </g>
+   <g id="patch_12">
+    <path d="M 217.872 120.852 
+L 328.752 120.852 
+L 328.752 73.728 
+L 217.872 73.728 
+z
+" clip-path="url(#p00a9fe641f)" style="fill: #ffffff; opacity: 0.95; stroke-dasharray: 5.92,2.56; stroke-dashoffset: 0; stroke: #e69f00; stroke-width: 1.6; stroke-linejoin: miter"/>
+   </g>
+   <g id="line2d_1">
+    <path d="M 217.872 120.852 
+L 328.752 73.728 
+" clip-path="url(#p00a9fe641f)" style="fill: none; stroke: #d55e00; stroke-opacity: 0.95; stroke-width: 3.8; stroke-linecap: round"/>
+   </g>
+   <g id="line2d_2">
+    <path d="M 217.872 73.728 
+L 328.752 120.852 
+" clip-path="url(#p00a9fe641f)" style="fill: none; stroke: #d55e00; stroke-opacity: 0.95; stroke-width: 3.8; stroke-linecap: round"/>
+   </g>
+   <g id="text_1">
+    <text style="font-weight: 700; font-size: 15px; font-family: 'DejaVu Sans'; text-anchor: middle" x="395.28" y="30.743062" transform="rotate(-0 395.28 30.743062)">LeWorldModel — latent-space architecture (no pixel decoder)</text>
+   </g>
+   <g id="text_2">
+    <text style="font-weight: 700; font-size: 11px; font-family: 'DejaVu Sans'; text-anchor: middle; fill: #ffffff" x="95.904" y="190.415312" transform="rotate(-0 95.904 190.415312)">Encoder</text>
+   </g>
+   <g id="text_3">
+    <text style="font-size: 8.5px; font-family: 'DejaVu Sans'; fill: #ffffff" transform="translate(80.114586 207.927328)">ViT-tiny</text>
+    <text style="font-size: 8.5px; font-family: 'DejaVu Sans'; fill: #ffffff" transform="translate(47.314547 217.445469)">12 layers, hidden=192</text>
+    <text style="font-size: 8.5px; font-family: 'DejaVu Sans'; fill: #ffffff" transform="translate(52.542047 226.963609)">patch=14, img=224</text>
+   </g>
+   <g id="text_4">
+    <text style="font-style: italic; font-size: 8.5px; font-family: 'DejaVu Sans'; text-anchor: middle" x="95.904" y="148.467466" transform="rotate(-0 95.904 148.467466)">in: RGB  [3 × 224 × 224]</text>
+   </g>
+   <g id="text_5">
+    <text style="font-style: italic; font-size: 8.5px; font-family: 'DejaVu Sans'; text-anchor: middle" x="95.904" y="269.791472" transform="rotate(-0 95.904 269.791472)">out: z_t  (192-d)</text>
+   </g>
+   <g id="text_6">
+    <text style="font-weight: 700; font-size: 11px; font-family: 'DejaVu Sans'; text-anchor: middle; fill: #ffffff" x="273.312" y="190.415312" transform="rotate(-0 273.312 190.415312)">Predictor</text>
+   </g>
+   <g id="text_7">
+    <text style="font-size: 8.5px; font-family: 'DejaVu Sans'; fill: #ffffff" transform="translate(231.561727 207.809125)">6-layer Transformer</text>
+    <text style="font-size: 8.5px; font-family: 'DejaVu Sans'; fill: #ffffff" transform="translate(226.419891 217.327266)">heads=16, mlp=2048</text>
+    <text style="font-size: 8.5px; font-family: 'DejaVu Sans'; fill: #ffffff" transform="translate(240.578367 226.845406)">num_frames=3</text>
+   </g>
+   <g id="text_8">
+    <text style="font-style: italic; font-size: 8.5px; font-family: 'DejaVu Sans'" transform="translate(167.120437 138.476512)">in: (z_{t-2}, z_{t-1}, z_t) + (a_{t-2}, a_{t-1}, a_t)</text>
+    <text style="font-style: italic; font-size: 8.5px; font-family: 'DejaVu Sans'" transform="translate(187.568914 148.231059)">action_block=5 chunking, action_dim=2</text>
+   </g>
+   <g id="text_9">
+    <text style="font-style: italic; font-size: 8.5px; font-family: 'DejaVu Sans'; text-anchor: middle" x="273.312" y="270.131472" transform="rotate(-0 273.312 270.131472)">out: ẑ_{t+1}  (192-d)</text>
+   </g>
+   <g id="text_10">
+    <text style="font-weight: 700; font-size: 11px; font-family: 'DejaVu Sans'; text-anchor: middle; fill: #ffffff" x="445.176" y="190.415312" transform="rotate(-0 445.176 190.415312)">Cost head</text>
+   </g>
+   <g id="text_11">
+    <text style="font-size: 8.5px; font-family: 'DejaVu Sans'; fill: #ffffff" transform="translate(391.96932 212.738195)">‖ẑ_{t+1:t+H} − z_goal‖²</text>
+    <text style="font-size: 8.5px; font-family: 'DejaVu Sans'; fill: #ffffff" transform="translate(413.706078 222.492742)">in latent space</text>
+   </g>
+   <g id="text_12">
+    <text style="font-style: italic; font-size: 8.5px; font-family: 'DejaVu Sans'; text-anchor: middle" x="445.176" y="148.231059" transform="rotate(-0 445.176 148.231059)">in: predicted latents + z_goal</text>
+   </g>
+   <g id="text_13">
+    <text style="font-style: italic; font-size: 8.5px; font-family: 'DejaVu Sans'; text-anchor: middle" x="445.176" y="269.791472" transform="rotate(-0 445.176 269.791472)">out: scalar cost</text>
+   </g>
+   <g id="text_14">
+    <text style="font-weight: 700; font-size: 11px; font-family: 'DejaVu Sans'; text-anchor: middle; fill: #ffffff" x="644.76" y="190.415312" transform="rotate(-0 644.76 190.415312)">CEM-MPC planner</text>
+   </g>
+   <g id="text_15">
+    <text style="font-size: 8.5px; font-family: 'DejaVu Sans'; fill: #ffffff" transform="translate(595.186406 207.927328)">300 samples × 30 iters</text>
+    <text style="font-size: 8.5px; font-family: 'DejaVu Sans'; fill: #ffffff" transform="translate(618.201484 217.445469)">horizon H=5</text>
+    <text style="font-size: 8.5px; font-family: 'DejaVu Sans'; fill: #ffffff" transform="translate(607.02332 226.963609)">elite-fit re-sample</text>
+   </g>
+   <g id="text_16">
+    <text style="font-style: italic; font-size: 8.5px; font-family: 'DejaVu Sans'; text-anchor: middle" x="644.76" y="148.467466" transform="rotate(-0 644.76 148.467466)">in: cost over rollouts</text>
+   </g>
+   <g id="text_17">
+    <text style="font-style: italic; font-size: 8.5px; font-family: 'DejaVu Sans'; text-anchor: middle" x="644.76" y="269.791472" transform="rotate(-0 644.76 269.791472)">out: best action sequence</text>
+   </g>
+   <g id="text_18">
+    <text style="font-size: 9.5px; font-family: 'DejaVu Sans'; text-anchor: middle" x="395.28" y="378.497406" transform="rotate(-0 395.28 378.497406)">Execute first action → env step</text>
+   </g>
+   <g id="text_19">
+    <text style="font-weight: 700; font-size: 10px; font-family: 'DejaVu Sans'; text-anchor: middle; fill: #e69f00; opacity: 0.9" x="273.312" y="100.049375" transform="rotate(-0 273.312 100.049375)">Pixel Decoder</text>
+   </g>
+   <g id="text_20">
+    <text style="font-weight: 700; font-size: 11px; font-family: 'DejaVu Sans'; text-anchor: middle; fill: #e69f00" x="273.312" y="60.352344" transform="rotate(-0 273.312 60.352344)">no pixel decoder — LeWM lives in latent space</text>
+   </g>
+   <g id="text_21">
+    <text style="font-style: italic; font-size: 8.5px; font-family: 'DejaVu Sans'; text-anchor: middle; fill: #999999" x="395.28" y="433.543266" transform="rotate(-0 395.28 433.543266)">Total params: 18.03M  •  action_dim=2, action_block=5  •  projector / pred_proj: MLP hidden_dim=2048</text>
+   </g>
+  </g>
+ </g>
+ <defs>
+  <clipPath id="p00a9fe641f">
+   <rect x="7.2" y="7.2" width="776.16" height="443.52"/>
+  </clipPath>
+ </defs>
+</svg>

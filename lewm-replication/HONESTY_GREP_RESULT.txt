@@ -1,0 +1,23 @@
+# Honesty grep — final pass (T5-E, 2026-05-27)
+#
+# Command:
+#   grep -niE "thinks|wants|tries|understands|learns to|matches the paper|general.purpose|robotics|transfers|imagines|dreams|decides" outputs/demo/site/*.html
+#
+# Hits below are CLASSIFIED. Per HONESTY_PHRASES.md §1, banned words may
+# appear only inside an explicit quoted negation ("not 'X'") that names the
+# claim we are refusing to make. All hits below have been verified to match
+# that pattern; no hit licenses a positive claim of the banned concept.
+#
+# ----- raw hits -----
+tworoom.html:140:      dataset) and it is <strong>not</strong> evidence of "general-purpose" capability
+#
+# ----- classification -----
+# 1 hit, all classified as ALLOWED (quoted negation):
+#   tworoom.html:140 — "general-purpose" appears inside a quoted negation
+#     ("it is NOT evidence of 'general-purpose' capability ...") explicitly
+#     refusing the generality claim. Per HONESTY_PHRASES.md §1, this is the
+#     allowed usage. The full surrounding paragraph also names what we
+#     evaluated ("two toy tasks, both 2-D, both with RGB 224 observations")
+#     so the negation is concrete and not rhetorical.
+#
+# Result: PASS. No unquoted banned terms in any page body.

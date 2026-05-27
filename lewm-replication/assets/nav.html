@@ -1,0 +1,42 @@
+<!--
+  Shared nav snippet for the LeWorldModel demo site.
+  Owner: T4-G. Page agents inline-copy this into each page's <body>.
+
+  HOW TO USE
+  ----------
+  1. Paste the <a class="skip"> link as the FIRST child of <body>.
+  2. Paste the <header class="nav-bar"> block immediately after the skip link.
+  3. On the current page, add  class="nav-link nav-current"  and
+     aria-current="page"  to the matching <a>. Leave the others as
+     class="nav-link"  with no aria-current.
+  4. Below the <header>, open  <main id="main" class="wrap">  and place an
+     <h1 class="page-title"> as the first heading. The skip link targets #main.
+
+  Stylesheet expected at  assets/styles.css  (relative to each HTML page).
+-->
+
+<!-- 1. Skip link -->
+<a class="skip" href="#main">Skip to main content</a>
+
+<!-- 2. Sticky top nav -->
+<header class="nav-bar" role="banner">
+  <div class="nav-bar-inner">
+    <a class="nav-brand" href="index.html" aria-label="LeWorldModel demo home">LeWorldModel</a>
+    <nav aria-label="Primary">
+      <ul class="nav-links">
+        <li><a class="nav-link" href="index.html">1. Overview</a></li>
+        <li><a class="nav-link" href="pusht.html">2. Push-T task</a></li>
+        <li><a class="nav-link" href="world-model.html">3. World model</a></li>
+        <li><a class="nav-link" href="planner.html">4. Planner</a></li>
+        <li><a class="nav-link" href="tworoom.html">5. TwoRoom</a></li>
+        <li><a class="nav-link" href="results.html">6. Results &amp; limits</a></li>
+      </ul>
+    </nav>
+  </div>
+</header>
+
+<!-- 3. Main content opens here. Replace "Page title" with the page's H1. -->
+<main id="main" class="wrap">
+  <h1 class="page-title">Page title</h1>
+  <!-- page content -->
+</main>
