@@ -45,7 +45,7 @@ ASSET_PALETTE = {
     "OTHER": "#888888",
 }
 
-EXTRACTOR_MODEL = "qwen2.5:7b-instruct (local, Ollama)"
+EXTRACTOR_MODEL = "qwen2.5:14b (local, Ollama)"
 
 # ---- Tiny YAML frontmatter parser ---------------------------------------
 
@@ -151,7 +151,9 @@ def load_dates_lookup(cache_path: Path) -> dict[str, str]:
         return {}
     out: dict[str, str] = {}
     for k, v in raw.items():
-        if k.startswith("_"):
+        # YouTube video IDs can start with "_" — only filter the specific
+        # metadata key, not all underscore-prefixed entries.
+        if k == "_metadata":
             continue
         if isinstance(v, str) and len(v) >= 10:
             out[k] = v[:10]

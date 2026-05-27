@@ -1,16 +1,16 @@
 {
-  "generated_at": "2026-05-26T10:10:06",
+  "generated_at": "2026-05-26T21:31:11",
   "n_videos_total": 232,
   "n_videos_extracted": 210,
-  "n_videos_dated": 206,
-  "n_holdings": 576,
-  "n_actions": 242,
+  "n_videos_dated": 210,
+  "n_holdings": 559,
+  "n_actions": 228,
   "date_source_counts": {
     "portfolio": 50,
     "filename": 0,
-    "backfill": 156
+    "backfill": 160
   },
-  "extractor_model": "qwen2.5:7b-instruct (local, Ollama)",
+  "extractor_model": "qwen2.5:14b (local, Ollama)",
   "extraction_in_progress": true,
   "asset_palette": {
     "BTC": "#F7931A",

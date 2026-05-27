@@ -172,15 +172,7 @@
         "confidence": 0.9,
         "evidence_quote": "I trimmed a tiny bit of my Bitcoin allocation on Monday morning.",
         "instrument": "spot",
-        "size": "tiny",
-        "weight_pct": null
-      },
-      {
-        "asset": "USD",
-        "confidence": 0.85,
-        "evidence_quote": "Not because I think it will go down, but because I am trying to keep my cash position near its target in case we haven't seen the worst of this bare market quite yet.",
-        "instrument": "cash",
-        "size": "medium",
+        "size": null,
         "weight_pct": null
       }
     ],
@@ -193,15 +185,6 @@
         "size_hint": "tiny",
         "weight_delta_pct": null,
         "when_relative": "Monday morning"
-      },
-      {
-        "asset": "USD",
-        "confidence": 0.85,
-        "direction": "BUY",
-        "evidence_quote": "Not because I think it will go down, but because I am trying to keep my cash position near its target in case we haven't seen the worst of this bare market quite yet.",
-        "size_hint": "medium",
-        "weight_delta_pct": null,
-        "when_relative": "near its target in case we haven't seen the worst of this bare market quite yet"
       }
     ],
     "cash_position": {
@@ -209,7 +192,7 @@
       "confidence": 0.85,
       "evidence_quote": "Not because I think it will go down, but because I am trying to keep my cash position near its target in case we haven't seen the worst of this bare market quite yet.",
       "instrument": "cash",
-      "size": "medium",
+      "size": "small",
       "weight_pct": null
     }
   },
@@ -293,43 +276,43 @@
     "calendar_date": "2026-03-26",
     "video_url": "https://www.youtube.com/watch?v=2UrmYOUvW-w",
     "transcript_path": "youtube/transcripts-top/crypto-currently/undated-i-can-t-believe-it.md",
-    "extractor_confidence": 0.9,
+    "extractor_confidence": 0.8,
     "holdings": [
       {
         "asset": "BTC",
-        "confidence": 0.9,
-        "evidence_quote": "\"no changes were made to my portfolio because my allocations are already where I want them to be\"",
+        "confidence": 0.95,
+        "evidence_quote": "I have been using this as an opportunity to slowly accumulate Bitcoin here in the cheap region.",
         "instrument": "spot",
-        "size": "medium",
+        "size": null,
         "weight_pct": null
       },
       {
         "asset": "USD",
-        "confidence": 0.9,
-        "evidence_quote": "\"this remaining 20% cash position is dedicated for that very cheap region if granted the opportunity\"",
+        "confidence": 0.95,
+        "evidence_quote": "And this remaining 20% cash position is dedicated for that very cheap region if granted the opportunity.",
         "instrument": "cash",
-        "size": "medium",
-        "weight_pct": null
+        "size": "large",
+        "weight_pct": 20.0
       }
     ],
     "actions": [
       {
         "asset": "BTC",
-        "confidence": 0.9,
+        "confidence": 0.95,
         "direction": "BUY",
-        "evidence_quote": "\"I have started deploying dry powder here in the cheap region over the past few weeks and why I'm still saving a bunch of dry powder for the very cheap region in case we're granted the opportunity\"",
+        "evidence_quote": "I have been using this as an opportunity to slowly accumulate Bitcoin here in the cheap region.",
         "size_hint": null,
         "weight_delta_pct": null,
-        "when_relative": null
+        "when_relative": "past few weeks"
       }
     ],
     "cash_position": {
       "asset": "USD",
-      "confidence": 0.9,
-      "evidence_quote": "\"this remaining 20% cash position is dedicated for that very cheap region if granted the opportunity\"",
+      "confidence": 0.95,
+      "evidence_quote": "And this remaining 20% cash position is dedicated for that very cheap region if granted the opportunity.",
       "instrument": "cash",
-      "size": "medium",
-      "weight_pct": null
+      "size": "large",
+      "weight_pct": 20.0
     }
   },
   "2X4vftUb1P4": {
@@ -414,9 +397,9 @@
       {
         "asset": "BTC",
         "confidence": 0.9,
-        "evidence_quote": "I bought the dip across my positions Monday morning",
+        "evidence_quote": "And like I said in Saturday's video, I bought the dip across my positions Monday morning.",
         "instrument": "spot",
-        "size": "medium",
+        "size": null,
         "weight_pct": null
       }
     ],
@@ -425,20 +408,13 @@
         "asset": "BTC",
         "confidence": 0.9,
         "direction": "BUY",
-        "evidence_quote": "I bought the dip across my positions Monday morning",
+        "evidence_quote": "And like I said in Saturday's video, I bought the dip across my positions Monday morning.",
         "size_hint": null,
         "weight_delta_pct": null,
         "when_relative": "Monday morning"
       }
     ],
-    "cash_position": {
-      "asset": "USD",
-      "confidence": 0.7,
-      "evidence_quote": "I'm sitting on a lot of BTC right now, but I still have some dry powder",
-      "instrument": "cash",
-      "size": "small",
-      "weight_pct": null
-    }
+    "cash_position": null
   },
   "2a9Sx7FLFjs": {
     "video_id": "2a9Sx7FLFjs",
@@ -570,53 +546,35 @@
       {
         "asset": "BTC",
         "confidence": 0.9,
-        "evidence_quote": "\"I bought some Bitcoin, Ethereum, and Salana on Monday morning\"",
+        "evidence_quote": "I bought some Bitcoin, Ethereum, and Salana on Monday morning.",
         "instrument": "spot",
-        "size": "medium",
+        "size": null,
         "weight_pct": null
       },
       {
         "asset": "ETH",
         "confidence": 0.9,
-        "evidence_quote": "\"I bought some Bitcoin, Ethereum, and Salana on Monday morning\"",
+        "evidence_quote": "I bought some Bitcoin, Ethereum, and Salana on Monday morning.",
         "instrument": "spot",
-        "size": "medium",
+        "size": null,
         "weight_pct": null
       },
       {
         "asset": "SOL",
         "confidence": 0.9,
-        "evidence_quote": "\"I bought some Bitcoin, Ethereum, and Salana on Monday morning\"",
+        "evidence_quote": "I bought some Bitcoin, Ethereum, and Salana on Monday morning.",
         "instrument": "spot",
-        "size": "medium",
+        "size": null,
         "weight_pct": null
       }
     ],
     "actions": [
       {
-        "asset": "BTC",
+        "asset": "OTHER:BTC|ETH|SOL",
         "confidence": 0.9,
         "direction": "BUY",
-        "evidence_quote": "\"I bought some Bitcoin, Ethereum, and Salana on Monday morning\"",
-        "size_hint": "small",
-        "weight_delta_pct": null,
-        "when_relative": "Monday morning"
-      },
-      {
-        "asset": "ETH",
-        "confidence": 0.9,
-        "direction": "BUY",
-        "evidence_quote": "\"I bought some Bitcoin, Ethereum, and Salana on Monday morning\"",
-        "size_hint": "small",
-        "weight_delta_pct": null,
-        "when_relative": "Monday morning"
-      },
-      {
-        "asset": "SOL",
-        "confidence": 0.9,
-        "direction": "BUY",
-        "evidence_quote": "\"I bought some Bitcoin, Ethereum, and Salana on Monday morning\"",
-        "size_hint": "small",
+        "evidence_quote": "I bought some Bitcoin, Ethereum, and Salana on Monday morning.",
+        "size_hint": null,
         "weight_delta_pct": null,
         "when_relative": "Monday morning"
       }
@@ -624,7 +582,7 @@
     "cash_position": {
       "asset": "USD",
       "confidence": 0.7,
-      "evidence_quote": "\"I'm making sure to take my time and preserve my cash as I accumulate so that I have plenty left over if and when we do see lower prices\"",
+      "evidence_quote": "I'm making sure to take my time and preserve my cash as I accumulate so that I have plenty left over if and when we do see lower prices.",
       "instrument": "cash",
       "size": "medium",
       "weight_pct": null
@@ -798,25 +756,16 @@
     "video_url": "https://www.youtube.com/watch?v=3HDYSGGPz6Q",
     "transcript_path": "youtube/transcripts-top/crypto-currently/2025-12-21-i-can-t-believe-this.md",
     "extractor_confidence": 0.8,
-    "holdings": [
-      {
-        "asset": "BTC",
-        "confidence": 0.9,
-        "evidence_quote": "I'll be buying a little once again because I can't help but buy an asset I believe in long-term when I see this much fear, this much short-term holder capitulation and us being this close to the 200E moving average.",
-        "instrument": "spot",
-        "size": "medium",
-        "weight_pct": null
-      }
-    ],
+    "holdings": [],
     "actions": [
       {
         "asset": "BTC",
         "confidence": 0.9,
         "direction": "BUY",
-        "evidence_quote": "I'll be buying a little once again because I can't help but buy an asset I believe in long-term when I see this much fear, this much short-term holder capitulation and us being this close to the 200E moving average.",
+        "evidence_quote": "I do believe I'll be buying a little once again because I can't help but buy an asset I believe in long-term when I see this much fear, this much short-term holder capitulation and us being this close to the 200E moving average.",
         "size_hint": null,
         "weight_delta_pct": null,
-        "when_relative": null
+        "when_relative": "Monday"
       }
     ],
     "cash_position": null
@@ -845,22 +794,22 @@
     "calendar_date": "2026-04-02",
     "video_url": "https://www.youtube.com/watch?v=3eFVfvXgjF4",
     "transcript_path": "youtube/transcripts-top/crypto-currently/undated-we-have-seen-this-before.md",
-    "extractor_confidence": 0.9,
+    "extractor_confidence": 0.85,
     "holdings": [
       {
         "asset": "BTC",
         "confidence": 0.9,
-        "evidence_quote": "\"I did buy some Bitcoin and Ethereum on Monday morning because the market had gone down a little bit and I wanted to bring my portfolio allocations back in near their targets\"",
+        "evidence_quote": "I did buy some Bitcoin and Ethereum on Monday morning because the market had gone down a little bit",
         "instrument": "spot",
-        "size": "medium",
+        "size": null,
         "weight_pct": null
       },
       {
         "asset": "ETH",
         "confidence": 0.9,
-        "evidence_quote": "\"I did buy some Bitcoin and Ethereum on Monday morning because the market had gone down a little bit and I wanted to bring my portfolio allocations back in near their targets\"",
+        "evidence_quote": "I did buy some Bitcoin and Ethereum on Monday morning because the market had gone down a little bit",
         "instrument": "spot",
-        "size": "medium",
+        "size": null,
         "weight_pct": null
       }
     ],
@@ -869,8 +818,8 @@
         "asset": "BTC",
         "confidence": 0.9,
         "direction": "BUY",
-        "evidence_quote": "\"I did buy some Bitcoin and Ethereum on Monday morning because the market had gone down a little bit and I wanted to bring my portfolio allocations back in near their targets\"",
-        "size_hint": "small",
+        "evidence_quote": "I did buy some Bitcoin and Ethereum on Monday morning because the market had gone down a little bit",
+        "size_hint": null,
         "weight_delta_pct": null,
         "when_relative": "Monday morning"
       },
@@ -878,8 +827,8 @@
         "asset": "ETH",
         "confidence": 0.9,
         "direction": "BUY",
-        "evidence_quote": "\"I did buy some Bitcoin and Ethereum on Monday morning because the market had gone down a little bit and I wanted to bring my portfolio allocations back in near their targets\"",
-        "size_hint": "small",
+        "evidence_quote": "I did buy some Bitcoin and Ethereum on Monday morning because the market had gone down a little bit",
+        "size_hint": null,
         "weight_delta_pct": null,
         "when_relative": "Monday morning"
       }
@@ -887,10 +836,10 @@
     "cash_position": {
       "asset": "USD",
       "confidence": 0.9,
-      "evidence_quote": "\"I'm saving my 20% cash position for\"",
+      "evidence_quote": "That's what I'm saving my 20% cash position for",
       "instrument": "cash",
-      "size": "medium",
-      "weight_pct": null
+      "size": null,
+      "weight_pct": 20.0
     }
   },
   "3eWva40HVE4": {
@@ -976,9 +925,9 @@
       {
         "asset": "BTC",
         "confidence": 0.9,
-        "evidence_quote": "\"I'm seeing, a shallow bare market is still my base case for 2026 and that's why I have already begun accumulating.\"",
+        "evidence_quote": "I'm sticking to my plan and bought more Bitcoin on Monday morning.",
         "instrument": "spot",
-        "size": "medium",
+        "size": null,
         "weight_pct": null
       }
     ],
@@ -987,8 +936,8 @@
         "asset": "BTC",
         "confidence": 0.9,
         "direction": "BUY",
-        "evidence_quote": "\"And that's why I'm sticking to my plan and bought more Bitcoin on Monday morning.\"",
-        "size_hint": "small",
+        "evidence_quote": "I'm sticking to my plan and bought more Bitcoin on Monday morning.",
+        "size_hint": null,
         "weight_delta_pct": null,
         "when_relative": "Monday morning"
       }
@@ -996,9 +945,9 @@
     "cash_position": {
       "asset": "USD",
       "confidence": 0.7,
-      "evidence_quote": "\"I will save some dry powder in case we do end up getting the traditional Bitcoin bare market and we end up going to the 50ks or 40ks.\"",
+      "evidence_quote": "I will save some dry powder in case we do end up getting the traditional Bitcoin bare market and we end up going to the 50ks or 40ks.",
       "instrument": "cash",
-      "size": "medium",
+      "size": "small",
       "weight_pct": null
     }
   },
@@ -1511,36 +1460,10 @@
     "calendar_date": "2025-12-21",
     "video_url": "https://www.youtube.com/watch?v=8EZRjf1lgi0",
     "transcript_path": "youtube/transcripts-top/crypto-currently/2025-12-21-it-s-actually-happening.md",
-    "extractor_confidence": 0.8,
-    "holdings": [
-      {
-        "asset": "BTC",
-        "confidence": 0.9,
-        "evidence_quote": "\"No changes were made to my portfolio this week. For now, my cash allocation is very close to its target, so no changes were required.\"",
-        "instrument": "spot",
-        "size": "medium",
-        "weight_pct": null
-      }
-    ],
-    "actions": [
-      {
-        "asset": "BTC",
-        "confidence": 0.7,
-        "direction": "SELL",
-        "evidence_quote": "\"I'm going to use that relief rally as an opportunity to reduce exposure and risk a little in case this downtrend does continue.\"",
-        "size_hint": null,
-        "weight_delta_pct": -20.0,
-        "when_relative": "this week"
-      }
-    ],
-    "cash_position": {
-      "asset": "USD",
-      "confidence": 0.9,
-      "evidence_quote": "\"For now, my cash allocation is very close to its target, so no changes were required.\"",
-      "instrument": "cash",
-      "size": "medium",
-      "weight_pct": null
-    }
+    "extractor_confidence": 0.1,
+    "holdings": [],
+    "actions": [],
+    "cash_position": null
   },
   "8Nx2b5lRZVc": {
     "video_id": "8Nx2b5lRZVc",
@@ -1585,14 +1508,14 @@
     "calendar_date": "2026-02-14",
     "video_url": "https://www.youtube.com/watch?v=8YLBqgcEA0g",
     "transcript_path": "youtube/transcripts-top/crypto-currently/2026-02-14-i-m-buying-more.md",
-    "extractor_confidence": 0.8,
+    "extractor_confidence": 0.85,
     "holdings": [
       {
         "asset": "BTC",
         "confidence": 0.9,
-        "evidence_quote": "I'm going to buy Bitcoin this upcoming Monday, just like I did the last Monday.",
+        "evidence_quote": "I'm going to save some dry powder in case we do get even better buying opportunities later in the year, but I can't pass up the opportunity that's right in front of me here.",
         "instrument": "spot",
-        "size": "medium",
+        "size": null,
         "weight_pct": null
       }
     ],
@@ -1601,18 +1524,18 @@
         "asset": "BTC",
         "confidence": 0.9,
         "direction": "BUY",
-        "evidence_quote": "I'm going to buy Bitcoin this upcoming Monday, just like I did the last Monday.",
+        "evidence_quote": "And I plan on buying Bitcoin this upcoming Monday, just like I did the last Monday.",
         "size_hint": null,
         "weight_delta_pct": null,
-        "when_relative": "this week"
+        "when_relative": "this upcoming Monday"
       }
     ],
     "cash_position": {
       "asset": "USD",
       "confidence": 0.7,
-      "evidence_quote": "I'm going to save some dry powder in case we do get even better buying opportunities later in the year, but I can't pass up the opportunity that's right in front of me here.",
+      "evidence_quote": "I'm going to save some dry powder in case we do get even better buying opportunities later in the year",
       "instrument": "cash",
-      "size": "medium",
+      "size": null,
       "weight_pct": null
     }
   },
@@ -1829,30 +1752,13 @@
     "video_url": "https://www.youtube.com/watch?v=A7KDQ85Vo50",
     "transcript_path": "youtube/transcripts-top/crypto-currently/2025-11-21-the-big-break.md",
     "extractor_confidence": 0.7,
-    "holdings": [
-      {
-        "asset": "BTC",
-        "confidence": 0.9,
-        "evidence_quote": "Bitcoin is back in the middle of our fair value region.",
-        "instrument": "spot",
-        "size": null,
-        "weight_pct": null
-      },
-      {
-        "asset": "ETH",
-        "confidence": 0.9,
-        "evidence_quote": "Ethereum, still sitting at support here. Again, similar to Bitcoin, very close to its 200E moving average.",
-        "instrument": "spot",
-        "size": null,
-        "weight_pct": null
-      }
-    ],
+    "holdings": [],
     "actions": [
       {
         "asset": "BTC",
-        "confidence": 0.8,
+        "confidence": 0.85,
         "direction": "BUY",
-        "evidence_quote": "I'm very tempted to buy the dip just a little bit here on Monday with expectations of a bounce.",
+        "evidence_quote": "I'm very tempted to buy the dip just a little bit here on Monday with expectations of a bounce",
         "size_hint": null,
         "weight_delta_pct": null,
         "when_relative": "Monday morning"
@@ -1860,8 +1766,8 @@
     ],
     "cash_position": {
       "asset": "USD",
-      "confidence": 0.5,
-      "evidence_quote": "I'm going to update this chart if the weekly candle ends up closing like this.",
+      "confidence": 0.35,
+      "evidence_quote": "I do only make changes to my portfolio on Mondays once I get to see Sunday's weekly close",
       "instrument": "cash",
       "size": null,
       "weight_pct": null
@@ -2078,27 +1984,17 @@
         "confidence": 0.9,
         "evidence_quote": "I have my cash position to take advantage of any short to medium-term opportunities since I do expect some volatility and speed bumps because the Fed decided they want to be late once again.",
         "instrument": "cash",
-        "size": "medium",
+        "size": null,
         "weight_pct": null
       }
     ],
-    "actions": [
-      {
-        "asset": "BTC",
-        "confidence": 0.9,
-        "direction": "BUY",
-        "evidence_quote": "I have my cash position to take advantage of any short to medium-term opportunities since I do expect some volatility and speed bumps because the Fed decided they want to be late once again.",
-        "size_hint": null,
-        "weight_delta_pct": -20.0,
-        "when_relative": null
-      }
-    ],
+    "actions": [],
     "cash_position": {
       "asset": "USD",
       "confidence": 0.9,
       "evidence_quote": "I have my cash position to take advantage of any short to medium-term opportunities since I do expect some volatility and speed bumps because the Fed decided they want to be late once again.",
       "instrument": "cash",
-      "size": "medium",
+      "size": "large|medium|small",
       "weight_pct": null
     }
   },
@@ -2175,39 +2071,29 @@
     "holdings": [
       {
         "asset": "BTC",
-        "confidence": 0.9,
-        "evidence_quote": "I have more spot holdings than I do cash because my base case is that we still have higher to go until the market proves otherwise.",
+        "confidence": 0.95,
+        "evidence_quote": "But because our macro trend is still intact, I have more spot holdings than I do cash",
         "instrument": "spot",
-        "size": "large",
+        "size": null,
         "weight_pct": null
       },
       {
         "asset": "USD",
-        "confidence": 0.7,
-        "evidence_quote": "I'm nearly 29% cash.",
+        "confidence": 0.95,
+        "evidence_quote": "But because our macro trend is still intact, I have more spot holdings than I do cash because my base case is that we still have higher to go until the market proves otherwise. And as always, if you'd like to learn more about my portfolio a",
         "instrument": "cash",
-        "size": "medium",
-        "weight_pct": null
+        "size": "large",
+        "weight_pct": 29.0
       }
     ],
-    "actions": [
-      {
-        "asset": "BTC",
-        "confidence": 0.5,
-        "direction": "BUY",
-        "evidence_quote": "Micro Strategy continues to capitulate here. It does look like it's about to bounce in the short term because we saw a trade below the previous range low and closed back above it, which is usually a textbook range reclaim and usually result",
-        "size_hint": "some",
-        "weight_delta_pct": null,
-        "when_relative": null
-      }
-    ],
+    "actions": [],
     "cash_position": {
       "asset": "USD",
-      "confidence": 0.7,
-      "evidence_quote": "I'm nearly 29% cash.",
+      "confidence": 0.95,
+      "evidence_quote": "But because our macro trend is still intact, I have more spot holdings than I do cash because my base case is that we still have higher to go until the market proves otherwise.",
       "instrument": "cash",
-      "size": "medium",
-      "weight_pct": null
+      "size": "large",
+      "weight_pct": 29.0
     }
   },
   "CldqzXH3gk0": {
@@ -2363,38 +2249,20 @@
     "holdings": [
       {
         "asset": "BTC",
-        "confidence": 0.9,
-        "evidence_quote": "\"I already have 80% of my portfolio allocated to Bitcoin\"",
+        "confidence": 0.95,
+        "evidence_quote": "I already have 80% of my portfolio allocated.",
         "instrument": "spot",
-        "size": "large",
-        "weight_pct": null
-      },
-      {
-        "asset": "USD",
-        "confidence": 0.7,
-        "evidence_quote": "\"I'm saving 20% for better buying opportunities if we get them\"",
-        "instrument": "cash",
-        "size": "medium",
+        "size": null,
         "weight_pct": null
       }
     ],
-    "actions": [
-      {
-        "asset": "BTC",
-        "confidence": 0.5,
-        "direction": "BUY",
-        "evidence_quote": "\"I accumulate in those price regions and know that as long as I'm right on Bitcoin in the long term, these will be good buying opportunities I'll look back on a few years from now\"",
-        "size_hint": null,
-        "weight_delta_pct": null,
-        "when_relative": null
-      }
-    ],
+    "actions": [],
     "cash_position": {
       "asset": "USD",
-      "confidence": 0.7,
-      "evidence_quote": "\"I'm saving 20% for better buying opportunities if we get them\"",
+      "confidence": 0.95,
+      "evidence_quote": "I'm saving 20% for better buying opportunities if we get them.",
       "instrument": "cash",
-      "size": "medium",
+      "size": "small",
       "weight_pct": null
     }
   },
@@ -2441,41 +2309,48 @@
     "calendar_date": "2025-12-21",
     "video_url": "https://www.youtube.com/watch?v=F6SXBzLeMZM",
     "transcript_path": "youtube/transcripts-top/crypto-currently/2025-12-21-it-s-time-to-pay-attention.md",
-    "extractor_confidence": 0.9,
+    "extractor_confidence": 0.85,
     "holdings": [
       {
-        "asset": "USD",
+        "asset": "BTC",
         "confidence": 0.9,
-        "evidence_quote": "I want to manage my risk to the best of my ability, which means buying a little bit on dips and selling during rallies so I can try to maintain some cash to take advantage of better buying opportunities in early 2026.",
-        "instrument": "cash",
-        "size": "medium",
+        "evidence_quote": "I did take some small profits on Bitcoin, Ethereum, and Salana to build up my cash position back to where I want it to be.",
+        "instrument": "spot",
+        "size": null,
+        "weight_pct": null
+      },
+      {
+        "asset": "ETH",
+        "confidence": 0.9,
+        "evidence_quote": "I did take some small profits on Bitcoin, Ethereum, and Salana to build up my cash position back to where I want it to be.",
+        "instrument": "spot",
+        "size": null,
+        "weight_pct": null
+      },
+      {
+        "asset": "SOL",
+        "confidence": 0.9,
+        "evidence_quote": "I did take some small profits on Bitcoin, Ethereum, and Salana to build up my cash position back to where I want it to be.",
+        "instrument": "spot",
+        "size": null,
         "weight_pct": null
       }
     ],
     "actions": [
       {
-        "asset": "BTC",
+        "asset": "OTHER:BTC|ETH|SOL",
         "confidence": 0.9,
         "direction": "SELL",
         "evidence_quote": "I did take some small profits on Bitcoin, Ethereum, and Salana to build up my cash position back to where I want it to be.",
-        "size_hint": null,
-        "weight_delta_pct": -10.0,
-        "when_relative": null
-      },
-      {
-        "asset": "BTC",
-        "confidence": 0.7,
-        "direction": "BUY",
-        "evidence_quote": "I would love to load up Bitcoin in the low 70,000s if given the opportunity.",
-        "size_hint": null,
-        "weight_delta_pct": 10.0,
-        "when_relative": null
+        "size_hint": "small",
+        "weight_delta_pct": null,
+        "when_relative": "this week"
       }
     ],
     "cash_position": {
       "asset": "USD",
       "confidence": 0.9,
-      "evidence_quote": "I want to manage my risk to the best of my ability, which means buying a little bit on dips and selling during rallies so I can try to maintain some cash to take advantage of better buying opportunities in early 2026.",
+      "evidence_quote": "I did take some small profits on Bitcoin, Ethereum, and Salana to build up my cash position back to where I want it to be.",
       "instrument": "cash",
       "size": "medium",
       "weight_pct": null
@@ -3252,24 +3127,24 @@
     "calendar_date": "2025-11-21",
     "video_url": "https://www.youtube.com/watch?v=JrjcNLs5MA4",
     "transcript_path": "youtube/transcripts-top/crypto-currently/2025-11-21-it-s-time-to-pay-attention.md",
-    "extractor_confidence": 0.8,
+    "extractor_confidence": 0.85,
     "holdings": [
       {
         "asset": "BTC",
         "confidence": 0.9,
-        "evidence_quote": "I'm holding some Bitcoin",
+        "evidence_quote": "I deployed some cash across my positions",
         "instrument": "spot",
-        "size": "medium",
+        "size": null,
         "weight_pct": null
       }
     ],
     "actions": [],
     "cash_position": {
       "asset": "USD",
-      "confidence": 0.7,
+      "confidence": 0.9,
       "evidence_quote": "I deployed some cash across my positions",
       "instrument": "cash",
-      "size": "medium",
+      "size": "small",
       "weight_pct": null
     }
   },
@@ -3556,14 +3431,14 @@
     "calendar_date": "2025-10-08",
     "video_url": "https://www.youtube.com/watch?v=MIkbPOm89sQ",
     "transcript_path": "youtube/transcripts-top/crypto-currently/undated-it-s-decision-time.md",
-    "extractor_confidence": 0.7,
+    "extractor_confidence": 0.85,
     "holdings": [
       {
-        "asset": "USD",
+        "asset": "BTC",
         "confidence": 0.9,
-        "evidence_quote": "I have to respect the risks of the 4-year cycle playing out and this time it not being different. So, I have a decent sized cash position from profits I've locked in along the way to protect me from that downside.",
-        "instrument": "cash",
-        "size": "medium",
+        "evidence_quote": "the majority of my portfolio is still in spot holdings I expect to go higher",
+        "instrument": "spot",
+        "size": null,
         "weight_pct": null
       }
     ],
@@ -3571,7 +3446,7 @@
     "cash_position": {
       "asset": "USD",
       "confidence": 0.9,
-      "evidence_quote": "I have to respect the risks of the 4-year cycle playing out and this time it not being different. So, I have a decent sized cash position from profits I've locked in along the way to protect me from that downside.",
+      "evidence_quote": "I have a decent sized cash position from profits I've locked in along the way to protect me",
       "instrument": "cash",
       "size": "medium",
       "weight_pct": null
@@ -3789,7 +3664,7 @@
     "calendar_date": "2026-03-19",
     "video_url": "https://www.youtube.com/watch?v=NiTx_NiThxI",
     "transcript_path": "youtube/transcripts-top/crypto-currently/undated-the-wall-of-worry.md",
-    "extractor_confidence": 0.7,
+    "extractor_confidence": 0.8,
     "holdings": [
       {
         "asset": "BTC",
@@ -3802,15 +3677,7 @@
       {
         "asset": "ETH",
         "confidence": 0.9,
-        "evidence_quote": "Ethereum is still chopping around between the major pivot level of 2,000 and its 200 week moving average at about 2450.",
-        "instrument": "spot",
-        "size": null,
-        "weight_pct": null
-      },
-      {
-        "asset": "SOL",
-        "confidence": 0.9,
-        "evidence_quote": "Salana is probably just going to follow what Ethereum and Bitcoin do.",
+        "evidence_quote": "Ethereum has entered the cheap region according to the onchain data.",
         "instrument": "spot",
         "size": null,
         "weight_pct": null
@@ -3822,19 +3689,12 @@
         "confidence": 0.9,
         "direction": "SELL",
         "evidence_quote": "I sold some Salana on Monday morning because my Salana position was larger than I wanted it to be relative to my Ethereum and Bitcoin positions.",
-        "size_hint": "trim",
+        "size_hint": null,
         "weight_delta_pct": null,
         "when_relative": "Monday morning"
       }
     ],
-    "cash_position": {
-      "asset": "USD",
-      "confidence": 0.5,
-      "evidence_quote": "I believe most of the investors that wanted to sell already have and Bitcoin already capitulated alongside software stocks.",
-      "instrument": "cash",
-      "size": null,
-      "weight_pct": null
-    }
+    "cash_position": null
   },
   "NmTLa8xcpMQ": {
     "video_id": "NmTLa8xcpMQ",
@@ -3842,40 +3702,13 @@
     "calendar_date": "2026-01-20",
     "video_url": "https://www.youtube.com/watch?v=NmTLa8xcpMQ",
     "transcript_path": "youtube/transcripts-top/crypto-currently/2026-01-20-it-s-happening-again.md",
-    "extractor_confidence": 0.85,
-    "holdings": [
-      {
-        "asset": "BTC",
-        "confidence": 0.9,
-        "evidence_quote": "\"I still have plenty of upside exposure in case this ends up being one major bear trap and because I have a long-term thesis on these assets.\"",
-        "instrument": "spot",
-        "size": "medium",
-        "weight_pct": null
-      },
-      {
-        "asset": "USD",
-        "confidence": 0.9,
-        "evidence_quote": "\"I still have my cash position where I want it to be in case we get some great buying opportunities in early 2026.\"",
-        "instrument": "cash",
-        "size": "medium",
-        "weight_pct": null
-      }
-    ],
-    "actions": [
-      {
-        "asset": "BTC",
-        "confidence": 0.7,
-        "direction": "BUY",
-        "evidence_quote": "\"I like to accumulate Bitcoin whenever it's in the cheap region. and accumulate aggressively if we get a chance to in the very cheap region knowing that isn't necessarily guaranteed to happen.\"",
-        "size_hint": null,
-        "weight_delta_pct": null,
-        "when_relative": null
-      }
-    ],
+    "extractor_confidence": 0.7,
+    "holdings": [],
+    "actions": [],
     "cash_position": {
       "asset": "USD",
       "confidence": 0.9,
-      "evidence_quote": "\"I still have my cash position where I want it to be in case we get some great buying opportunities in early 2026.\"",
+      "evidence_quote": "I still have my cash position where I want it to be in case we get some great buying opportunities in early 2026",
       "instrument": "cash",
       "size": "medium",
       "weight_pct": null
@@ -3994,30 +3827,30 @@
     "calendar_date": "2026-01-29",
     "video_url": "https://www.youtube.com/watch?v=O8zC-pjhIME",
     "transcript_path": "youtube/transcripts-top/crypto-currently/2026-01-29-i-can-t-believe-this.md",
-    "extractor_confidence": 0.9,
+    "extractor_confidence": 0.85,
     "holdings": [
       {
         "asset": "BTC",
         "confidence": 0.9,
-        "evidence_quote": "I have a large enough cash position to navigate short-term volatility and take advantage of buying opportunities, but I also have enough spot exposure to take advantage of upside.",
+        "evidence_quote": "I have a large enough cash position to navigate short-term volatility and take advantage of buying opportunities, but I also have enough spot exposure to take advantage of upside and make sure I'm positioned for my long-term thesis.",
         "instrument": "spot",
-        "size": "large",
+        "size": null,
         "weight_pct": null
       },
       {
         "asset": "ETH",
-        "confidence": 0.9,
-        "evidence_quote": "I rotated some more Ethereum and Salana into Bitcoin on Monday morning and I will keep doing so until I get to my desired allocations.",
+        "confidence": 0.7,
+        "evidence_quote": "I rotated some more Ethereum and Salana into Bitcoin on Monday morning and I will keep doing so until I get to my desired allocations",
         "instrument": "spot",
-        "size": "medium",
+        "size": null,
         "weight_pct": null
       },
       {
         "asset": "SOL",
-        "confidence": 0.9,
-        "evidence_quote": "I rotated some more Ethereum and Salana into Bitcoin on Monday morning and I will keep doing so until I get to my desired allocations.",
+        "confidence": 0.7,
+        "evidence_quote": "I rotated some more Ethereum and Salana into Bitcoin on Monday morning and I will keep doing so until I get to my desired allocations",
         "instrument": "spot",
-        "size": "medium",
+        "size": null,
         "weight_pct": null
       }
     ],
@@ -4025,17 +3858,17 @@
       {
         "asset": "BTC",
         "confidence": 0.9,
-        "direction": "ROTATE_TO",
-        "evidence_quote": "I rotated some more Ethereum and Salana into Bitcoin on Monday morning and I will keep doing so until I get to my desired allocations.",
+        "direction": "BUY",
+        "evidence_quote": "I rotated some more Ethereum and Salana into Bitcoin on Monday morning and I will keep doing so until I get to my desired allocations",
         "size_hint": null,
         "weight_delta_pct": null,
-        "when_relative": "Monday morning"
+        "when_relative": "until I get to my desired allocations"
       },
       {
         "asset": "ETH",
         "confidence": 0.9,
-        "direction": "ROTATE_TO",
-        "evidence_quote": "I rotated some more Ethereum and Salana into Bitcoin on Monday morning and I will keep doing so until I get to my desired allocations.",
+        "direction": "ROTATE_FROM",
+        "evidence_quote": "I rotated some more Ethereum and Salana into Bitcoin on Monday morning",
         "size_hint": null,
         "weight_delta_pct": null,
         "when_relative": "Monday morning"
@@ -4043,8 +3876,8 @@
       {
         "asset": "SOL",
         "confidence": 0.9,
-        "direction": "ROTATE_TO",
-        "evidence_quote": "I rotated some more Ethereum and Salana into Bitcoin on Monday morning and I will keep doing so until I get to my desired allocations.",
+        "direction": "ROTATE_FROM",
+        "evidence_quote": "I rotated some more Ethereum and Salana into Bitcoin on Monday morning",
         "size_hint": null,
         "weight_delta_pct": null,
         "when_relative": "Monday morning"
@@ -4053,7 +3886,7 @@
     "cash_position": {
       "asset": "USD",
       "confidence": 0.9,
-      "evidence_quote": "I have a large enough cash position to navigate short-term volatility and take advantage of buying opportunities, but I also have enough spot exposure to take advantage of upside.",
+      "evidence_quote": "I have a large enough cash position to navigate short-term volatility and take advantage of buying opportunities",
       "instrument": "cash",
       "size": "large",
       "weight_pct": null
@@ -4234,12 +4067,12 @@
     "calendar_date": "2025-12-21",
     "video_url": "https://www.youtube.com/watch?v=OYZzS7QBOc0",
     "transcript_path": "youtube/transcripts-top/crypto-currently/2025-12-21-it-s-almost-there.md",
-    "extractor_confidence": 0.9,
+    "extractor_confidence": 0.8,
     "holdings": [
       {
         "asset": "BTC",
         "confidence": 0.9,
-        "evidence_quote": "I'm saving some of my cash position for that cheap region. And I'm saving the majority of it in case we revisit that very cheap region.",
+        "evidence_quote": "I'm saving some of my cash position for that cheap region.",
         "instrument": "spot",
         "size": null,
         "weight_pct": null
@@ -4250,16 +4083,16 @@
         "asset": "BTC",
         "confidence": 0.9,
         "direction": "BUY",
-        "evidence_quote": "I'm saving some of my cash position for that cheap region. And I'm saving the majority of it in case we revisit that very cheap region.",
+        "evidence_quote": "I'm saving some of my cash position for that cheap region.",
         "size_hint": null,
         "weight_delta_pct": null,
-        "when_relative": null
+        "when_relative": "null"
       }
     ],
     "cash_position": {
       "asset": "USD",
       "confidence": 0.9,
-      "evidence_quote": "I'm saving some of my cash position for that cheap region. And I'm saving the majority of it in case we revisit that very cheap region.",
+      "evidence_quote": "I'm saving some of my cash position for that cheap region.",
       "instrument": "cash",
       "size": "medium",
       "weight_pct": null
@@ -4723,28 +4556,28 @@
     "holdings": [
       {
         "asset": "BTC",
-        "confidence": 0.9,
-        "evidence_quote": "I still have a decent sized cash position because I do still believe there's quite a bit of risk to the downside and I want dry powder to take advantage of lower prices.",
+        "confidence": 1.0,
+        "evidence_quote": "But I feel much better having 70% spot exposure to take advantage of upside and take profits on the way up.",
         "instrument": "spot",
-        "size": "large",
+        "size": null,
         "weight_pct": 70.0
       },
       {
         "asset": "USD",
-        "confidence": 0.9,
-        "evidence_quote": "I still have a decent sized cash position because I do still believe there's quite a bit of risk to the downside and I want dry powder to take advantage of lower prices.",
+        "confidence": 1.0,
+        "evidence_quote": "But I still have a decent sized cash position because I do still believe there's quite a bit of risk to the downside and I want dry powder to take advantage of lower prices.",
         "instrument": "cash",
-        "size": "medium",
+        "size": null,
         "weight_pct": 30.0
       }
     ],
     "actions": [],
     "cash_position": {
       "asset": "USD",
-      "confidence": 0.9,
-      "evidence_quote": "I still have a decent sized cash position because I do still believe there's quite a bit of risk to the downside and I want dry powder to take advantage of lower prices.",
+      "confidence": 1.0,
+      "evidence_quote": "But I still have a decent sized cash position because I do still believe there's quite a bit of risk to the downside and I want dry powder to take advantage of lower prices.",
       "instrument": "cash",
-      "size": "medium",
+      "size": null,
       "weight_pct": 30.0
     }
   },
@@ -4801,14 +4634,14 @@
     "calendar_date": "2025-10-16",
     "video_url": "https://www.youtube.com/watch?v=TSg8uP7m00E",
     "transcript_path": "youtube/transcripts-top/crypto-currently/undated-are-you-ready.md",
-    "extractor_confidence": 0.9,
+    "extractor_confidence": 0.8,
     "holdings": [
       {
         "asset": "BTC",
         "confidence": 0.9,
         "evidence_quote": "I did deploy some cash into Bitcoin, Ethereum, and Salana on Monday morning",
         "instrument": "spot",
-        "size": "medium",
+        "size": null,
         "weight_pct": null
       },
       {
@@ -4816,7 +4649,7 @@
         "confidence": 0.9,
         "evidence_quote": "I did deploy some cash into Bitcoin, Ethereum, and Salana on Monday morning",
         "instrument": "spot",
-        "size": "medium",
+        "size": null,
         "weight_pct": null
       },
       {
@@ -4824,45 +4657,27 @@
         "confidence": 0.9,
         "evidence_quote": "I did deploy some cash into Bitcoin, Ethereum, and Salana on Monday morning",
         "instrument": "spot",
-        "size": "medium",
+        "size": null,
         "weight_pct": null
       }
     ],
     "actions": [
       {
-        "asset": "BTC",
+        "asset": "OTHER:BTC|ETH|SOL",
         "confidence": 0.9,
         "direction": "BUY",
         "evidence_quote": "I did deploy some cash into Bitcoin, Ethereum, and Salana on Monday morning",
-        "size_hint": "small",
-        "weight_delta_pct": null,
-        "when_relative": "Monday morning"
-      },
-      {
-        "asset": "ETH",
-        "confidence": 0.9,
-        "direction": "BUY",
-        "evidence_quote": "I did deploy some cash into Bitcoin, Ethereum, and Salana on Monday morning",
-        "size_hint": "small",
-        "weight_delta_pct": null,
-        "when_relative": "Monday morning"
-      },
-      {
-        "asset": "SOL",
-        "confidence": 0.9,
-        "direction": "BUY",
-        "evidence_quote": "I did deploy some cash into Bitcoin, Ethereum, and Salana on Monday morning",
-        "size_hint": "small",
+        "size_hint": null,
         "weight_delta_pct": null,
         "when_relative": "Monday morning"
       }
     ],
     "cash_position": {
       "asset": "USD",
-      "confidence": 0.9,
+      "confidence": 0.7,
       "evidence_quote": "I did deploy some cash into Bitcoin, Ethereum, and Salana on Monday morning",
       "instrument": "cash",
-      "size": "medium",
+      "size": null,
       "weight_pct": null
     }
   },
@@ -5238,19 +5053,29 @@
       {
         "asset": "BTC",
         "confidence": 0.9,
-        "evidence_quote": "\"I bought more Bitcoin on Monday morning.\"",
+        "evidence_quote": "I bought more Bitcoin on Monday morning.",
         "instrument": "spot",
-        "size": "large",
+        "size": null,
         "weight_pct": null
       }
     ],
-    "actions": [],
+    "actions": [
+      {
+        "asset": "BTC",
+        "confidence": 0.9,
+        "direction": "BUY",
+        "evidence_quote": "I bought more Bitcoin on Monday morning.",
+        "size_hint": "some",
+        "weight_delta_pct": null,
+        "when_relative": "Monday morning"
+      }
+    ],
     "cash_position": {
       "asset": "USD",
       "confidence": 0.7,
-      "evidence_quote": "\"I am taking advantage of this sell-off into the cheap region and this major support level while we have it.\"",
+      "evidence_quote": "I will also save some cash in case we do get an opportunity to buy in the blue, very cheap region at some point in 2026.",
       "instrument": "cash",
-      "size": "medium",
+      "size": "small",
       "weight_pct": null
     }
   },
@@ -5395,66 +5220,48 @@
     "calendar_date": "2025-12-21",
     "video_url": "https://www.youtube.com/watch?v=X5VBwjMhB6A",
     "transcript_path": "youtube/transcripts-top/crypto-currently/2025-12-21-don-t-mess-this-up.md",
-    "extractor_confidence": 0.9,
+    "extractor_confidence": 0.7,
     "holdings": [
       {
         "asset": "BTC",
         "confidence": 0.9,
-        "evidence_quote": "I sold some Bitcoin, Ethereum, and Salana on Monday morning because although I still expect this relief rally to head higher, I know I won't be able to time things perfectly.",
+        "evidence_quote": "I sold some Bitcoin, Ethereum, and Salana on Monday morning",
         "instrument": "spot",
-        "size": "medium",
+        "size": null,
         "weight_pct": null
       },
       {
         "asset": "ETH",
         "confidence": 0.9,
-        "evidence_quote": "I sold some Bitcoin, Ethereum, and Salana on Monday morning because although I still expect this relief rally to head higher, I know I won't be able to time things perfectly.",
+        "evidence_quote": "I sold some Bitcoin, Ethereum, and Salana on Monday morning",
         "instrument": "spot",
-        "size": "medium",
+        "size": null,
         "weight_pct": null
       },
       {
         "asset": "SOL",
         "confidence": 0.9,
-        "evidence_quote": "I sold some Bitcoin, Ethereum, and Salana on Monday morning because although I still expect this relief rally to head higher, I know I won't be able to time things perfectly.",
+        "evidence_quote": "I sold some Bitcoin, Ethereum, and Salana on Monday morning",
         "instrument": "spot",
-        "size": "medium",
+        "size": null,
         "weight_pct": null
       }
     ],
     "actions": [
       {
-        "asset": "BTC",
-        "confidence": 1.0,
+        "asset": "OTHER:BTC|ETH|SOL",
+        "confidence": 0.9,
         "direction": "SELL",
-        "evidence_quote": "I sold some Bitcoin, Ethereum, and Salana on Monday morning because although I still expect this relief rally to head higher, I know I won't be able to time things perfectly.",
-        "size_hint": "trim",
-        "weight_delta_pct": -30.0,
-        "when_relative": "Monday morning"
-      },
-      {
-        "asset": "ETH",
-        "confidence": 1.0,
-        "direction": "SELL",
-        "evidence_quote": "I sold some Bitcoin, Ethereum, and Salana on Monday morning because although I still expect this relief rally to head higher, I know I won't be able to time things perfectly.",
-        "size_hint": "trim",
-        "weight_delta_pct": -30.0,
-        "when_relative": "Monday morning"
-      },
-      {
-        "asset": "SOL",
-        "confidence": 1.0,
-        "direction": "SELL",
-        "evidence_quote": "I sold some Bitcoin, Ethereum, and Salana on Monday morning because although I still expect this relief rally to head higher, I know I won't be able to time things perfectly.",
-        "size_hint": "trim",
-        "weight_delta_pct": -30.0,
+        "evidence_quote": "I sold some Bitcoin, Ethereum, and Salana on Monday morning",
+        "size_hint": null,
+        "weight_delta_pct": null,
         "when_relative": "Monday morning"
       }
     ],
     "cash_position": {
       "asset": "USD",
-      "confidence": 0.9,
-      "evidence_quote": "I sold some Bitcoin, Ethereum, and Salana on Monday morning because although I still expect this relief rally to head higher, I know I won't be able to time things perfectly.",
+      "confidence": 0.8,
+      "evidence_quote": "I'm trying to hold on to my cash position for better opportunities",
       "instrument": "cash",
       "size": "medium",
       "weight_pct": null
@@ -5466,51 +5273,24 @@
     "calendar_date": "2026-04-15",
     "video_url": "https://www.youtube.com/watch?v=XJanourvjpI",
     "transcript_path": "youtube/transcripts-top/crypto-currently/undated-it-s-looking-good.md",
-    "extractor_confidence": 0.8,
+    "extractor_confidence": 0.85,
     "holdings": [
       {
         "asset": "BTC",
         "confidence": 0.9,
         "evidence_quote": "I have plenty of spot exposure for upside because I am long-term bullish on this asset class",
         "instrument": "spot",
-        "size": "large",
-        "weight_pct": null
-      },
-      {
-        "asset": "MSTR",
-        "confidence": 0.7,
-        "evidence_quote": "I still have some dry powder set aside in case we do end up getting the traditional Bitcoin bear market with a 70% decline or a black swan event that takes markets a lot lower than I currently expect.",
-        "instrument": "spot",
-        "size": "small",
+        "size": null,
         "weight_pct": null
       }
     ],
-    "actions": [
-      {
-        "asset": "BTC",
-        "confidence": 0.9,
-        "direction": "BUY",
-        "evidence_quote": "I have plenty of spot exposure for upside because I am long-term bullish on this asset class",
-        "size_hint": null,
-        "weight_delta_pct": null,
-        "when_relative": null
-      },
-      {
-        "asset": "MSTR",
-        "confidence": 0.7,
-        "direction": "BUY",
-        "evidence_quote": "I still have some dry powder set aside in case we do end up getting the traditional Bitcoin bear market with a 70% decline or a black swan event that takes markets a lot lower than I currently expect.",
-        "size_hint": null,
-        "weight_delta_pct": null,
-        "when_relative": null
-      }
-    ],
+    "actions": [],
     "cash_position": {
       "asset": "USD",
-      "confidence": 0.7,
-      "evidence_quote": "I still have some dry powder set aside in case we do end up getting the traditional Bitcoin bear market with a 70% decline or a black swan event that takes markets a lot lower than I currently expect.",
+      "confidence": 0.9,
+      "evidence_quote": "I still have some dry powder set aside in case we do end up getting some of those better buying opportunities later in the year",
       "instrument": "cash",
-      "size": "medium",
+      "size": "small",
       "weight_pct": null
     }
   },
@@ -5625,53 +5405,10 @@
     "calendar_date": "2026-01-20",
     "video_url": "https://www.youtube.com/watch?v=XNcqNO4kzys",
     "transcript_path": "youtube/transcripts-top/crypto-currently/2026-01-20-it-s-decision-time.md",
-    "extractor_confidence": 0.8,
-    "holdings": [
-      {
-        "asset": "BTC",
-        "confidence": 0.9,
-        "evidence_quote": "I have plenty of spot exposure to take advantage of relief rallies and upside, but I also have plenty of dry powder to take advantage of accumulation opportunities and dips.",
-        "instrument": "spot",
-        "size": null,
-        "weight_pct": null
-      },
-      {
-        "asset": "USD",
-        "confidence": 0.7,
-        "evidence_quote": "I also have plenty of dry powder to take advantage of accumulation opportunities and dips.",
-        "instrument": "cash",
-        "size": "medium",
-        "weight_pct": 30.0
-      }
-    ],
-    "actions": [
-      {
-        "asset": "BTC",
-        "confidence": 0.7,
-        "direction": "BUY",
-        "evidence_quote": "I do expect that to happen sometime in the near future. And it's likely going to align with Bitcoin's relief rally.",
-        "size_hint": null,
-        "weight_delta_pct": -10.0,
-        "when_relative": null
-      },
-      {
-        "asset": "BTC",
-        "confidence": 0.7,
-        "direction": "SELL",
-        "evidence_quote": "I'm looking to take profits.",
-        "size_hint": null,
-        "weight_delta_pct": 10.0,
-        "when_relative": null
-      }
-    ],
-    "cash_position": {
-      "asset": "USD",
-      "confidence": 0.7,
-      "evidence_quote": "I also have plenty of dry powder to take advantage of accumulation opportunities and dips.",
-      "instrument": "cash",
-      "size": "medium",
-      "weight_pct": 30.0
-    }
+    "extractor_confidence": 0.1,
+    "holdings": [],
+    "actions": [],
+    "cash_position": null
   },
   "Xb6Gn4ua8X8": {
     "video_id": "Xb6Gn4ua8X8",
@@ -5697,32 +5434,32 @@
     "calendar_date": "2026-04-08",
     "video_url": "https://www.youtube.com/watch?v=XbnhhVRADXM",
     "transcript_path": "youtube/transcripts-top/crypto-currently/undated-it-s-finally-happening.md",
-    "extractor_confidence": 0.9,
+    "extractor_confidence": 1.0,
     "holdings": [
       {
         "asset": "BTC",
-        "confidence": 0.9,
+        "confidence": 1.0,
         "evidence_quote": "I have 80% exposure as of right now.",
         "instrument": "spot",
-        "size": "large",
+        "size": null,
         "weight_pct": 80.0
       },
       {
         "asset": "USD",
-        "confidence": 0.9,
-        "evidence_quote": "I'm saving this 20% cash position for lower prices or for more confirmation that the bottom is in.",
+        "confidence": 1.0,
+        "evidence_quote": "saving this 20% cash position for lower prices or for more confirmation that the bottom is in",
         "instrument": "cash",
-        "size": "medium",
+        "size": null,
         "weight_pct": 20.0
       }
     ],
     "actions": [],
     "cash_position": {
       "asset": "USD",
-      "confidence": 0.9,
-      "evidence_quote": "I'm saving this 20% cash position for lower prices or for more confirmation that the bottom is in.",
+      "confidence": 1.0,
+      "evidence_quote": "saving this 20% cash position for lower prices or for more confirmation that the bottom is in",
       "instrument": "cash",
-      "size": "medium",
+      "size": null,
       "weight_pct": 20.0
     }
   },
@@ -5988,7 +5725,7 @@
   "_1c70oAJGEA": {
     "video_id": "_1c70oAJGEA",
     "title": "We Finally Made It",
-    "calendar_date": null,
+    "calendar_date": "2024-09-04",
     "video_url": "https://www.youtube.com/watch?v=_1c70oAJGEA",
     "transcript_path": "youtube/transcripts-top/crypto-currently/undated-we-finally-made-it-_1c70oAJGEA.md",
     "extractor_confidence": 0.5,
@@ -5999,7 +5736,7 @@
   "_6Ebv_jkE00": {
     "video_id": "_6Ebv_jkE00",
     "title": "Nothing Has Changed",
-    "calendar_date": null,
+    "calendar_date": "2025-01-08",
     "video_url": "https://www.youtube.com/watch?v=_6Ebv_jkE00",
     "transcript_path": "youtube/transcripts-top/crypto-currently/undated-nothing-has-changed.md",
     "extractor_confidence": 0.7,
@@ -6036,7 +5773,7 @@
   "_ToSDu2Rrqc": {
     "video_id": "_ToSDu2Rrqc",
     "title": "The Inflection Point",
-    "calendar_date": null,
+    "calendar_date": "2024-07-20",
     "video_url": "https://www.youtube.com/watch?v=_ToSDu2Rrqc",
     "transcript_path": "youtube/transcripts-top/crypto-currently/undated-the-inflection-point.md",
     "extractor_confidence": 0.9,
@@ -6090,7 +5827,7 @@
   "_afCZm2vI94": {
     "video_id": "_afCZm2vI94",
     "title": "It Finally Happened",
-    "calendar_date": null,
+    "calendar_date": "2025-02-04",
     "video_url": "https://www.youtube.com/watch?v=_afCZm2vI94",
     "transcript_path": "youtube/transcripts-top/crypto-currently/undated-it-finally-happened-_afCZm2vI94.md",
     "extractor_confidence": 0.8,
@@ -6168,9 +5905,9 @@
       {
         "asset": "BTC",
         "confidence": 0.9,
-        "evidence_quote": "\"Over the next few weeks, I'm going to be slowly deploying cash and buying Bitcoin while we're in this region\"",
+        "evidence_quote": "Over the next few weeks, I'm going to be slowly deploying cash and buying Bitcoin while we're in this region",
         "instrument": "spot",
-        "size": "medium",
+        "size": null,
         "weight_pct": null
       }
     ],
@@ -6179,16 +5916,16 @@
         "asset": "BTC",
         "confidence": 0.9,
         "direction": "BUY",
-        "evidence_quote": "\"I bought some Bitcoin on Monday morning\"",
-        "size_hint": "small",
+        "evidence_quote": "But I did not buy any Ethereum or Salana because those allocations are already as high as I want them to be for this current market environment.",
+        "size_hint": null,
         "weight_delta_pct": null,
-        "when_relative": "Monday morning"
+        "when_relative": "Monday morning|this week"
       }
     ],
     "cash_position": {
       "asset": "USD",
       "confidence": 0.8,
-      "evidence_quote": "\"I'm going to be slowly deploying cash and buying Bitcoin while we're in this region\"",
+      "evidence_quote": "Over the next few weeks, I'm going to be slowly deploying cash and buying Bitcoin while we're in this region",
       "instrument": "cash",
       "size": "medium",
       "weight_pct": null
@@ -6277,19 +6014,29 @@
       {
         "asset": "BTC",
         "confidence": 0.9,
-        "evidence_quote": "\"I bought more Bitcoin on Monday morning.\"",
+        "evidence_quote": "I bought more Bitcoin on Monday morning.",
         "instrument": "spot",
-        "size": "medium",
+        "size": null,
         "weight_pct": null
       }
     ],
-    "actions": [],
+    "actions": [
+      {
+        "asset": "BTC",
+        "confidence": 0.9,
+        "direction": "BUY",
+        "evidence_quote": "I bought more Bitcoin on Monday morning.",
+        "size_hint": "some",
+        "weight_delta_pct": null,
+        "when_relative": "Monday morning"
+      }
+    ],
     "cash_position": {
       "asset": "USD",
       "confidence": 0.7,
-      "evidence_quote": "\"I will save some cash just in case that outcome happens, but I don't want to rely too heavily on it.\"",
+      "evidence_quote": "I will save some cash just in case that outcome happens",
       "instrument": "cash",
-      "size": "medium",
+      "size": "small",
       "weight_pct": null
     }
   },
@@ -6299,34 +6046,24 @@
     "calendar_date": "2025-11-21",
     "video_url": "https://www.youtube.com/watch?v=bNNM3swr8e8",
     "transcript_path": "youtube/transcripts-top/crypto-currently/2025-11-21-i-can-t-believe-it.md",
-    "extractor_confidence": 0.9,
+    "extractor_confidence": 0.85,
     "holdings": [
       {
         "asset": "BTC",
         "confidence": 0.9,
-        "evidence_quote": "I have this cash position to take advantage of that short-term opportunity and perhaps even accumulate at lower prices, but the majority of my portfolio is still in spot holdings because I believe the medium-term trend for global liquidity ",
+        "evidence_quote": "the majority of my portfolio is still in spot holdings because I believe the medium-term trend for global liquidity and risk assets is clear",
         "instrument": "spot",
-        "size": "medium",
+        "size": null,
         "weight_pct": null
       }
     ],
-    "actions": [
-      {
-        "asset": "BTC",
-        "confidence": 0.7,
-        "direction": "BUY",
-        "evidence_quote": "I have this cash position to take advantage of that short-term opportunity and perhaps even accumulate at lower prices.",
-        "size_hint": null,
-        "weight_delta_pct": null,
-        "when_relative": null
-      }
-    ],
+    "actions": [],
     "cash_position": {
       "asset": "USD",
       "confidence": 0.9,
-      "evidence_quote": "I have this cash position to take advantage of that short-term opportunity and perhaps even accumulate at lower prices, but the majority of my portfolio is still in spot holdings because I believe the medium-term trend for global liquidity ",
+      "evidence_quote": "I have this cash position to take advantage of that short-term opportunity and perhaps even accumulate at lower prices",
       "instrument": "cash",
-      "size": "medium",
+      "size": null,
       "weight_pct": null
     }
   },
@@ -6373,34 +6110,25 @@
     "calendar_date": "2026-01-22",
     "video_url": "https://www.youtube.com/watch?v=cA0U8O7lgLw",
     "transcript_path": "youtube/transcripts-top/crypto-currently/2026-01-22-it-s-so-close.md",
-    "extractor_confidence": 0.8,
-    "holdings": [
+    "extractor_confidence": 0.7,
+    "holdings": [],
+    "actions": [
       {
         "asset": "BTC",
         "confidence": 0.9,
-        "evidence_quote": "\"I rotated some Ethereum and Salana into Bitcoin on Monday when Bitcoin broke its market structure back in November\"",
-        "instrument": "spot",
-        "size": "medium",
-        "weight_pct": null
-      }
-    ],
-    "actions": [
-      {
-        "asset": "OTHER:ETH|SOL|ADA|AVAX|LINK|DOGE|XRP|MSTR",
-        "confidence": 0.9,
-        "direction": "SELL",
-        "evidence_quote": "\"I rotated some Ethereum and Salana into Bitcoin on Monday when Bitcoin broke its market structure back in November\"",
+        "direction": "ROTATE_TO",
+        "evidence_quote": "I rotated some Ethereum and Salana into Bitcoin on Monday when Bitcoin broke its market structure back in November.",
         "size_hint": null,
-        "weight_delta_pct": -50.0,
-        "when_relative": null
+        "weight_delta_pct": null,
+        "when_relative": "Monday morning"
       }
     ],
     "cash_position": {
       "asset": "USD",
-      "confidence": 0.7,
-      "evidence_quote": "\"Is it possible that the low is in? It definitely is a possibility. I just think it's less likely than the chances of us going lower and finding buyers at lower prices.\"",
+      "confidence": 0.5,
+      "evidence_quote": "But unfortunately, we're also seeing a major slowdown on the demand side in terms of how much Bitcoin these treasury companies are buying.",
       "instrument": "cash",
-      "size": "medium",
+      "size": null,
       "weight_pct": null
     }
   },
@@ -6499,21 +6227,21 @@
     "calendar_date": "2026-05-06",
     "video_url": "https://www.youtube.com/watch?v=cWxt74ARhWo",
     "transcript_path": "youtube/transcripts-top/crypto-currently/undated-i-can-t-believe-this.md",
-    "extractor_confidence": 0.9,
+    "extractor_confidence": 0.8,
     "holdings": [
       {
         "asset": "BTC",
         "confidence": 0.9,
-        "evidence_quote": "\"I want to have 80% spot exposure for upside in case that was the lowest price is going to go.\"",
+        "evidence_quote": "I want to have 80% spot exposure for upside in case that was the lowest price is going to go.",
         "instrument": "spot",
-        "size": "large",
+        "size": null,
         "weight_pct": null
       },
       {
-        "asset": "MSTR",
-        "confidence": 0.7,
-        "evidence_quote": "\"MSTR itself, it is struggling to maintain above its old range high at that pivotal $180 level that was a resistance for most of 2024 and now here a lot of 2026.\"",
-        "instrument": "spot",
+        "asset": "USD",
+        "confidence": 0.9,
+        "evidence_quote": "I do have this dry powder on the sidelines in case we do end up getting that better buying opportunity later in the year.",
+        "instrument": "cash",
         "size": "small",
         "weight_pct": null
       }
@@ -6521,29 +6249,38 @@
     "actions": [
       {
         "asset": "BTC",
-        "confidence": 0.9,
-        "direction": "BUY",
-        "evidence_quote": "\"I want to have 80% spot exposure for upside in case that was the lowest price is going to go.\"",
+        "confidence": 0.5,
+        "direction": "TRIM",
+        "evidence_quote": "I'm going to have to rotate them to Bitcoin until they actually prove that they deserve a place in my portfolio.",
         "size_hint": null,
         "weight_delta_pct": null,
         "when_relative": null
       },
       {
-        "asset": "MSTR",
-        "confidence": 0.7,
-        "direction": "SELL",
-        "evidence_quote": "\"MSTR itself, it is struggling to maintain above its old range high at that pivotal $180 level that was a resistance for most of 2024 and now here a lot of 2026.\"",
+        "asset": "ETH",
+        "confidence": 0.5,
+        "direction": "ROTATE_FROM",
+        "evidence_quote": "I may have to rotate some of my Ethereum holdings into Bitcoin until Ethereum shows us some strength and gets back above some of these major moving averages.",
         "size_hint": null,
-        "weight_delta_pct": -20.0,
+        "weight_delta_pct": null,
+        "when_relative": null
+      },
+      {
+        "asset": "BTC",
+        "confidence": 0.5,
+        "direction": "ROTATE_TO",
+        "evidence_quote": "I may have to rotate some of my Ethereum holdings into Bitcoin until Ethereum shows us some strength and gets back above some of these major moving averages.",
+        "size_hint": null,
+        "weight_delta_pct": null,
         "when_relative": null
       }
     ],
     "cash_position": {
       "asset": "USD",
-      "confidence": 0.8,
-      "evidence_quote": "\"I do have this dry powder on the sidelines in case we do end up getting that better buying opportunity later in the year.\"",
+      "confidence": 0.9,
+      "evidence_quote": "I do have this dry powder on the sidelines in case we do end up getting that better buying opportunity later in the year.",
       "instrument": "cash",
-      "size": "medium",
+      "size": "small",
       "weight_pct": null
     }
   },
@@ -6679,34 +6416,34 @@
     "calendar_date": "2026-03-11",
     "video_url": "https://www.youtube.com/watch?v=eDEn_xuIFFY",
     "transcript_path": "youtube/transcripts-top/crypto-currently/undated-this-can-t-be-ignored.md",
-    "extractor_confidence": 0.8,
+    "extractor_confidence": 0.9,
     "holdings": [
       {
         "asset": "BTC",
-        "confidence": 0.9,
+        "confidence": 0.95,
         "evidence_quote": "I bought more Bitcoin on Monday morning just like I have been over the past few weeks.",
         "instrument": "spot",
-        "size": "medium",
+        "size": null,
         "weight_pct": null
       }
     ],
     "actions": [
       {
         "asset": "BTC",
-        "confidence": 0.9,
+        "confidence": 0.95,
         "direction": "BUY",
         "evidence_quote": "I bought more Bitcoin on Monday morning just like I have been over the past few weeks.",
-        "size_hint": "small",
+        "size_hint": null,
         "weight_delta_pct": null,
-        "when_relative": "Monday morning"
+        "when_relative": "Monday morning|this week"
       }
     ],
     "cash_position": {
       "asset": "USD",
-      "confidence": 0.7,
+      "confidence": 0.85,
       "evidence_quote": "I'll be happy I took advantage of this discount while I had it.",
       "instrument": "cash",
-      "size": "medium",
+      "size": null,
       "weight_pct": null
     }
   },
@@ -6815,17 +6552,10 @@
     "calendar_date": "2025-11-21",
     "video_url": "https://www.youtube.com/watch?v=fpmMZ2F15-4",
     "transcript_path": "youtube/transcripts-top/crypto-currently/2025-11-21-it-s-finally-ending.md",
-    "extractor_confidence": 0.8,
+    "extractor_confidence": 0.1,
     "holdings": [],
     "actions": [],
-    "cash_position": {
-      "asset": "USD",
-      "confidence": 0.7,
-      "evidence_quote": "I made no changes to my portfolio because Bitcoin is still closing above its 50week moving average.",
-      "instrument": "cash",
-      "size": "medium",
-      "weight_pct": null
-    }
+    "cash_position": null
   },
   "gJz67GVoBBE": {
     "video_id": "gJz67GVoBBE",
@@ -6887,52 +6617,63 @@
     "calendar_date": "2025-12-21",
     "video_url": "https://www.youtube.com/watch?v=h_Zk4fDDcSY",
     "transcript_path": "youtube/transcripts-top/crypto-currently/2025-12-21-the-relief-rally.md",
-    "extractor_confidence": 0.8,
+    "extractor_confidence": 0.85,
     "holdings": [
       {
         "asset": "BTC",
         "confidence": 0.9,
-        "evidence_quote": "\"I bought the dip on Bitcoin\"",
+        "evidence_quote": "I bought the dip on Bitcoin, Salana, and Ethereum because I couldn't help but buy when I saw that much fear and uncertainty among market participants.",
         "instrument": "spot",
-        "size": "medium",
+        "size": null,
         "weight_pct": null
       },
       {
         "asset": "ETH",
         "confidence": 0.9,
-        "evidence_quote": "\"I bought the dip on Bitcoin, Salana, and Ethereum\"",
+        "evidence_quote": "I bought the dip on Bitcoin, Salana, and Ethereum because I couldn't help but buy when I saw that much fear and uncertainty among market participants.",
         "instrument": "spot",
-        "size": "medium",
+        "size": null,
         "weight_pct": null
       },
       {
         "asset": "SOL",
-        "confidence": 0.7,
-        "evidence_quote": "\"Salana is doing a pretty good job of holding on to its range low as well\"",
+        "confidence": 0.9,
+        "evidence_quote": "I bought the dip on Bitcoin, Salana, and Ethereum because I couldn't help but buy when I saw that much fear and uncertainty among market participants.",
         "instrument": "spot",
-        "size": "small",
+        "size": null,
         "weight_pct": null
       }
     ],
     "actions": [
       {
         "asset": "BTC",
-        "confidence": 0.7,
+        "confidence": 0.9,
         "direction": "BUY",
-        "evidence_quote": "\"whatever changes I end up making this upcoming Monday, I'll definitely try to go into more detail in that free weekly report\"",
-        "size_hint": "trim",
+        "evidence_quote": "I bought the dip on Bitcoin, Salana, and Ethereum because I couldn't help but buy when I saw that much fear and uncertainty among market participants.",
+        "size_hint": null,
         "weight_delta_pct": null,
-        "when_relative": "Monday morning"
+        "when_relative": "this week"
+      },
+      {
+        "asset": "ETH",
+        "confidence": 0.9,
+        "direction": "BUY",
+        "evidence_quote": "I bought the dip on Bitcoin, Salana, and Ethereum because I couldn't help but buy when I saw that much fear and uncertainty among market participants.",
+        "size_hint": null,
+        "weight_delta_pct": null,
+        "when_relative": "this week"
+      },
+      {
+        "asset": "SOL",
+        "confidence": 0.9,
+        "direction": "BUY",
+        "evidence_quote": "I bought the dip on Bitcoin, Salana, and Ethereum because I couldn't help but buy when I saw that much fear and uncertainty among market participants.",
+        "size_hint": null,
+        "weight_delta_pct": null,
+        "when_relative": "this week"
       }
     ],
-    "cash_position": {
-      "asset": "USD",
-      "confidence": 0.5,
-      "evidence_quote": "\"I believe this global liquidity index macro breakout will continue in the long term\"",
-      "instrument": "cash",
-      "size": "medium",
-      "weight_pct": null
-    }
+    "cash_position": null
   },
   "iZRCv_p2DQc": {
     "video_id": "iZRCv_p2DQc",
@@ -7067,42 +6808,42 @@
     "calendar_date": "2025-10-11",
     "video_url": "https://www.youtube.com/watch?v=jL2T8npCjv4",
     "transcript_path": "youtube/transcripts-top/crypto-currently/undated-the-full-reset.md",
-    "extractor_confidence": 0.7,
+    "extractor_confidence": 0.85,
     "holdings": [
       {
         "asset": "BTC",
         "confidence": 0.9,
         "evidence_quote": "I do still have 70% of my portfolio in spot holdings that I believe are good holds.",
         "instrument": "spot",
-        "size": "large",
+        "size": null,
         "weight_pct": null
       },
       {
         "asset": "USD",
-        "confidence": 0.8,
+        "confidence": 0.9,
         "evidence_quote": "I have my cash positions for days like yesterday and so that I can buy the dip.",
         "instrument": "cash",
-        "size": "medium",
+        "size": "large",
         "weight_pct": null
       }
     ],
     "actions": [
       {
         "asset": "BTC",
-        "confidence": 0.8,
+        "confidence": 0.9,
         "direction": "BUY",
-        "evidence_quote": "I will likely be buying the dip on Monday, not because I think something magical or special is going to happen on Monday.",
-        "size_hint": "trim",
+        "evidence_quote": "So I will likely be buying the dip on Monday, not because I think something magical or special is going to happen on Monday.",
+        "size_hint": null,
         "weight_delta_pct": null,
         "when_relative": "Monday morning"
       }
     ],
     "cash_position": {
       "asset": "USD",
-      "confidence": 0.8,
+      "confidence": 0.9,
       "evidence_quote": "I have my cash positions for days like yesterday and so that I can buy the dip.",
       "instrument": "cash",
-      "size": "medium",
+      "size": "large",
       "weight_pct": null
     }
   },
@@ -7152,37 +6893,27 @@
       {
         "asset": "BTC",
         "confidence": 0.9,
-        "evidence_quote": "I do expect gold to consolidate soon and for Bitcoin to find a local bottom.",
+        "evidence_quote": "I feel quite well positioned with my current portfolio.",
         "instrument": "spot",
-        "size": "medium",
+        "size": null,
         "weight_pct": null
       },
       {
         "asset": "USD",
-        "confidence": 0.8,
+        "confidence": 0.85,
         "evidence_quote": "I have this cash position in case this time is different and it's over or we're about to face a black swan event.",
         "instrument": "cash",
-        "size": "large",
+        "size": "medium",
         "weight_pct": null
       }
     ],
-    "actions": [
-      {
-        "asset": "BTC",
-        "confidence": 0.7,
-        "direction": "ROTATE_TO",
-        "evidence_quote": "I do expect gold to consolidate soon and for Bitcoin to find a local bottom.",
-        "size_hint": null,
-        "weight_delta_pct": null,
-        "when_relative": null
-      }
-    ],
+    "actions": [],
     "cash_position": {
       "asset": "USD",
-      "confidence": 0.8,
+      "confidence": 0.85,
       "evidence_quote": "I have this cash position in case this time is different and it's over or we're about to face a black swan event.",
       "instrument": "cash",
-      "size": "large",
+      "size": "medium",
       "weight_pct": null
     }
   },
@@ -7210,39 +6941,29 @@
     "calendar_date": "2025-11-21",
     "video_url": "https://www.youtube.com/watch?v=lLv4f9Ddqmg",
     "transcript_path": "youtube/transcripts-top/crypto-currently/2025-11-21-it-s-time.md",
-    "extractor_confidence": 0.8,
+    "extractor_confidence": 0.9,
     "holdings": [
       {
         "asset": "BTC",
         "confidence": 0.9,
-        "evidence_quote": "I have a decent cash position in case of downside from small profits I've taken along the course of this bull market.",
+        "evidence_quote": "I feel well positioned no matter what the market decides to do.",
         "instrument": "spot",
-        "size": "medium",
+        "size": null,
         "weight_pct": null
       },
       {
         "asset": "USD",
-        "confidence": 0.9,
+        "confidence": 0.85,
         "evidence_quote": "I have a decent cash position in case of downside from small profits I've taken along the course of this bull market.",
         "instrument": "cash",
         "size": "medium",
         "weight_pct": null
       }
     ],
-    "actions": [
-      {
-        "asset": "BTC",
-        "confidence": 0.7,
-        "direction": "BUY",
-        "evidence_quote": "I would be pleasantly surprised with the final push, but it's not my base case based on recent price action, and I still have some protection in case the cycle is over, and I will be happy to buy Bitcoin at much lower prices if it is.",
-        "size_hint": null,
-        "weight_delta_pct": null,
-        "when_relative": null
-      }
-    ],
+    "actions": [],
     "cash_position": {
       "asset": "USD",
-      "confidence": 0.9,
+      "confidence": 0.85,
       "evidence_quote": "I have a decent cash position in case of downside from small profits I've taken along the course of this bull market.",
       "instrument": "cash",
       "size": "medium",
@@ -7293,33 +7014,24 @@
     "video_url": "https://www.youtube.com/watch?v=lw-S8VHozeI",
     "transcript_path": "youtube/transcripts-top/crypto-currently/2026-02-08-it-s-finally-time.md",
     "extractor_confidence": 0.9,
-    "holdings": [
-      {
-        "asset": "BTC",
-        "confidence": 0.9,
-        "evidence_quote": "I'm going to continue happily buying in this price region with the cash I have allocated to buy at these prices.",
-        "instrument": "spot",
-        "size": "medium",
-        "weight_pct": null
-      }
-    ],
+    "holdings": [],
     "actions": [
       {
         "asset": "BTC",
         "confidence": 0.9,
         "direction": "BUY",
-        "evidence_quote": "I'm going to continue happily buying in this price region with the cash I have allocated to buy at these prices.",
-        "size_hint": null,
+        "evidence_quote": "my plan is to continue buying at these prices and save some dry powder in case we do get an even better discount later in 2026",
+        "size_hint": "some",
         "weight_delta_pct": null,
-        "when_relative": null
+        "when_relative": "this week"
       }
     ],
     "cash_position": {
       "asset": "USD",
-      "confidence": 0.9,
-      "evidence_quote": "I'm going to continue happily buying in this price region with the cash I have allocated to buy at these prices.",
+      "confidence": 0.8,
+      "evidence_quote": "save some dry powder in case we do get an even better discount later in 2026",
       "instrument": "cash",
-      "size": "medium",
+      "size": "small",
       "weight_pct": null
     }
   },
@@ -7425,24 +7137,15 @@
     "calendar_date": "2026-01-20",
     "video_url": "https://www.youtube.com/watch?v=n33mEyFwzbk",
     "transcript_path": "youtube/transcripts-top/crypto-currently/2026-01-20-we-re-getting-close.md",
-    "extractor_confidence": 0.85,
-    "holdings": [
-      {
-        "asset": "BTC",
-        "confidence": 0.9,
-        "evidence_quote": "No changes were made to my portfolio this week.",
-        "instrument": "spot",
-        "size": "medium",
-        "weight_pct": null
-      }
-    ],
+    "extractor_confidence": 0.7,
+    "holdings": [],
     "actions": [],
     "cash_position": {
       "asset": "USD",
       "confidence": 0.9,
-      "evidence_quote": "I do believe I'll be happy I held on to this dry powder later this year.",
+      "evidence_quote": "I do believe I'll be happy I held on to this dry powder later this year",
       "instrument": "cash",
-      "size": "medium",
+      "size": null,
       "weight_pct": null
     }
   },
@@ -7560,51 +7263,69 @@
     "calendar_date": "2026-02-04",
     "video_url": "https://www.youtube.com/watch?v=oRcAif-e84M",
     "transcript_path": "youtube/transcripts-top/crypto-currently/2026-02-04-it-s-time-to-pay-attention.md",
-    "extractor_confidence": 0.9,
+    "extractor_confidence": 0.85,
     "holdings": [
       {
         "asset": "BTC",
         "confidence": 0.9,
-        "evidence_quote": "\"I'm going to be making more changes to my portfolio on Monday. So you can subscribe to the free weekly report if you'd like to see those changes as soon as they happen.\"",
+        "evidence_quote": "I've been rotating some Salana and Ethereum exposure over to Bitcoin over the past few weeks",
         "instrument": "spot",
-        "size": "large",
+        "size": null,
         "weight_pct": null
       },
       {
-        "asset": "SOL",
-        "confidence": 0.7,
-        "evidence_quote": "\"And I'm going to be making more changes to my portfolio on Monday. So you can subscribe to the free weekly report if you'd like to see those changes as soon as they happen.\"",
-        "instrument": "spot",
-        "size": "small",
+        "asset": "USD",
+        "confidence": 0.9,
+        "evidence_quote": "I feel a lot more comfortable being Bitcoin and cash heavy going into a downturn as opposed to having heavy altcoin exposure",
+        "instrument": "cash",
+        "size": "large",
         "weight_pct": null
       }
     ],
     "actions": [
       {
-        "asset": "SOL",
-        "confidence": 0.7,
-        "direction": "SELL",
-        "evidence_quote": "\"And I'm going to be making more changes to my portfolio on Monday. So you can subscribe to the free weekly report if you'd like to see those changes as soon as they happen.\"",
-        "size_hint": "small",
-        "weight_delta_pct": -20.0,
-        "when_relative": null
+        "asset": "BTC",
+        "confidence": 0.9,
+        "direction": "BUY",
+        "evidence_quote": "I view the cheap region as a great place to accumulate for investors with a long time horizon",
+        "size_hint": null,
+        "weight_delta_pct": null,
+        "when_relative": "this week"
       },
       {
         "asset": "BTC",
         "confidence": 0.9,
-        "direction": "BUY",
-        "evidence_quote": "\"And I'm going to be making more changes to my portfolio on Monday. So you can subscribe to the free weekly report if you'd like to see those changes as soon as they happen.\"",
-        "size_hint": "large",
-        "weight_delta_pct": 20.0,
-        "when_relative": null
+        "direction": "TRIM",
+        "evidence_quote": "I've been rotating some Salana and Ethereum exposure over to Bitcoin",
+        "size_hint": null,
+        "weight_delta_pct": null,
+        "when_relative": "past few weeks"
+      },
+      {
+        "asset": "ETH",
+        "confidence": 0.9,
+        "direction": "SELL",
+        "evidence_quote": "I've been rotating some Salana and Ethereum exposure over to Bitcoin",
+        "size_hint": null,
+        "weight_delta_pct": null,
+        "when_relative": "past few weeks"
+      },
+      {
+        "asset": "SOL",
+        "confidence": 0.9,
+        "direction": "SELL",
+        "evidence_quote": "I've been rotating some Salana and Ethereum exposure over to Bitcoin",
+        "size_hint": null,
+        "weight_delta_pct": null,
+        "when_relative": "past few weeks"
       }
     ],
     "cash_position": {
       "asset": "USD",
-      "confidence": 0.8,
-      "evidence_quote": "\"I do also want to start accumulating at these prices in case we don't revisit the very cheap region.\"",
+      "confidence": 0.9,
+      "evidence_quote": "I feel a lot more comfortable being Bitcoin and cash heavy going into a downturn as opposed to having heavy altcoin exposure",
       "instrument": "cash",
-      "size": "medium",
+      "size": "large",
       "weight_pct": null
     }
   },
@@ -7811,13 +7532,21 @@
     "calendar_date": "2025-11-21",
     "video_url": "https://www.youtube.com/watch?v=qXOEY7PD7Gs",
     "transcript_path": "youtube/transcripts-top/crypto-currently/2025-11-21-the-bear-market.md",
-    "extractor_confidence": 0.7,
+    "extractor_confidence": 0.8,
     "holdings": [
       {
         "asset": "BTC",
         "confidence": 0.9,
-        "evidence_quote": "I did deploy a small amount of cash on Monday morning because I can't help but buy a little bit when I see extreme fear and sentiment this bad.",
+        "evidence_quote": "I like to make my investing decisions based on how far it is from its 200E moving average.",
         "instrument": "spot",
+        "size": null,
+        "weight_pct": null
+      },
+      {
+        "asset": "USD",
+        "confidence": 0.9,
+        "evidence_quote": "I did deploy a small amount of cash on Monday morning because I can't help but buy a little bit when I see extreme fear and sentiment this bad.",
+        "instrument": "cash",
         "size": "small",
         "weight_pct": null
       }
@@ -7835,19 +7564,19 @@
       {
         "asset": "OTHER:ALTCOINS",
         "confidence": 0.7,
-        "direction": "SELL",
+        "direction": "TRIM",
         "evidence_quote": "I do plan to slowly unwind my altcoin positions once we see a bounce and go into a more conservative portfolio to prepare for downside.",
-        "size_hint": "some",
+        "size_hint": null,
         "weight_delta_pct": null,
-        "when_relative": null
+        "when_relative": "once we see a bounce"
       }
     ],
     "cash_position": {
       "asset": "USD",
-      "confidence": 0.8,
-      "evidence_quote": "I do plan to slowly unwind my altcoin positions once we see a bounce and go into a more conservative portfolio to prepare for downside.",
+      "confidence": 0.9,
+      "evidence_quote": "I did deploy a small amount of cash on Monday morning because I can't help but buy a little bit when I see extreme fear and sentiment this bad.",
       "instrument": "cash",
-      "size": "medium",
+      "size": "small",
       "weight_pct": null
     }
   },
@@ -7875,25 +7604,33 @@
     "calendar_date": "2025-11-21",
     "video_url": "https://www.youtube.com/watch?v=rZf5t_CacZY",
     "transcript_path": "youtube/transcripts-top/crypto-currently/2025-11-21-this-time-is-different.md",
-    "extractor_confidence": 0.85,
+    "extractor_confidence": 0.9,
     "holdings": [
+      {
+        "asset": "BTC",
+        "confidence": 0.9,
+        "evidence_quote": "I'm still quite happy leaving 70% of my portfolio in safer spot holdings because I do still believe this cycle has higher to go.",
+        "instrument": "spot",
+        "size": null,
+        "weight_pct": null
+      },
       {
         "asset": "USD",
         "confidence": 0.9,
-        "evidence_quote": "I'm still quite happy leaving 70% of my portfolio in safer spot holdings because I do still believe this cycle has higher to go and that the cycle has not topped yet.",
+        "evidence_quote": "Maybe you're earlier in your journey and you only need a 5% cash position for peace of mind. Maybe you're way later into your journey and you feel like you need a much bigger cash position at this phase of the cycle, but 30% works out great",
         "instrument": "cash",
-        "size": "medium",
-        "weight_pct": null
+        "size": "large",
+        "weight_pct": 30.0
       }
     ],
     "actions": [],
     "cash_position": {
       "asset": "USD",
       "confidence": 0.9,
-      "evidence_quote": "I'm still quite happy leaving 70% of my portfolio in safer spot holdings because I do still believe this cycle has higher to go and that the cycle has not topped yet.",
+      "evidence_quote": "Maybe you're earlier in your journey and you only need a 5% cash position for peace of mind. Maybe you're way later into your journey and you feel like you need a much bigger cash position at this phase of the cycle, but 30% works out great",
       "instrument": "cash",
-      "size": "medium",
-      "weight_pct": null
+      "size": "large",
+      "weight_pct": 30.0
     }
   },
   "rdTS3SSLQEY": {
@@ -8235,32 +7972,32 @@
     "calendar_date": "2026-02-11",
     "video_url": "https://www.youtube.com/watch?v=sdarW8e4Esk",
     "transcript_path": "youtube/transcripts-top/crypto-currently/2026-02-11-it-s-ready.md",
-    "extractor_confidence": 0.9,
+    "extractor_confidence": 0.85,
     "holdings": [
       {
         "asset": "BTC",
         "confidence": 0.9,
-        "evidence_quote": "\"I'm happily accumulating Bitcoin in the cheap region while it's there.\"",
+        "evidence_quote": "I'm happily accumulating Bitcoin in the cheap region while it's there.",
         "instrument": "spot",
-        "size": "medium",
+        "size": null,
         "weight_pct": null
       }
     ],
     "actions": [
       {
         "asset": "BTC",
-        "confidence": 0.7,
+        "confidence": 0.9,
         "direction": "BUY",
-        "evidence_quote": "\"I bought some Bitcoin on Monday morning\"",
-        "size_hint": "some",
+        "evidence_quote": "I bought some Bitcoin on Monday morning",
+        "size_hint": null,
         "weight_delta_pct": null,
         "when_relative": "Monday morning"
       }
     ],
     "cash_position": {
       "asset": "USD",
-      "confidence": 0.8,
-      "evidence_quote": "\"I'm also saving dry powder for the very cheap region\"",
+      "confidence": 0.7,
+      "evidence_quote": "saving dry powder for the very cheap region because I know there's a decent chance we're going to see that area later in 2026.",
       "instrument": "cash",
       "size": "medium",
       "weight_pct": null
@@ -9203,31 +8940,21 @@
     "holdings": [
       {
         "asset": "USD",
-        "confidence": 0.9,
+        "confidence": 1.0,
         "evidence_quote": "I have this 30% cash position to hedge against those scenarios.",
         "instrument": "cash",
-        "size": "large",
-        "weight_pct": null
+        "size": "large|medium|small",
+        "weight_pct": 30.0
       }
     ],
-    "actions": [
-      {
-        "asset": "BTC",
-        "confidence": 0.9,
-        "direction": "BUY",
-        "evidence_quote": "I believe that balance of having some cash on the sidelines while higher likelihood that this cycle is still going to extend into Q4 and perhaps beyond, which is why the majority of my portfolio is still in spot holdings.",
-        "size_hint": null,
-        "weight_delta_pct": null,
-        "when_relative": null
-      }
-    ],
+    "actions": [],
     "cash_position": {
       "asset": "USD",
-      "confidence": 0.9,
+      "confidence": 1.0,
       "evidence_quote": "I have this 30% cash position to hedge against those scenarios.",
       "instrument": "cash",
-      "size": "large",
-      "weight_pct": null
+      "size": "medium",
+      "weight_pct": 30.0
     }
   }
 }

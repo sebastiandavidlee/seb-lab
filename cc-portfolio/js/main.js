@@ -3,11 +3,6 @@
 
 import { loadAll } from './data.js';
 
-const FALLBACK_QUOTE = {
-  text: 'Welcome back to my 10 favorite people.',
-  attribution: 'Crypto Currently',
-};
-
 function fmtPct(x, digits = 0) {
   if (x === null || x === undefined || Number.isNaN(x)) return '—';
   return `${x.toFixed(digits)}%`;
@@ -37,55 +32,21 @@ function setKpi(key, label, value, sub) {
 
 function fillKpis(kpis) {
   const k = kpis || {};
-  // 1. videos extracted (with /total)
   setKpi(
     'n_videos_extracted',
     'videos extracted',
     fmtInt(k.n_videos_extracted),
     k.n_videos_total ? `/ ${k.n_videos_total}` : null,
   );
-  // 2. mean cash %
+  setKpi(
+    'n_videos_dated',
+    'dated coverage',
+    fmtInt(k.n_videos_dated),
+    k.n_videos_extracted ? `/ ${k.n_videos_extracted}` : null,
+  );
   setKpi('mean_cash_pct', 'mean cash %', fmtPct(k.mean_cash_pct, 0));
-  // 3. top-3 concentration
   setKpi('top3_concentration_pct', 'top-3 concentration', fmtPct(k.top3_concentration_pct, 0));
-  // 4. last video date
-  const lastDate = k.last_video_date || '—';
-  setKpi('last_video_date', 'last video', lastDate);
-  // 5. % holdings with weight_pct
-  setKpi('pct_holdings_with_weight_pct', 'holdings w/ weight', fmtPct(k.pct_holdings_with_weight_pct, 0));
-}
-
-function pickHeroQuote(data) {
-  // Strategy: most recent dated video, then highest-confidence holding with a non-empty evidence_quote.
-  const ids = data.datedVideoIds || [];
-  for (let i = ids.length - 1; i >= 0; i--) {
-    const rec = data.byVideo && data.byVideo[ids[i]];
-    if (!rec) continue;
-    const holdings = (rec.holdings || []).slice().sort(
-      (a, b) => (b.confidence || 0) - (a.confidence || 0),
-    );
-    for (const h of holdings) {
-      if (h.evidence_quote && h.evidence_quote.trim().length > 8) {
-        return {
-          text: h.evidence_quote.trim(),
-          attribution: rec.title ? `Crypto Currently — ${rec.title}` : 'Crypto Currently',
-        };
-      }
-    }
-  }
-  return null;
-}
-
-function fillHero(data) {
-  const hero = document.getElementById('cc-hero');
-  if (!hero) return;
-  const q = pickHeroQuote(data) || FALLBACK_QUOTE;
-  hero.innerHTML = `
-    <blockquote class="cc-quote">
-      <p>${escapeHtml(q.text)}</p>
-      <cite>— ${escapeHtml(q.attribution)}</cite>
-    </blockquote>
-  `;
+  setKpi('last_video_date', 'last video', k.last_video_date || '—');
 }
 
 function escapeHtml(s) {
@@ -147,17 +108,6 @@ async function loadChart(modPath, data) {
   }
 }
 
-async function bootDetailPanel(data) {
-  try {
-    const mod = await import('./detail-panel.js');
-    if (mod && typeof mod.init === 'function') {
-      mod.init(data);
-    }
-  } catch (err) {
-    console.warn('[cc-portfolio] failed to init detail-panel:', err);
-  }
-}
-
 async function boot() {
   let data;
   try {
@@ -181,21 +131,18 @@ async function boot() {
   }
 
   fillKpis(data.kpis);
-  fillHero(data);
   fillProvenance(data.meta, data.kpis);
 
   if (!data.kpis || data.kpis.n_videos_extracted === 0) {
     showAwaitingBadge(data.meta);
   }
 
-  // Always call every chart module — they own their own empty state.
   await Promise.all([
+    loadChart('./chart-composition.js', data),
     loadChart('./chart-ribbon.js', data),
     loadChart('./chart-actions.js', data),
     loadChart('./chart-small-multiples.js', data),
   ]);
-
-  await bootDetailPanel(data);
 
   window.dispatchEvent(new CustomEvent('cc:ready', { detail: { data } }));
 }

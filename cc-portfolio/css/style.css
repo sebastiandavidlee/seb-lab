@@ -133,32 +133,25 @@ main, #cc-main {
   gap: var(--gap);
 }
 
-/* desktop: two-column body */
+/* desktop: single full-width column for plot-first layout */
 @media (min-width: 720px) {
   #cc-main, main {
-    grid-template-columns: minmax(0, 1fr) 360px;
+    grid-template-columns: minmax(0, 1fr);
     grid-template-areas:
-      "kpis  kpis"
-      "ribbon detail"
-      "actions detail"
-      "smallmult detail"
-      "prov   prov";
+      "kpis"
+      "composition"
+      "ribbon"
+      "actions"
+      "smallmult"
+      "prov";
     align-items: start;
   }
-  #cc-kpis            { grid-area: kpis; }
-  #cc-chart-ribbon    { grid-area: ribbon; }
-  #cc-chart-actions   { grid-area: actions; }
-  #cc-chart-smallmult { grid-area: smallmult; }
-  #cc-detail-panel    { grid-area: detail; }
-  #cc-provenance      { grid-area: prov; }
-
-  #cc-detail-panel {
-    position: sticky;
-    top: 1rem;
-    width: 360px;
-    max-height: calc(100vh - 2rem);
-    overflow-y: auto;
-  }
+  #cc-kpis              { grid-area: kpis; }
+  #cc-chart-composition { grid-area: composition; }
+  #cc-chart-ribbon      { grid-area: ribbon; }
+  #cc-chart-actions     { grid-area: actions; }
+  #cc-chart-smallmult   { grid-area: smallmult; }
+  #cc-provenance        { grid-area: prov; }
 }
 
 /* ---------- cards ---------- */
@@ -324,14 +317,15 @@ main, #cc-main {
 #cc-provenance a:hover { color: var(--accent); border-bottom-color: var(--accent); }
 
 /* ---------- chart slots (fixed min-heights so layout doesn't shift) ---------- */
-#cc-chart-ribbon    { min-height: 420px; }
-#cc-chart-actions   { min-height: 140px; }
-#cc-chart-smallmult { min-height: 360px; }
+#cc-chart-composition { min-height: 480px; }
+#cc-chart-ribbon      { min-height: 420px; }
+#cc-chart-actions     { min-height: 140px; }
+#cc-chart-smallmult   { min-height: 360px; }
 
+#cc-chart-composition,
 #cc-chart-ribbon,
 #cc-chart-actions,
 #cc-chart-smallmult {
-  /* default to card styling; agents 4/5/6 mount echarts inside */
   background: var(--surface);
   border: 1px solid var(--rule);
   border-radius: var(--radius);
@@ -339,9 +333,18 @@ main, #cc-main {
   position: relative;
   transition: border-color 160ms ease;
 }
+#cc-chart-composition:hover,
 #cc-chart-ribbon:hover,
 #cc-chart-actions:hover,
 #cc-chart-smallmult:hover { border-color: var(--rule-strong); }
+
+.cc-chart-sub {
+  font-family: var(--sans);
+  font-size: 0.72rem;
+  color: var(--ink-faint);
+  letter-spacing: 0.02em;
+  text-transform: uppercase;
+}
 
 /* small "awaiting extraction" badge slot inside chart cards */
 .cc-chart-header {
