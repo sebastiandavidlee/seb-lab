@@ -10,7 +10,7 @@
   <link rel="stylesheet" href="css/style.css">
   <script src="https://cdn.jsdelivr.net/npm/echarts@5/dist/echarts.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/papaparse@5/papaparse.min.js"></script>
-  <script type="module" src="js/main.js?v=2026-05-26-7"></script>
+  <script type="module" src="js/main.js?v=2026-05-26-8"></script>
 </head>
 <body>
 
@@ -53,6 +53,13 @@
     <header class="cc-chart-header">
       <h3>stated portfolio — ground truth (Skool weekly updates)</h3>
       <span class="cc-chart-sub">36 weekly points · 22 text-parsed + 14 forward-filled from "no changes" weeks · BTC · ETH · SOL · USD · drag slider to zoom</span>
+    </header>
+  </section>
+
+  <section id="cc-chart-btc-overlay" class="cc-card" aria-label="BTC price vs portfolio BTC %">
+    <header class="cc-chart-header">
+      <h3>BTC price vs his BTC % allocation</h3>
+      <span class="cc-chart-sub">left axis: BTC-USD daily close · right axis: % of his stated portfolio in BTC · filled dots = text-parsed, hollow = forward-fill</span>
     </header>
   </section>
 
