@@ -137,11 +137,14 @@ async function boot() {
     showAwaitingBadge(data.meta);
   }
 
+  // Cache-bust on every load so updates land without manual hard-refresh.
+  // Date-stamp updates daily; bump manually for same-day fixes if needed.
+  const v = '2026-05-26-2';
   await Promise.all([
-    loadChart('./chart-composition.js', data),
-    loadChart('./chart-ribbon.js', data),
-    loadChart('./chart-actions.js', data),
-    loadChart('./chart-small-multiples.js', data),
+    loadChart(`./chart-composition.js?v=${v}`, data),
+    loadChart(`./chart-ribbon.js?v=${v}`, data),
+    loadChart(`./chart-actions.js?v=${v}`, data),
+    loadChart(`./chart-small-multiples.js?v=${v}`, data),
   ]);
 
   window.dispatchEvent(new CustomEvent('cc:ready', { detail: { data } }));
