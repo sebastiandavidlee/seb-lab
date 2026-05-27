@@ -1120,6 +1120,14 @@
         "instrument": "spot",
         "size": null,
         "weight_pct": null
+      },
+      {
+        "asset": "USD",
+        "confidence": 0.9,
+        "evidence_quote": "still not touching the cash that I have on the sidelines",
+        "instrument": "cash",
+        "size": "large",
+        "weight_pct": null
       }
     ],
     "actions": [],
@@ -1128,7 +1136,7 @@
       "confidence": 0.9,
       "evidence_quote": "still not touching the cash that I have on the sidelines",
       "instrument": "cash",
-      "size": "large|medium|small",
+      "size": "large",
       "weight_pct": null
     }
   },
@@ -3046,7 +3054,7 @@
       {
         "asset": "BTC",
         "confidence": 0.9,
-        "evidence_quote": "for my portfolio I really haven't felt the need to change much I'm pretty comfortable with my Holdings",
+        "evidence_quote": "holding ethereum has been very painful for the majority of this year but now with this current election outcome and what we're seeing in the house and the Senate and the hopes of a more friendly SEC it does look like the narratives are fina",
         "instrument": "spot",
         "size": null,
         "weight_pct": null
@@ -3054,7 +3062,7 @@
       {
         "asset": "ETH",
         "confidence": 0.9,
-        "evidence_quote": "for my portfolio I really haven't felt the need to change much I'm pretty comfortable with my Holdings",
+        "evidence_quote": "holding ethereum has been very painful for the majority of this year but now with this current election outcome and what we're seeing in the house and the Senate and the hopes of a more friendly SEC it does look like the narratives are fina",
         "instrument": "spot",
         "size": null,
         "weight_pct": null
@@ -3062,7 +3070,7 @@
       {
         "asset": "SOL",
         "confidence": 0.9,
-        "evidence_quote": "for my portfolio I really haven't felt the need to change much I'm pretty comfortable with my Holdings",
+        "evidence_quote": "holding ethereum has been very painful for the majority of this year but now with this current election outcome and what we're seeing in the house and the Senate and the hopes of a more friendly SEC it does look like the narratives are fina",
         "instrument": "spot",
         "size": null,
         "weight_pct": null
@@ -3071,8 +3079,8 @@
     "actions": [],
     "cash_position": {
       "asset": "USD",
-      "confidence": 0.5,
-      "evidence_quote": "I haven't felt the need to make those Investments quite yet",
+      "confidence": 0.7,
+      "evidence_quote": "for now I'm quite happy with the performance my portfolio has seen for 2024 so far and especially the past few weeks ever since we got that election Clarity and for now there's not really much to do but just sit on existing positions and ju",
       "instrument": "cash",
       "size": null,
       "weight_pct": null
@@ -3333,22 +3341,14 @@
     "calendar_date": "2024-10-26",
     "video_url": "https://www.youtube.com/watch?v=RVztLCRjOUI",
     "transcript_path": "youtube/transcripts-top/crypto-currently/undated-it-s-beautiful.md",
-    "extractor_confidence": 0.8,
+    "extractor_confidence": 0.85,
     "holdings": [
       {
         "asset": "BTC",
         "confidence": 0.9,
-        "evidence_quote": "I'm interested in buying Bitcoin and other large caps in anticipation to then be able to sell them higher once that Mania phase does eventually come",
+        "evidence_quote": "my portfolio is set up the way it is some cash on the sidelines to take advantage of huge drops or to buy smaller projects in price Discovery but plenty of spot Holdings to take advantage of a huge rally that could start over the next few w",
         "instrument": "spot",
         "size": null,
-        "weight_pct": null
-      },
-      {
-        "asset": "USD",
-        "confidence": 0.9,
-        "evidence_quote": "some cash on the sidelines to take advantage of huge drops or to buy smaller projects in price Discovery",
-        "instrument": "cash",
-        "size": "small",
         "weight_pct": null
       }
     ],
@@ -3360,13 +3360,13 @@
         "evidence_quote": "I'm interested in buying Bitcoin and other large caps in anticipation to then be able to sell them higher once that Mania phase does eventually come",
         "size_hint": null,
         "weight_delta_pct": null,
-        "when_relative": "this week|next few weeks"
+        "when_relative": "this week"
       }
     ],
     "cash_position": {
       "asset": "USD",
       "confidence": 0.9,
-      "evidence_quote": "some cash on the sidelines to take advantage of huge drops or to buy smaller projects in price Discovery",
+      "evidence_quote": "my portfolio is set up the way it is some cash on the sidelines to take advantage of huge drops or to buy smaller projects in price Discovery",
       "instrument": "cash",
       "size": "small",
       "weight_pct": null
@@ -4075,13 +4075,30 @@
     "calendar_date": "2024-12-03",
     "video_url": "https://www.youtube.com/watch?v=XtAPabfVtyA",
     "transcript_path": "youtube/transcripts-top/crypto-currently/undated-it-s-happening-again-XtAPabfVtyA.md",
-    "extractor_confidence": 0.8,
-    "holdings": [],
+    "extractor_confidence": 0.9,
+    "holdings": [
+      {
+        "asset": "BTC",
+        "confidence": 0.9,
+        "evidence_quote": "I'm happy to sit on my existing positions and my comfortable cash Holdings",
+        "instrument": "spot",
+        "size": null,
+        "weight_pct": null
+      },
+      {
+        "asset": "USD",
+        "confidence": 0.85,
+        "evidence_quote": "I'm happy to sit on my existing positions and my comfortable cash Holdings",
+        "instrument": "cash",
+        "size": "medium",
+        "weight_pct": null
+      }
+    ],
     "actions": [],
     "cash_position": {
       "asset": "USD",
-      "confidence": 0.9,
-      "evidence_quote": "I'm just happy to sit on my existing positions and my comfortable cash Holdings",
+      "confidence": 0.85,
+      "evidence_quote": "I'm happy to sit on my existing positions and my comfortable cash Holdings",
       "instrument": "cash",
       "size": "medium",
       "weight_pct": null
@@ -4542,11 +4559,11 @@
       {
         "asset": "OTHER:BTC|ETH",
         "confidence": 0.9,
-        "direction": "SELL",
+        "direction": "TRIM",
         "evidence_quote": "my system called for some profit taking across my positions to get me back closer to my 30% cash target.",
-        "size_hint": null,
+        "size_hint": "some",
         "weight_delta_pct": null,
-        "when_relative": null
+        "when_relative": "this week"
       }
     ],
     "cash_position": {
@@ -4554,7 +4571,7 @@
       "confidence": 0.9,
       "evidence_quote": "my system called for some profit taking across my positions to get me back closer to my 30% cash target.",
       "instrument": "cash",
-      "size": "large|medium",
+      "size": "medium",
       "weight_pct": 30.0
     }
   },
@@ -5436,7 +5453,7 @@
     "calendar_date": "2025-07-16",
     "video_url": "https://www.youtube.com/watch?v=oHRWtuVBxNo",
     "transcript_path": "youtube/transcripts-top/crypto-currently/undated-it-s-showtime.md",
-    "extractor_confidence": 0.8,
+    "extractor_confidence": 0.7,
     "holdings": [],
     "actions": [
       {
@@ -5452,7 +5469,7 @@
     "cash_position": {
       "asset": "USD",
       "confidence": 0.5,
-      "evidence_quote": "And if we do end up seeing a correction here in the short term, I'll be happy knowing I locked in some profits at higher prices beforehand.",
+      "evidence_quote": "if we do end up seeing a correction here in the short term, I'll be happy knowing I locked in some profits at higher prices beforehand.",
       "instrument": "cash",
       "size": "small",
       "weight_pct": null
@@ -6794,7 +6811,7 @@
       {
         "asset": "BTC",
         "confidence": 0.95,
-        "evidence_quote": "I'm comfortable with that 27% allocation because we are still holding that range low but all we've seen from ethereum over the past few months is strong rally and then slow bleed very strong short squeeze slow bleed and right now we're not ",
+        "evidence_quote": "I'm still very bullish Bitcoin in the long term just like I'm bullish the S&amp;P 500 in the long term because on longer time frames money supply expansion and debt expansion aren't going anywhere which means fiat currency devaluation is he",
         "instrument": "spot",
         "size": null,
         "weight_pct": 43.0
@@ -6802,18 +6819,10 @@
       {
         "asset": "ETH",
         "confidence": 0.95,
-        "evidence_quote": "I'm comfortable with that 27% allocation because we are still holding that range low but all we've seen from ethereum over the past few months is strong rally and then slow bleed very strong short squeeze slow bleed and right now we're not ",
+        "evidence_quote": "I'm pulling 5% of my portfolio out of ethereum and moving it into cash",
         "instrument": "spot",
         "size": null,
         "weight_pct": 27.0
-      },
-      {
-        "asset": "USD",
-        "confidence": 0.95,
-        "evidence_quote": "by pulling 5% of my portfolio out of ethereum and moving it into cash",
-        "instrument": "cash",
-        "size": null,
-        "weight_pct": 5.0
       }
     ],
     "actions": [
@@ -6821,28 +6830,28 @@
         "asset": "ETH",
         "confidence": 0.95,
         "direction": "SELL",
-        "evidence_quote": "by pulling 5% of my portfolio out of ethereum and moving it into cash",
-        "size_hint": null,
+        "evidence_quote": "I'm pulling 5% of my portfolio out of ethereum and moving it into cash",
+        "size_hint": "some",
         "weight_delta_pct": -5.0,
         "when_relative": null
       },
       {
         "asset": "USD",
         "confidence": 0.95,
-        "direction": "BUY",
-        "evidence_quote": "by pulling 5% of my portfolio out of ethereum and moving it into cash",
-        "size_hint": null,
+        "direction": "ADD",
+        "evidence_quote": "I'm pulling 5% of my portfolio out of ethereum and moving it into cash",
+        "size_hint": "some",
         "weight_delta_pct": 5.0,
         "when_relative": null
       }
     ],
     "cash_position": {
       "asset": "USD",
-      "confidence": 0.95,
-      "evidence_quote": "by pulling 5% of my portfolio out of ethereum and moving it into cash",
+      "confidence": 0.7,
+      "evidence_quote": "I'm pulling 5% of my portfolio out of ethereum and moving it into cash",
       "instrument": "cash",
       "size": "small",
-      "weight_pct": 5.0
+      "weight_pct": null
     }
   },
   "yqsMimnUZug": {
