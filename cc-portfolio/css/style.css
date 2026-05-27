@@ -140,6 +140,7 @@ main, #cc-main {
     grid-template-areas:
       "kpis"
       "composition"
+      "lines"
       "compositionllm"
       "ribbon"
       "actions"
@@ -149,6 +150,7 @@ main, #cc-main {
   }
   #cc-kpis                  { grid-area: kpis; }
   #cc-chart-composition     { grid-area: composition; }
+  #cc-chart-lines           { grid-area: lines; }
   #cc-chart-composition-llm { grid-area: compositionllm; }
   #cc-chart-ribbon          { grid-area: ribbon; }
   #cc-chart-actions         { grid-area: actions; }
@@ -320,13 +322,15 @@ main, #cc-main {
 
 /* ---------- chart slots (fixed min-heights so layout doesn't shift) ---------- */
 #cc-chart-composition,
-#cc-chart-composition-llm { min-height: 480px; }
+#cc-chart-composition-llm,
+#cc-chart-lines           { min-height: 480px; }
 #cc-chart-ribbon          { min-height: 420px; }
 #cc-chart-actions         { min-height: 140px; }
 #cc-chart-smallmult       { min-height: 360px; }
 
 #cc-chart-composition,
 #cc-chart-composition-llm,
+#cc-chart-lines,
 #cc-chart-ribbon,
 #cc-chart-actions,
 #cc-chart-smallmult {
@@ -339,6 +343,7 @@ main, #cc-main {
 }
 #cc-chart-composition:hover,
 #cc-chart-composition-llm:hover,
+#cc-chart-lines:hover,
 #cc-chart-ribbon:hover,
 #cc-chart-actions:hover,
 #cc-chart-smallmult:hover { border-color: var(--rule-strong); }
