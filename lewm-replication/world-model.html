@@ -23,6 +23,7 @@
   <a class="nav-link" href="planner.html">Planner</a>
   <a class="nav-link" href="tworoom.html">TwoRoom</a>
   <a class="nav-link" href="results.html">Results</a>
+  <a class="nav-link" href="explore.html">Explore</a>
 </nav>
 
 <main id="main" class="wrap">
@@ -226,8 +227,50 @@
     </p>
   </section>
 
+  <section class="section" id="manifold" aria-labelledby="manifold-h">
+    <h2 id="manifold-h">7. Browsing the manifold — hierarchical clusters of latents</h2>
+    <p>
+      The probes in §6 told us <em>what</em> the latent registers (positions cleanly, orientation roughly, velocity not at all). They did not tell us how the encoder organizes that information across the 192-d space as a whole. To probe geometry rather than decodability, we encode <strong>5,000 training frames</strong> into latent space and run <strong>Ward hierarchical clustering</strong> over the resulting point cloud, then cut the dendrogram at two levels: 8 root clusters and, within each root, up to 5 sub-clusters (40 leaves total). The result is a treemap: each rectangle is a cluster, sized by how many frames fell into it, tiled with a representative-frame thumbnail.
+    </p>
+    <p>
+      The static view below is a snapshot; the live page lets you hover over any cell to see size and cluster ID and click to zoom into the sub-clusters of a root. Think of it as a browsable atlas of the encoder's "what it thinks is nearby" relation.
+    </p>
+
+    <figure class="fig" id="treemap-fig">
+      <img src="assets/plots/treemap_static.png"
+           alt="Treemap visualization of 5,000 encoded Push-T training latents partitioned by Ward hierarchical clustering. 8 root clusters tile the canvas, each subdivided into up to 5 sub-clusters, with thumbnail backgrounds drawn from a representative frame per cell. Cell sizes vary substantially — one root cluster occupies roughly 44 percent of the area, the others share the remainder."
+           loading="lazy">
+      <figcaption class="fig-caption">
+        Static treemap of 5,000 encoded latents, 8 root clusters × up to 5 sub-clusters each (40 leaves). Cell area is proportional to cluster size. Backgrounds are representative training-frame thumbnails. <a href="explore.html">→ Open the interactive treemap explorer</a> to hover/click into sub-clusters.
+      </figcaption>
+    </figure>
+
+    <h3 style="margin-top:28px" id="manifold-validation-h">7a. How real is this clustering?</h3>
+    <p>
+      A treemap is a seductive visualization — it always looks like structure even when the underlying partition is weak. Before reading anything into the cells, three diagnostics, all measured on the same 5,000-frame latent set:
+    </p>
+    <figure class="fig" id="cluster-validation-fig">
+      <img src="assets/plots/cluster_validation.png"
+           alt="Two-panel cluster validation figure. Left panel: bar chart of per-cluster silhouette scores for the 8 root clusters; bars are short, with mean near 0.035, indicating diffuse clusters in 192-d space. Right panel: 8 by 8 heatmap of inter-centroid cosine similarities; off-diagonal entries are near zero or slightly negative, mean about -0.08, indicating centroids are nearly orthogonal."
+           loading="lazy">
+      <figcaption class="fig-caption">
+        Left: per-cluster silhouette in 192-d. Right: pairwise cosine between root-cluster centroids. Together they say: the centroids genuinely separate, but the points around them overlap heavily.
+      </figcaption>
+    </figure>
+    <ul>
+      <li><strong>Silhouette ≈ 0.035</strong> (held-out split: 0.048). Low. In 2-D toy datasets this would read as "no clusters." In 192-d, where any two random unit vectors are nearly orthogonal, this is consistent with <em>diffuse but real</em> structure rather than crisp islands. The held-out value being close to the in-sample value means the assignments generalize — the clustering is not overfit, it is just soft.</li>
+      <li><strong>Inter-centroid mean cosine ≈ −0.08.</strong> The 8 root centroids are nearly orthogonal (a slight negative mean is what you expect when 8 vectors are forced to span the bulk of the cloud). So the centroids really do point in different directions — the cluster <em>summaries</em> are distinct even when the <em>members</em> overlap.</li>
+      <li><strong>Local probe R² ≈ 0.91–0.99 (mean ≈ 0.96) vs global probe R² ≈ 0.93.</strong> Within each cluster, a local linear probe to ground-truth state is very accurate. But a single global probe trained on all 5,000 latents at once already gets R² ≈ 0.93. The clustering buys roughly 3 percentage points of additional decodability — real, but marginal. The encoder's spatial organization is mostly already linear at the global scale (§6); the clusters are not unlocking a hidden non-linearity.</li>
+      <li><strong>Heavy size imbalance.</strong> Root cluster #7 contains <strong>2,232 of 5,000 frames (44.6%)</strong>. The other seven roots share the remaining 55%. Treat sub-cluster geometry as suggestive, not definitive — large clusters are easier to split into plausible-looking children for trivial reasons.</li>
+    </ul>
+
+    <p class="honesty-note">
+      <strong>Honest takeaway.</strong> The latents have real but diffuse structure. The encoder's similarity metric groups frames into geometrically coherent regions — the centroids are near-orthogonal, and held-out assignments are stable — but those regions overlap heavily in 192-d space. Calling the eight roots "phases the model invented" would be overclaiming: silhouette is low, the partition is size-imbalanced, and clustering adds only marginal lift over a single global probe. What the treemap <em>is</em> good for: browsing what the model considers "nearby" frames, surfacing dataset coverage gaps (which root has very few members? which sub-cluster looks visually homogeneous?), and acting as a third independent witness — after probes (§6) and PCA — that the encoder's 192-d space is organized rather than random. The planner page picks up this thread directly: CEM search over actions is search through <em>this same</em> latent geometry.
+    </p>
+  </section>
+
   <section class="section" id="no-decoder" aria-labelledby="no-decoder-h">
-    <h2 id="no-decoder-h">7. No decoder = no reconstruction tax</h2>
+    <h2 id="no-decoder-h">8. No decoder = no reconstruction tax</h2>
     <p>
       It is tempting to read "no pixel decoder" as a limitation. It is closer to a feature. In pixel-prediction world models, a large fraction of model capacity is spent reconstructing task-irrelevant detail — wallpaper textures, the exact gradient on a table edge, motion-blur on background pixels. The reconstruction loss treats those details as first-class, because pixel MSE has no notion of what matters for control. The model pays a "reconstruction tax" on parameters and gradient signal that buys nothing for the planner.
     </p>
@@ -240,7 +283,7 @@
   </section>
 
   <section class="section" id="whats-next" aria-labelledby="whats-next-h">
-    <h2 id="whats-next-h">8. What's next</h2>
+    <h2 id="whats-next-h">9. What's next</h2>
     <p>
       The world model only predicts. It does not choose actions. Choosing actions is the planner's job — sampling 300 candidate sequences, rolling each one out in latent space using the predictor on this page, scoring by a cost-to-goal computed entirely in latent space, refining over 30 CEM iterations, taking the first action, and replanning. That's the next page.
     </p>

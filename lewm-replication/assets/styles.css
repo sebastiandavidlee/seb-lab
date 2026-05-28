@@ -576,3 +576,227 @@ li > p:first-child { margin-top: 0; }
   h2 { page-break-after: avoid; }
   .fig, table { page-break-inside: avoid; }
 }
+
+/* === Treemap explorer (T7-G) ===
+   Visual styling for the failure-mode treemap (used on pusht/results pages).
+   T7-E owns the JS structure that emits these classes. Okabe-Ito palette.
+   Append-only; do not interleave with earlier rules. */
+
+.treemap-container {
+  display: flex;
+  flex-direction: row;
+  gap: 16px;
+  align-items: flex-start;
+  margin: 18px 0 24px;
+}
+.treemap-container > .treemap-main {
+  flex: 1 1 auto;
+  min-width: 0;
+}
+
+.treemap-svg {
+  width: 100%;
+  height: auto;
+  display: block;
+  background: var(--card);
+  border: 1px solid var(--rule-2);
+  border-radius: var(--radius);
+  box-shadow: var(--shadow);
+}
+
+.treemap-cell {
+  cursor: pointer;
+  transition: outline-color 0.12s ease, filter 0.12s ease;
+  outline: 2px solid transparent;
+  outline-offset: -2px;
+  position: relative;
+}
+.treemap-cell:hover,
+.treemap-cell:focus-visible {
+  outline: 2px solid var(--accent); /* #0072B2 */
+  filter: brightness(1.04);
+  z-index: 2;
+}
+
+.treemap-label {
+  position: absolute;
+  top: 6px;
+  left: 6px;
+  color: #fff;
+  font-size: 11px;
+  font-weight: 700;
+  line-height: 1.2;
+  background: rgba(0, 0, 0, 0.62);
+  padding: 2px 6px;
+  border-radius: 4px;
+  pointer-events: none;
+  max-width: calc(100% - 12px);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.treemap-hover-panel {
+  position: sticky;
+  top: 72px;          /* clear of sticky nav-bar */
+  flex: 0 0 320px;
+  width: 320px;
+  height: 400px;
+  background: var(--card);
+  border: 1px solid var(--rule);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-lg);
+  padding: 12px;
+  overflow: auto;
+  font-size: var(--fs-small);
+  color: var(--fg);
+}
+.treemap-hover-panel.hidden { display: none; }
+.treemap-hover-panel > h4 {
+  margin: 0 0 8px 0;
+  font-size: 12px;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--muted);
+}
+
+.treemap-hover-medoid {
+  display: block;
+  max-width: 224px;
+  width: 100%;
+  height: auto;
+  margin: 0 auto 10px;
+  border-radius: 4px;
+  border: 1px solid var(--rule);
+  background: var(--tint);
+}
+
+.treemap-hover-stats {
+  display: grid;
+  grid-template-columns: max-content 1fr;
+  gap: 2px 12px;
+  font-family: ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas, monospace;
+  font-size: 12px;
+  margin: 6px 0 10px;
+}
+.treemap-hover-stats .label {
+  color: var(--muted);
+  text-align: left;
+}
+.treemap-hover-stats .value {
+  color: var(--fg);
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+}
+
+.treemap-hover-samples {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  margin-top: 8px;
+  padding-top: 8px;
+  border-top: 1px solid var(--rule);
+}
+.treemap-hover-samples .samples-row {
+  display: flex;
+  gap: 6px;
+  align-items: center;
+}
+.treemap-hover-samples img {
+  width: 64px;
+  height: 64px;
+  object-fit: cover;
+  border-radius: 3px;
+  border: 1px solid var(--rule);
+  background: var(--tint);
+}
+.treemap-hover-samples .samples-caption {
+  font-size: 11px;
+  color: var(--muted);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.treemap-breadcrumb {
+  font-size: var(--fs-small);
+  color: var(--muted);
+  margin: 0 0 8px 0;
+  line-height: 1.4;
+}
+.treemap-breadcrumb a {
+  color: var(--accent);
+  text-decoration: none;
+}
+.treemap-breadcrumb a:hover { text-decoration: underline; }
+.treemap-breadcrumb .sep {
+  margin: 0 6px;
+  color: var(--rule-2);
+}
+.treemap-breadcrumb .current {
+  color: var(--fg);
+  font-weight: 600;
+}
+
+.treemap-controls {
+  display: flex;
+  justify-content: flex-end;
+  align-items: center;
+  gap: 8px;
+  font-size: var(--fs-small);
+  color: var(--muted);
+  margin: 0 0 6px 0;
+}
+.treemap-controls label {
+  font-size: 12px;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+.treemap-controls select {
+  font: inherit;
+  font-size: 13px;
+  color: var(--fg);
+  background: var(--card);
+  border: 1px solid var(--rule-2);
+  border-radius: var(--radius);
+  padding: 3px 8px;
+  cursor: pointer;
+}
+.treemap-controls select:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 1px;
+}
+
+.treemap-topbar {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 6px;
+}
+
+/* Mobile: stack treemap above panel, drop sticky behavior so panel scrolls inline. */
+@media (max-width: 700px) {
+  .treemap-container {
+    flex-direction: column;
+    gap: 12px;
+  }
+  .treemap-hover-panel {
+    position: static;
+    width: 100%;
+    flex: 0 0 auto;
+    height: auto;
+    max-height: 420px;
+  }
+  .treemap-hover-medoid { max-width: 180px; }
+  .treemap-topbar { flex-direction: column; align-items: stretch; }
+  .treemap-controls { justify-content: flex-start; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .treemap-cell,
+  .treemap-cell:hover,
+  .treemap-cell:focus-visible {
+    transition: none !important;
+    filter: none !important;
+  }
+}

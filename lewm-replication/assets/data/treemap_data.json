@@ -1,0 +1,765 @@
+{
+  "name": "all",
+  "n_total": 5000,
+  "children": [
+    {
+      "id": "root_0",
+      "name": "#0 \u00b7 middle-center",
+      "size": 226,
+      "value": 226,
+      "mean_block_x": 238.8887176513672,
+      "mean_block_y": 257.56719970703125,
+      "mean_theta": 0.801191508769989,
+      "std_block_x": 11.46835708618164,
+      "std_block_y": 10.85305404663086,
+      "region": "middle-center",
+      "medoid_thumb": "treemap_thumbs/root_0_med.jpg",
+      "sample_thumbs": [
+        "treemap_thumbs/root_0_s0.jpg",
+        "treemap_thumbs/root_0_s1.jpg"
+      ],
+      "children": [
+        {
+          "id": "child_0",
+          "name": "sub-0",
+          "size": 107,
+          "value": 107,
+          "mean_block_x": 236.52572631835938,
+          "mean_block_y": 257.5525207519531,
+          "mean_theta": 0.8810058832168579,
+          "region": "middle-center",
+          "medoid_thumb": "treemap_thumbs/child_0_med.jpg",
+          "sample_thumbs": [
+            "treemap_thumbs/child_0_s0.jpg",
+            "treemap_thumbs/child_0_s1.jpg"
+          ]
+        },
+        {
+          "id": "child_1",
+          "name": "sub-1",
+          "size": 53,
+          "value": 53,
+          "mean_block_x": 237.90255737304688,
+          "mean_block_y": 249.298095703125,
+          "mean_theta": 0.6872499585151672,
+          "region": "middle-center",
+          "medoid_thumb": "treemap_thumbs/child_1_med.jpg",
+          "sample_thumbs": [
+            "treemap_thumbs/child_1_s0.jpg",
+            "treemap_thumbs/child_1_s1.jpg"
+          ]
+        },
+        {
+          "id": "child_2",
+          "name": "sub-2",
+          "size": 66,
+          "value": 66,
+          "mean_block_x": 243.5115966796875,
+          "mean_block_y": 264.23138427734375,
+          "mean_theta": 0.7632937431335449,
+          "region": "middle-center",
+          "medoid_thumb": "treemap_thumbs/child_2_med.jpg",
+          "sample_thumbs": [
+            "treemap_thumbs/child_2_s0.jpg",
+            "treemap_thumbs/child_2_s1.jpg"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "root_1",
+      "name": "#1 \u00b7 middle-center",
+      "size": 299,
+      "value": 299,
+      "mean_block_x": 290.6659240722656,
+      "mean_block_y": 276.40484619140625,
+      "mean_theta": 1.4805001020431519,
+      "std_block_x": 48.67845916748047,
+      "std_block_y": 22.890295028686523,
+      "region": "middle-center",
+      "medoid_thumb": "treemap_thumbs/root_1_med.jpg",
+      "sample_thumbs": [
+        "treemap_thumbs/root_1_s0.jpg",
+        "treemap_thumbs/root_1_s1.jpg"
+      ],
+      "children": [
+        {
+          "id": "child_3",
+          "name": "sub-3",
+          "size": 59,
+          "value": 59,
+          "mean_block_x": 258.8746337890625,
+          "mean_block_y": 258.8551330566406,
+          "mean_theta": 0.8233840465545654,
+          "region": "middle-center",
+          "medoid_thumb": "treemap_thumbs/child_3_med.jpg",
+          "sample_thumbs": [
+            "treemap_thumbs/child_3_s0.jpg",
+            "treemap_thumbs/child_3_s1.jpg"
+          ]
+        },
+        {
+          "id": "child_4",
+          "name": "sub-4",
+          "size": 63,
+          "value": 63,
+          "mean_block_x": 265.7732849121094,
+          "mean_block_y": 270.50213623046875,
+          "mean_theta": 0.7866102457046509,
+          "region": "middle-center",
+          "medoid_thumb": "treemap_thumbs/child_4_med.jpg",
+          "sample_thumbs": [
+            "treemap_thumbs/child_4_s0.jpg",
+            "treemap_thumbs/child_4_s1.jpg"
+          ]
+        },
+        {
+          "id": "child_5",
+          "name": "sub-5",
+          "size": 84,
+          "value": 84,
+          "mean_block_x": 257.20892333984375,
+          "mean_block_y": 272.7169494628906,
+          "mean_theta": 0.8215789794921875,
+          "region": "middle-center",
+          "medoid_thumb": "treemap_thumbs/child_5_med.jpg",
+          "sample_thumbs": [
+            "treemap_thumbs/child_5_s0.jpg",
+            "treemap_thumbs/child_5_s1.jpg"
+          ]
+        },
+        {
+          "id": "child_6",
+          "name": "sub-6",
+          "size": 93,
+          "value": 93,
+          "mean_block_x": 357.91650390625,
+          "mean_block_y": 294.8681335449219,
+          "mean_theta": 2.9625890254974365,
+          "region": "middle-right",
+          "medoid_thumb": "treemap_thumbs/child_6_med.jpg",
+          "sample_thumbs": [
+            "treemap_thumbs/child_6_s0.jpg",
+            "treemap_thumbs/child_6_s1.jpg"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "root_2",
+      "name": "#2 \u00b7 middle-center",
+      "size": 571,
+      "value": 571,
+      "mean_block_x": 284.2690124511719,
+      "mean_block_y": 174.64634704589844,
+      "mean_theta": 2.8638007640838623,
+      "std_block_x": 92.2376480102539,
+      "std_block_y": 47.64823532104492,
+      "region": "middle-center",
+      "medoid_thumb": "treemap_thumbs/root_2_med.jpg",
+      "sample_thumbs": [
+        "treemap_thumbs/root_2_s0.jpg",
+        "treemap_thumbs/root_2_s1.jpg"
+      ],
+      "children": [
+        {
+          "id": "child_7",
+          "name": "sub-7",
+          "size": 123,
+          "value": 123,
+          "mean_block_x": 350.8499755859375,
+          "mean_block_y": 150.1045379638672,
+          "mean_theta": 2.8973793983459473,
+          "region": "upper-right",
+          "medoid_thumb": "treemap_thumbs/child_7_med.jpg",
+          "sample_thumbs": [
+            "treemap_thumbs/child_7_s0.jpg",
+            "treemap_thumbs/child_7_s1.jpg"
+          ]
+        },
+        {
+          "id": "child_8",
+          "name": "sub-8",
+          "size": 84,
+          "value": 84,
+          "mean_block_x": 356.49664306640625,
+          "mean_block_y": 176.47923278808594,
+          "mean_theta": 2.531827211380005,
+          "region": "middle-right",
+          "medoid_thumb": "treemap_thumbs/child_8_med.jpg",
+          "sample_thumbs": [
+            "treemap_thumbs/child_8_s0.jpg",
+            "treemap_thumbs/child_8_s1.jpg"
+          ]
+        },
+        {
+          "id": "child_9",
+          "name": "sub-9",
+          "size": 90,
+          "value": 90,
+          "mean_block_x": 353.44500732421875,
+          "mean_block_y": 229.43826293945312,
+          "mean_theta": 2.985318422317505,
+          "region": "middle-right",
+          "medoid_thumb": "treemap_thumbs/child_9_med.jpg",
+          "sample_thumbs": [
+            "treemap_thumbs/child_9_s0.jpg",
+            "treemap_thumbs/child_9_s1.jpg"
+          ]
+        },
+        {
+          "id": "child_10",
+          "name": "sub-10",
+          "size": 116,
+          "value": 116,
+          "mean_block_x": 150.4735107421875,
+          "mean_block_y": 178.2904815673828,
+          "mean_theta": 2.726850748062134,
+          "region": "middle-left",
+          "medoid_thumb": "treemap_thumbs/child_10_med.jpg",
+          "sample_thumbs": [
+            "treemap_thumbs/child_10_s0.jpg",
+            "treemap_thumbs/child_10_s1.jpg"
+          ]
+        },
+        {
+          "id": "child_11",
+          "name": "sub-11",
+          "size": 68,
+          "value": 68,
+          "mean_block_x": 280.2164306640625,
+          "mean_block_y": 142.3509979248047,
+          "mean_theta": 2.0593152046203613,
+          "region": "upper-center",
+          "medoid_thumb": "treemap_thumbs/child_11_med.jpg",
+          "sample_thumbs": [
+            "treemap_thumbs/child_11_s0.jpg",
+            "treemap_thumbs/child_11_s1.jpg"
+          ]
+        },
+        {
+          "id": "child_12",
+          "name": "sub-12",
+          "size": 90,
+          "value": 90,
+          "mean_block_x": 232.1961212158203,
+          "mean_block_y": 171.38818359375,
+          "mean_theta": 3.790581226348877,
+          "region": "middle-center",
+          "medoid_thumb": "treemap_thumbs/child_12_med.jpg",
+          "sample_thumbs": [
+            "treemap_thumbs/child_12_s0.jpg",
+            "treemap_thumbs/child_12_s1.jpg"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "root_3",
+      "name": "#3 \u00b7 middle-center",
+      "size": 335,
+      "value": 335,
+      "mean_block_x": 260.4875183105469,
+      "mean_block_y": 239.23568725585938,
+      "mean_theta": 0.8029497265815735,
+      "std_block_x": 15.203084945678711,
+      "std_block_y": 14.500840187072754,
+      "region": "middle-center",
+      "medoid_thumb": "treemap_thumbs/root_3_med.jpg",
+      "sample_thumbs": [
+        "treemap_thumbs/root_3_s0.jpg",
+        "treemap_thumbs/root_3_s1.jpg"
+      ],
+      "children": [
+        {
+          "id": "child_13",
+          "name": "sub-13",
+          "size": 62,
+          "value": 62,
+          "mean_block_x": 266.758056640625,
+          "mean_block_y": 239.9156951904297,
+          "mean_theta": 0.8135310411453247,
+          "region": "middle-center",
+          "medoid_thumb": "treemap_thumbs/child_13_med.jpg",
+          "sample_thumbs": [
+            "treemap_thumbs/child_13_s0.jpg",
+            "treemap_thumbs/child_13_s1.jpg"
+          ]
+        },
+        {
+          "id": "child_14",
+          "name": "sub-14",
+          "size": 64,
+          "value": 64,
+          "mean_block_x": 253.0856475830078,
+          "mean_block_y": 250.608154296875,
+          "mean_theta": 0.7444789409637451,
+          "region": "middle-center",
+          "medoid_thumb": "treemap_thumbs/child_14_med.jpg",
+          "sample_thumbs": [
+            "treemap_thumbs/child_14_s0.jpg",
+            "treemap_thumbs/child_14_s1.jpg"
+          ]
+        },
+        {
+          "id": "child_15",
+          "name": "sub-15",
+          "size": 77,
+          "value": 77,
+          "mean_block_x": 263.0432434082031,
+          "mean_block_y": 237.89889526367188,
+          "mean_theta": 0.6774082779884338,
+          "region": "middle-center",
+          "medoid_thumb": "treemap_thumbs/child_15_med.jpg",
+          "sample_thumbs": [
+            "treemap_thumbs/child_15_s0.jpg",
+            "treemap_thumbs/child_15_s1.jpg"
+          ]
+        },
+        {
+          "id": "child_16",
+          "name": "sub-16",
+          "size": 60,
+          "value": 60,
+          "mean_block_x": 254.3151397705078,
+          "mean_block_y": 224.37286376953125,
+          "mean_theta": 0.7498888373374939,
+          "region": "middle-center",
+          "medoid_thumb": "treemap_thumbs/child_16_med.jpg",
+          "sample_thumbs": [
+            "treemap_thumbs/child_16_s0.jpg",
+            "treemap_thumbs/child_16_s1.jpg"
+          ]
+        },
+        {
+          "id": "child_17",
+          "name": "sub-17",
+          "size": 72,
+          "value": 72,
+          "mean_block_x": 264.0777587890625,
+          "mean_block_y": 242.35650634765625,
+          "mean_theta": 1.0242887735366821,
+          "region": "middle-center",
+          "medoid_thumb": "treemap_thumbs/child_17_med.jpg",
+          "sample_thumbs": [
+            "treemap_thumbs/child_17_s0.jpg",
+            "treemap_thumbs/child_17_s1.jpg"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "root_4",
+      "name": "#4 \u00b7 lower-left",
+      "size": 587,
+      "value": 587,
+      "mean_block_x": 162.40138244628906,
+      "mean_block_y": 350.1287841796875,
+      "mean_theta": 2.1181604862213135,
+      "std_block_x": 50.46306228637695,
+      "std_block_y": 49.61019515991211,
+      "region": "lower-left",
+      "medoid_thumb": "treemap_thumbs/root_4_med.jpg",
+      "sample_thumbs": [
+        "treemap_thumbs/root_4_s0.jpg",
+        "treemap_thumbs/root_4_s1.jpg"
+      ],
+      "children": [
+        {
+          "id": "child_18",
+          "name": "sub-18",
+          "size": 92,
+          "value": 92,
+          "mean_block_x": 143.61790466308594,
+          "mean_block_y": 412.3096923828125,
+          "mean_theta": 3.386948347091675,
+          "region": "lower-left",
+          "medoid_thumb": "treemap_thumbs/child_18_med.jpg",
+          "sample_thumbs": [
+            "treemap_thumbs/child_18_s0.jpg",
+            "treemap_thumbs/child_18_s1.jpg"
+          ]
+        },
+        {
+          "id": "child_19",
+          "name": "sub-19",
+          "size": 98,
+          "value": 98,
+          "mean_block_x": 90.10870361328125,
+          "mean_block_y": 343.3023681640625,
+          "mean_theta": 3.595475196838379,
+          "region": "lower-left",
+          "medoid_thumb": "treemap_thumbs/child_19_med.jpg",
+          "sample_thumbs": [
+            "treemap_thumbs/child_19_s0.jpg",
+            "treemap_thumbs/child_19_s1.jpg"
+          ]
+        },
+        {
+          "id": "child_20",
+          "name": "sub-20",
+          "size": 159,
+          "value": 159,
+          "mean_block_x": 175.80194091796875,
+          "mean_block_y": 344.0037841796875,
+          "mean_theta": 2.3899052143096924,
+          "region": "lower-center",
+          "medoid_thumb": "treemap_thumbs/child_20_med.jpg",
+          "sample_thumbs": [
+            "treemap_thumbs/child_20_s0.jpg",
+            "treemap_thumbs/child_20_s1.jpg"
+          ]
+        },
+        {
+          "id": "child_21",
+          "name": "sub-21",
+          "size": 115,
+          "value": 115,
+          "mean_block_x": 203.4080047607422,
+          "mean_block_y": 343.0787353515625,
+          "mean_theta": 0.9876569509506226,
+          "region": "lower-center",
+          "medoid_thumb": "treemap_thumbs/child_21_med.jpg",
+          "sample_thumbs": [
+            "treemap_thumbs/child_21_s0.jpg",
+            "treemap_thumbs/child_21_s1.jpg"
+          ]
+        },
+        {
+          "id": "child_22",
+          "name": "sub-22",
+          "size": 53,
+          "value": 53,
+          "mean_block_x": 196.98040771484375,
+          "mean_block_y": 324.8998718261719,
+          "mean_theta": 0.804814338684082,
+          "region": "middle-center",
+          "medoid_thumb": "treemap_thumbs/child_22_med.jpg",
+          "sample_thumbs": [
+            "treemap_thumbs/child_22_s0.jpg",
+            "treemap_thumbs/child_22_s1.jpg"
+          ]
+        },
+        {
+          "id": "child_23",
+          "name": "sub-23",
+          "size": 70,
+          "value": 70,
+          "mean_block_x": 164.3102569580078,
+          "mean_block_y": 322.5589294433594,
+          "mean_theta": 0.6167675852775574,
+          "region": "middle-left",
+          "medoid_thumb": "treemap_thumbs/child_23_med.jpg",
+          "sample_thumbs": [
+            "treemap_thumbs/child_23_s0.jpg",
+            "treemap_thumbs/child_23_s1.jpg"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "root_5",
+      "name": "#5 \u00b7 lower-center",
+      "size": 456,
+      "value": 456,
+      "mean_block_x": 255.51673889160156,
+      "mean_block_y": 396.3139953613281,
+      "mean_theta": 3.6375181674957275,
+      "std_block_x": 76.61109161376953,
+      "std_block_y": 43.19651412963867,
+      "region": "lower-center",
+      "medoid_thumb": "treemap_thumbs/root_5_med.jpg",
+      "sample_thumbs": [
+        "treemap_thumbs/root_5_s0.jpg",
+        "treemap_thumbs/root_5_s1.jpg"
+      ],
+      "children": [
+        {
+          "id": "child_24",
+          "name": "sub-24",
+          "size": 46,
+          "value": 46,
+          "mean_block_x": 304.3676452636719,
+          "mean_block_y": 401.974609375,
+          "mean_theta": 4.877136707305908,
+          "region": "lower-center",
+          "medoid_thumb": "treemap_thumbs/child_24_med.jpg",
+          "sample_thumbs": [
+            "treemap_thumbs/child_24_s0.jpg",
+            "treemap_thumbs/child_24_s1.jpg"
+          ]
+        },
+        {
+          "id": "child_25",
+          "name": "sub-25",
+          "size": 97,
+          "value": 97,
+          "mean_block_x": 358.6001892089844,
+          "mean_block_y": 411.06707763671875,
+          "mean_theta": 2.5993027687072754,
+          "region": "lower-right",
+          "medoid_thumb": "treemap_thumbs/child_25_med.jpg",
+          "sample_thumbs": [
+            "treemap_thumbs/child_25_s0.jpg",
+            "treemap_thumbs/child_25_s1.jpg"
+          ]
+        },
+        {
+          "id": "child_26",
+          "name": "sub-26",
+          "size": 105,
+          "value": 105,
+          "mean_block_x": 174.04440307617188,
+          "mean_block_y": 364.31536865234375,
+          "mean_theta": 5.24102258682251,
+          "region": "lower-center",
+          "medoid_thumb": "treemap_thumbs/child_26_med.jpg",
+          "sample_thumbs": [
+            "treemap_thumbs/child_26_s0.jpg",
+            "treemap_thumbs/child_26_s1.jpg"
+          ]
+        },
+        {
+          "id": "child_27",
+          "name": "sub-27",
+          "size": 57,
+          "value": 57,
+          "mean_block_x": 221.146240234375,
+          "mean_block_y": 440.51593017578125,
+          "mean_theta": 2.561311960220337,
+          "region": "lower-center",
+          "medoid_thumb": "treemap_thumbs/child_27_med.jpg",
+          "sample_thumbs": [
+            "treemap_thumbs/child_27_s0.jpg",
+            "treemap_thumbs/child_27_s1.jpg"
+          ]
+        },
+        {
+          "id": "child_28",
+          "name": "sub-28",
+          "size": 60,
+          "value": 60,
+          "mean_block_x": 227.37660217285156,
+          "mean_block_y": 413.9658508300781,
+          "mean_theta": 3.854910373687744,
+          "region": "lower-center",
+          "medoid_thumb": "treemap_thumbs/child_28_med.jpg",
+          "sample_thumbs": [
+            "treemap_thumbs/child_28_s0.jpg",
+            "treemap_thumbs/child_28_s1.jpg"
+          ]
+        },
+        {
+          "id": "child_29",
+          "name": "sub-29",
+          "size": 91,
+          "value": 91,
+          "mean_block_x": 255.031982421875,
+          "mean_block_y": 375.32281494140625,
+          "mean_theta": 2.798140525817871,
+          "region": "lower-center",
+          "medoid_thumb": "treemap_thumbs/child_29_med.jpg",
+          "sample_thumbs": [
+            "treemap_thumbs/child_29_s0.jpg",
+            "treemap_thumbs/child_29_s1.jpg"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "root_6",
+      "name": "#6 \u00b7 middle-left",
+      "size": 294,
+      "value": 294,
+      "mean_block_x": 139.1727294921875,
+      "mean_block_y": 231.94459533691406,
+      "mean_theta": 4.401199817657471,
+      "std_block_x": 43.045936584472656,
+      "std_block_y": 45.894718170166016,
+      "region": "middle-left",
+      "medoid_thumb": "treemap_thumbs/root_6_med.jpg",
+      "sample_thumbs": [
+        "treemap_thumbs/root_6_s0.jpg",
+        "treemap_thumbs/root_6_s1.jpg"
+      ],
+      "children": [
+        {
+          "id": "child_30",
+          "name": "sub-30",
+          "size": 55,
+          "value": 55,
+          "mean_block_x": 126.42204284667969,
+          "mean_block_y": 178.59568786621094,
+          "mean_theta": 5.562870025634766,
+          "region": "middle-left",
+          "medoid_thumb": "treemap_thumbs/child_30_med.jpg",
+          "sample_thumbs": [
+            "treemap_thumbs/child_30_s0.jpg",
+            "treemap_thumbs/child_30_s1.jpg"
+          ]
+        },
+        {
+          "id": "child_31",
+          "name": "sub-31",
+          "size": 100,
+          "value": 100,
+          "mean_block_x": 111.6919937133789,
+          "mean_block_y": 270.4833068847656,
+          "mean_theta": 4.647063732147217,
+          "region": "middle-left",
+          "medoid_thumb": "treemap_thumbs/child_31_med.jpg",
+          "sample_thumbs": [
+            "treemap_thumbs/child_31_s0.jpg",
+            "treemap_thumbs/child_31_s1.jpg"
+          ]
+        },
+        {
+          "id": "child_32",
+          "name": "sub-32",
+          "size": 67,
+          "value": 67,
+          "mean_block_x": 146.7086181640625,
+          "mean_block_y": 226.31631469726562,
+          "mean_theta": 4.9763503074646,
+          "region": "middle-left",
+          "medoid_thumb": "treemap_thumbs/child_32_med.jpg",
+          "sample_thumbs": [
+            "treemap_thumbs/child_32_s0.jpg",
+            "treemap_thumbs/child_32_s1.jpg"
+          ]
+        },
+        {
+          "id": "child_33",
+          "name": "sub-33",
+          "size": 72,
+          "value": 72,
+          "mean_block_x": 180.06788635253906,
+          "mean_block_y": 224.40875244140625,
+          "mean_theta": 2.6371240615844727,
+          "region": "middle-center",
+          "medoid_thumb": "treemap_thumbs/child_33_med.jpg",
+          "sample_thumbs": [
+            "treemap_thumbs/child_33_s0.jpg",
+            "treemap_thumbs/child_33_s1.jpg"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "root_7",
+      "name": "#7 \u00b7 middle-center",
+      "size": 2232,
+      "value": 2232,
+      "mean_block_x": 256.4230651855469,
+      "mean_block_y": 270.5544128417969,
+      "mean_theta": 1.8320038318634033,
+      "std_block_x": 55.582489013671875,
+      "std_block_y": 52.27595901489258,
+      "region": "middle-center",
+      "medoid_thumb": "treemap_thumbs/root_7_med.jpg",
+      "sample_thumbs": [
+        "treemap_thumbs/root_7_s0.jpg",
+        "treemap_thumbs/root_7_s1.jpg"
+      ],
+      "children": [
+        {
+          "id": "child_34",
+          "name": "sub-34",
+          "size": 285,
+          "value": 285,
+          "mean_block_x": 203.42665100097656,
+          "mean_block_y": 275.41552734375,
+          "mean_theta": 0.8606275320053101,
+          "region": "middle-center",
+          "medoid_thumb": "treemap_thumbs/child_34_med.jpg",
+          "sample_thumbs": [
+            "treemap_thumbs/child_34_s0.jpg",
+            "treemap_thumbs/child_34_s1.jpg"
+          ]
+        },
+        {
+          "id": "child_35",
+          "name": "sub-35",
+          "size": 518,
+          "value": 518,
+          "mean_block_x": 215.4111785888672,
+          "mean_block_y": 280.8614807128906,
+          "mean_theta": 2.1455934047698975,
+          "region": "middle-center",
+          "medoid_thumb": "treemap_thumbs/child_35_med.jpg",
+          "sample_thumbs": [
+            "treemap_thumbs/child_35_s0.jpg",
+            "treemap_thumbs/child_35_s1.jpg"
+          ]
+        },
+        {
+          "id": "child_36",
+          "name": "sub-36",
+          "size": 169,
+          "value": 169,
+          "mean_block_x": 275.0354919433594,
+          "mean_block_y": 270.7400207519531,
+          "mean_theta": 1.3543314933776855,
+          "region": "middle-center",
+          "medoid_thumb": "treemap_thumbs/child_36_med.jpg",
+          "sample_thumbs": [
+            "treemap_thumbs/child_36_s0.jpg",
+            "treemap_thumbs/child_36_s1.jpg"
+          ]
+        },
+        {
+          "id": "child_37",
+          "name": "sub-37",
+          "size": 615,
+          "value": 615,
+          "mean_block_x": 300.54486083984375,
+          "mean_block_y": 307.1046142578125,
+          "mean_theta": 2.277517557144165,
+          "region": "middle-center",
+          "medoid_thumb": "treemap_thumbs/child_37_med.jpg",
+          "sample_thumbs": [
+            "treemap_thumbs/child_37_s0.jpg",
+            "treemap_thumbs/child_37_s1.jpg"
+          ]
+        },
+        {
+          "id": "child_38",
+          "name": "sub-38",
+          "size": 149,
+          "value": 149,
+          "mean_block_x": 308.51861572265625,
+          "mean_block_y": 192.69775390625,
+          "mean_theta": 0.6473230123519897,
+          "region": "middle-center",
+          "medoid_thumb": "treemap_thumbs/child_38_med.jpg",
+          "sample_thumbs": [
+            "treemap_thumbs/child_38_s0.jpg",
+            "treemap_thumbs/child_38_s1.jpg"
+          ]
+        },
+        {
+          "id": "child_39",
+          "name": "sub-39",
+          "size": 496,
+          "value": 496,
+          "mean_block_x": 253.00680541992188,
+          "mean_block_y": 235.0027618408203,
+          "mean_theta": 2.028890371322632,
+          "region": "middle-center",
+          "medoid_thumb": "treemap_thumbs/child_39_med.jpg",
+          "sample_thumbs": [
+            "treemap_thumbs/child_39_s0.jpg",
+            "treemap_thumbs/child_39_s1.jpg"
+          ]
+        }
+      ]
+    }
+  ],
+  "config": {
+    "n_samples": 5000,
+    "n_root": 8,
+    "clustering": "scipy.cluster.hierarchy.linkage(method='ward')",
+    "normalization": "cosine (L2 row-normalize before clustering)",
+    "seed": 0
+  }
+}
