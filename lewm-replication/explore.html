@@ -4,194 +4,153 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>LeWorldModel — Explore embeddings</title>
-  <meta name="description" content="Interactive treemap of unsupervised clusters discovered in LeWorldModel's 192-d latent space. Hover for stats, click to zoom into sub-clusters.">
+  <meta name="description" content="Three linked views — UMAP scatter, parallel coordinates, and treemap — of 1,500 Push-T training latents from LeWorldModel. Brush any view to highlight the same selection in the others.">
   <meta property="og:type" content="article">
   <meta property="og:title" content="LeWorldModel — Explore embeddings">
-  <meta property="og:description" content="Unsupervised clusters in the predictor's latent space. The model was never told what a phase is.">
+  <meta property="og:description" content="Three linked views of 1,500 Push-T training latents. Brush anywhere; thumbnails appear in the strip below.">
   <link rel="stylesheet" href="assets/styles.css">
   <style>
-    /* explore-page-local styles */
-    .explore-layout {
+    /* ---- explore-page-local layout ---- */
+    .explore-row-2col {
       display: grid;
-      grid-template-columns: 1fr 340px;
+      grid-template-columns: 1fr 1fr;
       gap: 20px;
-      align-items: start;
+      align-items: stretch;
+      margin-top: 20px;
     }
-    @media (max-width: 900px) {
-      .explore-layout { grid-template-columns: 1fr; }
-      #tooltip-panel { position: static !important; width: 100% !important; }
+    @media (max-width: 800px) {
+      .explore-row-2col { grid-template-columns: 1fr; }
     }
-    #treemap-container {
-      position: relative;
-      width: 100%;
-      height: 640px;
+    .explore-row-full {
+      margin-top: 20px;
+    }
+    .view-card {
       background: #111;
       border: 1px solid #2a2a2a;
       border-radius: 4px;
-      overflow: hidden;
-    }
-    .treemap-cell {
-      position: absolute;
+      padding: 12px;
+      min-height: 360px;
       box-sizing: border-box;
+    }
+    .view-card h2 {
+      margin: 0 0 8px 0;
+      font: 600 13px/1.3 ui-monospace, SFMono-Regular, Menlo, monospace;
+      text-transform: uppercase;
+      letter-spacing: 0.6px;
+      color: #aab;
+    }
+    .view-card .view-sub {
+      font: 11px/1.4 ui-monospace, SFMono-Regular, Menlo, monospace;
+      color: #788;
+      margin-bottom: 10px;
+    }
+    #scatter, #parcoords, #treemap {
+      width: 100%;
+      min-height: 320px;
+    }
+    #treemap { min-height: 360px; }
+
+    /* ---- thumbstrip: sticky bottom on desktop ---- */
+    #thumbstrip-section {
+      background: #0d0d0d;
+      border: 1px solid #2a2a2a;
+      border-radius: 4px;
+      padding: 10px 12px;
+      margin-top: 20px;
+    }
+    @media (min-width: 801px) {
+      #thumbstrip-section {
+        position: sticky;
+        bottom: 0;
+        z-index: 20;
+        box-shadow: 0 -6px 18px rgba(0,0,0,0.45);
+      }
+    }
+    #thumbstrip-section h2 {
+      margin: 0 0 6px 0;
+      font: 600 11px/1.3 ui-monospace, SFMono-Regular, Menlo, monospace;
+      text-transform: uppercase;
+      letter-spacing: 0.6px;
+      color: #aab;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+    #thumbstrip-section h2 .count {
+      color: #6aa;
+      font-weight: 400;
+    }
+    .thumbstrip-row {
+      display: flex;
+      flex-direction: row;
+      gap: 4px;
+      overflow-x: auto;
+      overflow-y: hidden;
+      padding: 4px 0 6px 0;
+      min-height: 72px;
+      scrollbar-width: thin;
+    }
+    .thumbstrip-row::-webkit-scrollbar { height: 8px; }
+    .thumbstrip-row::-webkit-scrollbar-thumb {
+      background: #333;
+      border-radius: 4px;
+    }
+    .thumbstrip-item {
+      width: 64px;
+      height: 64px;
+      border-radius: 4px;
+      border: 1px solid transparent;
+      flex: 0 0 auto;
       background-size: cover;
       background-position: center;
       background-repeat: no-repeat;
-      border: 3px solid #888;
-      cursor: pointer;
-      transition: filter 0.12s ease, transform 0.12s ease;
-      overflow: hidden;
-    }
-    .treemap-cell:hover {
-      filter: brightness(1.15);
-      z-index: 5;
-    }
-    .treemap-cell.active {
-      outline: 2px solid #fff;
-      outline-offset: -2px;
-    }
-    .treemap-label {
-      position: absolute;
-      left: 4px;
-      top: 4px;
-      padding: 2px 6px;
-      background: rgba(0, 0, 0, 0.72);
-      color: #fff;
-      font: 11px/1.3 ui-monospace, SFMono-Regular, Menlo, monospace;
-      pointer-events: none;
-      max-width: calc(100% - 10px);
-      white-space: nowrap;
-      overflow: hidden;
-      text-overflow: ellipsis;
-      border-radius: 2px;
-    }
-    .treemap-size {
-      position: absolute;
-      right: 4px;
-      bottom: 4px;
-      padding: 1px 5px;
-      background: rgba(0, 0, 0, 0.72);
-      color: #ddd;
-      font: 10px ui-monospace, SFMono-Regular, Menlo, monospace;
-      pointer-events: none;
-      border-radius: 2px;
-    }
-    #tooltip-panel {
-      width: 340px;
-      background: #1a1a1a;
-      border: 1px solid #2a2a2a;
-      border-radius: 4px;
-      padding: 14px;
-      box-sizing: border-box;
-      color: var(--fg, #eee);
-      position: sticky;
-      top: 20px;
-    }
-    #tooltip-panel.empty .tooltip-content { display: none; }
-    #tooltip-panel.empty .tooltip-hint { display: block; }
-    #tooltip-panel:not(.empty) .tooltip-hint { display: none; }
-    .tooltip-hint {
-      color: var(--muted, #888);
-      font-size: 13px;
-      line-height: 1.5;
-    }
-    .tooltip-thumb-main {
-      width: 100%;
-      aspect-ratio: 1 / 1;
-      background: #000;
-      background-size: cover;
-      background-position: center;
       image-rendering: pixelated;
-      border-radius: 2px;
-      margin-bottom: 10px;
+      cursor: pointer;
+      transition: border-color 0.1s ease, transform 0.1s ease;
     }
-    .tooltip-name {
-      font: 600 14px/1.3 system-ui, -apple-system, sans-serif;
-      margin: 0 0 4px 0;
-      color: #fff;
+    .thumbstrip-item:hover {
+      border-color: #fff;
+      transform: scale(1.04);
     }
-    .tooltip-region {
-      font: 11px ui-monospace, SFMono-Regular, Menlo, monospace;
-      color: #aab;
-      margin-bottom: 10px;
-    }
-    .tooltip-stats {
-      font: 12px/1.55 ui-monospace, SFMono-Regular, Menlo, monospace;
-      color: #ccc;
-      background: #111;
-      padding: 8px 10px;
-      border-radius: 2px;
-      margin-bottom: 10px;
-    }
-    .tooltip-stats .k { color: #889; }
-    .tooltip-samples-label {
-      font: 10px ui-monospace, SFMono-Regular, Menlo, monospace;
-      text-transform: uppercase;
-      letter-spacing: 0.5px;
+    .thumbstrip-empty {
       color: #788;
-      margin-bottom: 4px;
+      font: 12px/1.5 ui-monospace, SFMono-Regular, Menlo, monospace;
+      padding: 22px 4px;
     }
-    .tooltip-samples {
-      display: grid;
-      grid-template-columns: 1fr 1fr;
-      gap: 6px;
+
+    /* ---- error / loading states ---- */
+    .view-error {
+      color: #faa;
+      font: 12px/1.5 ui-monospace, SFMono-Regular, Menlo, monospace;
+      padding: 10px;
     }
-    .tooltip-samples > div {
-      aspect-ratio: 1 / 1;
-      background: #000;
-      background-size: cover;
-      background-position: center;
-      image-rendering: pixelated;
-      border-radius: 2px;
+    .view-loading {
+      color: #788;
+      font: 12px/1.5 ui-monospace, SFMono-Regular, Menlo, monospace;
+      padding: 10px;
     }
-    .controls {
-      display: flex;
-      gap: 14px;
-      align-items: center;
-      flex-wrap: wrap;
-      margin-bottom: 12px;
-      font: 13px system-ui, -apple-system, sans-serif;
+
+    /* ---- "how this is built" ---- */
+    .build-notes {
+      margin-top: 32px;
+      padding-top: 20px;
+      border-top: 1px solid #2a2a2a;
     }
-    .controls label { color: var(--muted, #aab); }
-    .controls select {
+    .build-notes h2 {
+      font: 600 16px/1.3 system-ui, -apple-system, sans-serif;
+      margin: 0 0 10px 0;
+      color: #ddd;
+    }
+    .build-notes p {
+      font: 14px/1.55 system-ui, -apple-system, sans-serif;
+      color: #ccc;
+    }
+    .build-notes code {
+      font: 12px ui-monospace, SFMono-Regular, Menlo, monospace;
       background: #1a1a1a;
-      color: #eee;
-      border: 1px solid #2a2a2a;
-      border-radius: 3px;
-      padding: 4px 8px;
-      font: inherit;
-    }
-    .breadcrumb {
-      font: 13px/1.4 ui-monospace, SFMono-Regular, Menlo, monospace;
-      color: var(--muted, #aab);
-      margin-bottom: 8px;
-    }
-    .breadcrumb a {
-      color: var(--accent, #6aa);
-      text-decoration: none;
-      cursor: pointer;
-    }
-    .breadcrumb a:hover { text-decoration: underline; }
-    .breadcrumb-sep { margin: 0 6px; color: #555; }
-    .legend {
-      display: flex;
-      align-items: center;
-      gap: 8px;
-      font: 11px ui-monospace, SFMono-Regular, Menlo, monospace;
-      color: #aab;
-    }
-    .legend-bar {
-      width: 140px;
-      height: 10px;
+      padding: 1px 5px;
       border-radius: 2px;
-      border: 1px solid #333;
-    }
-    .pull-quote {
-      border-left: 3px solid var(--accent, #6aa);
-      padding: 8px 14px;
-      margin: 18px 0;
-      font-style: italic;
-      color: #ccd;
-      background: rgba(255,255,255,0.02);
+      color: #cde;
     }
   </style>
 </head>
@@ -212,338 +171,136 @@
 <main id="main" class="wrap">
 
   <header class="section" id="hero">
-    <h1 class="page-title">Explore the embeddings</h1>
+    <h1 class="page-title">Embedding explorer &mdash; three linked views of 1,500 Push-T training latents</h1>
     <p class="tldr">
       <span class="tldr-label">What this is.</span>
-      This treemap shows 8 unsupervised clusters discovered in LeWorldModel's 192-d latent space (k-means over 5,000 Push-T frames), and the 3–6 sub-clusters inside each. <strong>Clusters are unsupervised. We never told the model what a phase is. Anything coherent is structure the model invented from predicting the next latent.</strong> Hover a cell to see its medoid frame and the mean block pose of its members. Click to zoom into sub-clusters. Don't read semantic phase labels into the regions — those are derived post-hoc from block coordinates and may or may not align with what the latent is actually grouping on.
-    </p>
-    <p class="pull-quote">
-      "We never told the model what a 'phase' is. It found them anyway, from the single job of predicting what happens next."
+      Three views of the same 1,500 latent vectors that LeWorldModel learned while predicting
+      the next frame of Push-T: a <strong>UMAP scatter</strong> (2D layout of the latent
+      manifold), a <strong>parallel-coordinates plot</strong> over the top PCA axes plus block
+      pose, and an <strong>EVoC cluster treemap</strong> sized by cluster population. The views
+      are linked: drag a brush or lasso on any one and the others highlight the same points,
+      and a strip of thumbnails appears below showing exactly which frames are in the selection.
+      The linked-selection idiom is borrowed from Vincent Warmerdam's
+      <em>evoc</em>/Marimo demo. Honest note: EVoC clusters are <strong>unsupervised</strong>
+      &mdash; we never told the model what a phase is, and the cluster structure is
+      <em>real but diffuse</em> (silhouette &asymp; 0.035 on this corpus; see
+      <a href="world-model.html#sec-7">world-model &sect;7</a>). Use this for browsing the
+      latent space, not as semantic ground truth.
     </p>
   </header>
 
-  <section class="section" id="treemap-section">
-    <div class="controls">
-      <label for="color-by">Color border by:</label>
-      <select id="color-by">
-        <option value="mean_block_x" selected>mean_block_x (horizontal pose)</option>
-        <option value="mean_block_y">mean_block_y (vertical pose)</option>
-        <option value="mean_theta">mean_theta (rotation)</option>
-        <option value="size">size (cluster members)</option>
-      </select>
-      <div class="legend">
-        <span id="legend-min">min</span>
-        <div class="legend-bar" id="legend-bar"></div>
-        <span id="legend-max">max</span>
-      </div>
-    </div>
-    <div class="breadcrumb" id="breadcrumb">
-      <a id="crumb-root">All clusters</a>
-    </div>
-    <div class="explore-layout">
-      <div id="treemap-container" role="img" aria-label="Treemap of unsupervised clusters; areas are proportional to cluster size; cell borders are colored by the selected statistic"></div>
-      <aside id="tooltip-panel" class="empty" aria-live="polite">
-        <div class="tooltip-hint">
-          <strong>Hover a cell</strong> to see its medoid frame and stats. <strong>Click</strong> a top-level cell to zoom into its sub-clusters. Use the dropdown to change which statistic the border color encodes.
-        </div>
-        <div class="tooltip-content">
-          <div class="tooltip-thumb-main" id="tt-thumb"></div>
-          <h3 class="tooltip-name" id="tt-name"></h3>
-          <div class="tooltip-region" id="tt-region"></div>
-          <div class="tooltip-stats" id="tt-stats"></div>
-          <div class="tooltip-samples-label">Sample frames</div>
-          <div class="tooltip-samples">
-            <div id="tt-s0"></div>
-            <div id="tt-s1"></div>
-          </div>
-        </div>
-      </aside>
-    </div>
-    <p class="muted" style="margin-top: 16px; font-size: 13px;">
-      Method: latents extracted with the trained encoder on 5,000 randomly sampled Push-T frames, k-means (k=8) at root, k-means again (k=3 per cluster, capped to the available members) inside each root. Each cell shows the cluster's medoid (the frame closest to the cluster centroid) as its background image. Sub-clusters do not necessarily reflect anything semantic — they are just the next level of geometric structure the latent happens to expose. Region labels ("middle-center", "lower-left", etc.) are post-hoc names from block-x/block-y means; the latent did not know about them.
+  <!-- Row 1: scatter + parcoords side-by-side (stacks on mobile) -->
+  <div class="explore-row-2col" id="row-1">
+    <section id="scatter-section" class="view-card" aria-labelledby="scatter-h">
+      <h2 id="scatter-h">UMAP scatter</h2>
+      <div class="view-sub">2D UMAP of the 192-d latent, colored by top-level EVoC cluster. Drag to brush.</div>
+      <div id="scatter"><div class="view-loading">loading&hellip;</div></div>
+    </section>
+    <section id="parcoords-section" class="view-card" aria-labelledby="parcoords-h">
+      <h2 id="parcoords-h">Parallel coordinates</h2>
+      <div class="view-sub">First 8 PCA axes of the latent plus block_x / block_y / theta. Drag on any axis to filter.</div>
+      <div id="parcoords"><div class="view-loading">loading&hellip;</div></div>
+    </section>
+  </div>
+
+  <!-- Row 2: full-width treemap -->
+  <div class="explore-row-full">
+    <section id="treemap-section" class="view-card" aria-labelledby="treemap-h">
+      <h2 id="treemap-h">EVoC cluster treemap</h2>
+      <div class="view-sub">Five EVoC layers (88 &rarr; 28 &rarr; 11 &rarr; 5 &rarr; 2 clusters); area is cluster population. Click to drill.</div>
+      <div id="treemap"><div class="view-loading">loading&hellip;</div></div>
+    </section>
+  </div>
+
+  <!-- Row 3: thumbstrip (sticky on desktop) -->
+  <section id="thumbstrip-section" aria-labelledby="thumbstrip-h" aria-live="polite">
+    <h2 id="thumbstrip-h">Selection <span class="count" id="thumbstrip-count">(brush any view above)</span></h2>
+    <div id="thumbstrip"><div class="thumbstrip-empty">No selection yet &mdash; brush, lasso, or click in any of the three views above.</div></div>
+  </section>
+
+  <!-- How this is built -->
+  <section class="section build-notes" id="build-notes" aria-labelledby="build-h">
+    <h2 id="build-h">How this is built</h2>
+    <p>
+      The 1,500 points are uniformly subsampled from the training-time latents the
+      LeWorldModel encoder produces on Push-T frames (192-d, per frame). For each point we
+      store the top 8 PCA coordinates of that latent, a 2-D <strong>UMAP</strong> projection
+      (<code>n_neighbors=15</code>, <code>min_dist=0.1</code>, cosine metric), the underlying
+      Push-T state (<code>block_x</code>, <code>block_y</code>, <code>theta</code>, agent
+      coords), and the cluster id from each of five layers of
+      <strong>EVoC</strong> (Vincent Warmerdam's <em>Evolutionary Vector Clustering</em>),
+      which we ran at depths producing 88, 28, 11, 5, and 2 clusters respectively. EVoC was
+      chosen over k-means because it does not require <em>k</em> and exposes a hierarchy
+      cheaply.
+    </p>
+    <p>
+      Thumbnails are pre-rendered Push-T frame crops packed into a single 39&times;39 sprite
+      sheet (<code>assets/explorer-data/sprite.jpg</code>); each point indexes a tile, so the
+      thumbstrip pulls 48&times;48 crops with one HTTP request total. The data file
+      (<code>explorer_data.json</code>, &asymp;760 KB) and the sprite are
+      committed under <code>outputs/demo/explorer/</code> and symlinked into the site at
+      <code>assets/explorer-data/</code>. All three views are rendered with vanilla
+      <a href="https://d3js.org/">D3 v7</a>; no React, no build step. Source for each view is
+      in <code>assets/explorer/view_*.js</code>; the shared selection store is in
+      <code>assets/explorer/state.js</code>, and every view subscribes to it via
+      <code>LewmExplorer.subscribe(fn)</code>. The clusters here are not the same as the
+      8-cluster k-means treemap on the world-model page &mdash; that one is k-means at depth
+      1; this one is EVoC at five depths. Neither is supervised; treat both as <em>structure
+      that fell out of next-latent prediction</em>, not as labeled phases.
     </p>
   </section>
 
 </main>
 
+<!-- ---- scripts: order matters ---- -->
+<script src="assets/vendor/d3.min.js"></script>
+<script src="assets/explorer/state.js"></script>
+<script src="assets/explorer/view_scatter.js"></script>
+<script src="assets/explorer/view_parcoords.js"></script>
+<script src="assets/explorer/view_treemap.js"></script>
+<script src="assets/explorer/view_thumbstrip.js"></script>
 <script>
-// ---------- squarified treemap (vanilla; no D3) ----------
-// Implements Bruls/Huijing/van Wijk 2000.
-function squarify(items, x, y, w, h) {
-  // items: [{value, ...}]  → returns same items annotated with x,y,w,h.
-  const total = items.reduce((s, it) => s + it.value, 0);
-  if (total <= 0) return items;
-  const scale = (w * h) / total;
-  const scaled = items.map(it => ({ ...it, _area: it.value * scale }));
-  const out = [];
-  layoutRow(scaled, [], x, y, w, h, out);
-  return out;
-}
-
-function layoutRow(remaining, row, x, y, w, h, out) {
-  if (remaining.length === 0) {
-    if (row.length) flushRow(row, x, y, w, h, out);
-    return;
-  }
-  const shortSide = Math.min(w, h);
-  const next = remaining[0];
-  const tryRow = [...row, next];
-  if (row.length === 0 || worstAspect(tryRow, shortSide) <= worstAspect(row, shortSide)) {
-    layoutRow(remaining.slice(1), tryRow, x, y, w, h, out);
-  } else {
-    const { nx, ny, nw, nh } = flushRow(row, x, y, w, h, out);
-    layoutRow(remaining, [], nx, ny, nw, nh, out);
-  }
-}
-
-function worstAspect(row, shortSide) {
-  if (row.length === 0) return Infinity;
-  const sum = row.reduce((s, it) => s + it._area, 0);
-  const maxA = Math.max(...row.map(it => it._area));
-  const minA = Math.min(...row.map(it => it._area));
-  const s2 = shortSide * shortSide;
-  const sum2 = sum * sum;
-  return Math.max((s2 * maxA) / sum2, sum2 / (s2 * minA));
-}
-
-function flushRow(row, x, y, w, h, out) {
-  const sum = row.reduce((s, it) => s + it._area, 0);
-  if (w >= h) {
-    // lay out as a vertical column along x
-    const colW = sum / h;
-    let yy = y;
-    for (const it of row) {
-      const cellH = it._area / colW;
-      out.push({ ...it, x, y: yy, w: colW, h: cellH });
-      yy += cellH;
+  // ---- bootstrap: load data, render all four views ----
+  (function bootstrap() {
+    var scatterEl = document.querySelector('#scatter');
+    function showError(msg) {
+      if (scatterEl) {
+        scatterEl.innerHTML = '<p class="view-error">Failed to load data: ' + msg + '<br>This page must be served over HTTP; from <code>outputs/demo/site/</code> run <code>./serve.sh</code> and open <code>http://localhost:8080/explore.html</code>.</p>';
+      }
     }
-    return { nx: x + colW, ny: y, nw: w - colW, nh: h };
-  } else {
-    // horizontal row along y
-    const rowH = sum / w;
-    let xx = x;
-    for (const it of row) {
-      const cellW = it._area / rowH;
-      out.push({ ...it, x: xx, y, w: cellW, h: rowH });
-      xx += cellW;
+    if (typeof LewmExplorer === 'undefined') {
+      showError('LewmExplorer namespace missing — state.js failed to load.');
+      return;
     }
-    return { nx: x, ny: y + rowH, nw: w, nh: h - rowH };
-  }
-}
+    fetch('assets/explorer-data/explorer_data.json', { cache: 'no-store' })
+      .then(function (r) {
+        if (!r.ok) throw new Error('HTTP ' + r.status);
+        return r.json();
+      })
+      .then(function (data) {
+        LewmExplorer.data = data;
+        try { LewmExplorer.renderScatter('#scatter'); } catch (e) { console.error('scatter:', e); }
+        try { LewmExplorer.renderParcoords('#parcoords'); } catch (e) { console.error('parcoords:', e); }
+        try { LewmExplorer.renderTreemap('#treemap'); } catch (e) { console.error('treemap:', e); }
+        try { LewmExplorer.renderThumbstrip('#thumbstrip'); } catch (e) { console.error('thumbstrip:', e); }
 
-// ---------- viridis-ish colormap (5-stop sample) ----------
-const VIRIDIS = [
-  [68, 1, 84],
-  [59, 82, 139],
-  [33, 144, 141],
-  [93, 201, 99],
-  [253, 231, 37],
-];
-function viridis(t) {
-  t = Math.max(0, Math.min(1, t));
-  const s = t * (VIRIDIS.length - 1);
-  const i = Math.floor(s);
-  const f = s - i;
-  const a = VIRIDIS[i];
-  const b = VIRIDIS[Math.min(i + 1, VIRIDIS.length - 1)];
-  const r = Math.round(a[0] + (b[0] - a[0]) * f);
-  const g = Math.round(a[1] + (b[1] - a[1]) * f);
-  const bl = Math.round(a[2] + (b[2] - a[2]) * f);
-  return `rgb(${r}, ${g}, ${bl})`;
-}
-
-// ---------- app state ----------
-const state = {
-  data: null,
-  view: 'root',            // 'root' or 'children'
-  activeRootIdx: null,     // index into data.children when in 'children' view
-  colorKey: 'mean_block_x',
-};
-
-// thumb path: data file uses "treemap_thumbs/..." relative; we serve from assets/
-function thumbURL(p) {
-  if (!p) return '';
-  if (p.startsWith('assets/')) return p;
-  return 'assets/' + p;
-}
-
-// ---------- render ----------
-const container = document.getElementById('treemap-container');
-const colorSelect = document.getElementById('color-by');
-const breadcrumb = document.getElementById('breadcrumb');
-const tooltip = document.getElementById('tooltip-panel');
-
-function currentItems() {
-  if (state.view === 'root') return state.data.children;
-  return state.data.children[state.activeRootIdx].children;
-}
-
-function colorRange(items, key) {
-  const vals = items.map(it => it[key]).filter(v => typeof v === 'number' && isFinite(v));
-  if (vals.length === 0) return [0, 1];
-  return [Math.min(...vals), Math.max(...vals)];
-}
-
-function render() {
-  container.innerHTML = '';
-  const items = currentItems();
-  const W = container.clientWidth;
-  const H = container.clientHeight;
-  const sized = items.map((it, idx) => ({ ...it, _idx: idx, value: Math.max(1, it.size) }));
-  const laid = squarify(sized, 0, 0, W, H);
-  const [vmin, vmax] = colorRange(items, state.colorKey);
-  const denom = (vmax - vmin) || 1;
-
-  for (const it of laid) {
-    if (it.w < 1 || it.h < 1) continue;
-    const cell = document.createElement('div');
-    cell.className = 'treemap-cell';
-    cell.style.left = it.x + 'px';
-    cell.style.top = it.y + 'px';
-    cell.style.width = it.w + 'px';
-    cell.style.height = it.h + 'px';
-    cell.style.backgroundImage = `url("${thumbURL(it.medoid_thumb)}")`;
-    cell.style.imageRendering = 'pixelated';
-    const c = viridis((it[state.colorKey] - vmin) / denom);
-    cell.style.borderColor = c;
-
-    const label = document.createElement('div');
-    label.className = 'treemap-label';
-    const shortName = state.view === 'root'
-      ? (it.name || ('#' + it._idx))
-      : (it.name || ('sub-' + it._idx));
-    label.textContent = shortName + ' · ' + (it.region || '');
-    cell.appendChild(label);
-
-    const sz = document.createElement('div');
-    sz.className = 'treemap-size';
-    sz.textContent = 'n=' + it.size;
-    cell.appendChild(sz);
-
-    cell.addEventListener('mouseenter', () => showTooltip(it));
-    cell.addEventListener('focus', () => showTooltip(it));
-    cell.tabIndex = 0;
-    cell.setAttribute('role', 'button');
-    cell.setAttribute('aria-label',
-      `Cluster ${shortName}, ${it.size} members, region ${it.region || 'unlabeled'}`);
-
-    if (state.view === 'root') {
-      cell.addEventListener('click', () => {
-        state.view = 'children';
-        state.activeRootIdx = it._idx;
-        renderBreadcrumb();
-        render();
-      });
-      cell.addEventListener('keydown', (e) => {
-        if (e.key === 'Enter' || e.key === ' ') {
-          e.preventDefault();
-          cell.click();
+        // Subscribe to keep the section heading count in sync with the selection.
+        if (typeof LewmExplorer.subscribe === 'function') {
+          LewmExplorer.subscribe(function (sel) {
+            var countEl = document.getElementById('thumbstrip-count');
+            if (!countEl) return;
+            var n = (sel && typeof sel.size === 'number') ? sel.size
+                   : (sel && sel.indices && sel.indices.length) ? sel.indices.length
+                   : (Array.isArray(sel) ? sel.length : 0);
+            countEl.textContent = n > 0 ? '(' + n + ' frame' + (n === 1 ? '' : 's') + ')' : '(brush any view above)';
+          });
         }
+      })
+      .catch(function (e) {
+        showError((e && e.message) ? e.message : String(e));
+        console.error(e);
       });
-    }
-
-    container.appendChild(cell);
-  }
-
-  updateLegend(vmin, vmax);
-}
-
-function updateLegend(vmin, vmax) {
-  const bar = document.getElementById('legend-bar');
-  // 10 stops
-  const stops = [];
-  for (let i = 0; i <= 10; i++) stops.push(viridis(i / 10));
-  bar.style.background = `linear-gradient(to right, ${stops.join(', ')})`;
-  const fmt = (v) => {
-    if (state.colorKey === 'size') return Math.round(v);
-    if (state.colorKey === 'mean_theta') return v.toFixed(2);
-    return v.toFixed(1);
-  };
-  document.getElementById('legend-min').textContent = fmt(vmin);
-  document.getElementById('legend-max').textContent = fmt(vmax);
-}
-
-function renderBreadcrumb() {
-  breadcrumb.innerHTML = '';
-  const a = document.createElement('a');
-  a.textContent = 'All clusters';
-  a.addEventListener('click', () => {
-    state.view = 'root';
-    state.activeRootIdx = null;
-    renderBreadcrumb();
-    render();
-  });
-  breadcrumb.appendChild(a);
-  if (state.view === 'children' && state.activeRootIdx !== null) {
-    const sep = document.createElement('span');
-    sep.className = 'breadcrumb-sep';
-    sep.textContent = '›';
-    breadcrumb.appendChild(sep);
-    const span = document.createElement('span');
-    span.textContent = state.data.children[state.activeRootIdx].name;
-    span.style.color = '#eee';
-    breadcrumb.appendChild(span);
-  }
-}
-
-function showTooltip(it) {
-  tooltip.classList.remove('empty');
-  document.getElementById('tt-thumb').style.backgroundImage = `url("${thumbURL(it.medoid_thumb)}")`;
-  document.getElementById('tt-name').textContent = it.name || '(unnamed)';
-  document.getElementById('tt-region').textContent =
-    'region: ' + (it.region || '—') + '  ·  n=' + it.size;
-  const stats = document.getElementById('tt-stats');
-  const rows = [
-    ['size', it.size],
-    ['mean block_x', (it.mean_block_x ?? NaN).toFixed(2)],
-    ['mean block_y', (it.mean_block_y ?? NaN).toFixed(2)],
-    ['mean theta', (it.mean_theta ?? NaN).toFixed(3)],
-  ];
-  if (typeof it.std_block_x === 'number') {
-    rows.push(['std block_x', it.std_block_x.toFixed(2)]);
-  }
-  if (typeof it.std_block_y === 'number') {
-    rows.push(['std block_y', it.std_block_y.toFixed(2)]);
-  }
-  stats.innerHTML = rows
-    .map(([k, v]) => `<div><span class="k">${k.padEnd(13, ' ')}</span> ${v}</div>`)
-    .join('');
-  const samples = it.sample_thumbs || [];
-  document.getElementById('tt-s0').style.backgroundImage =
-    samples[0] ? `url("${thumbURL(samples[0])}")` : 'none';
-  document.getElementById('tt-s1').style.backgroundImage =
-    samples[1] ? `url("${thumbURL(samples[1])}")` : 'none';
-}
-
-// ---------- wiring ----------
-colorSelect.addEventListener('change', (e) => {
-  state.colorKey = e.target.value;
-  render();
-});
-
-window.addEventListener('resize', () => {
-  // debounce-lite
-  clearTimeout(window._tmResize);
-  window._tmResize = setTimeout(render, 120);
-});
-
-(async function init() {
-  try {
-    const r = await fetch('assets/data/treemap_data.json', { cache: 'no-store' });
-    if (!r.ok) throw new Error('HTTP ' + r.status);
-    state.data = await r.json();
-    renderBreadcrumb();
-    render();
-  } catch (err) {
-    container.innerHTML =
-      '<div style="padding:20px;color:#faa;font:13px ui-monospace,monospace;">' +
-      'Failed to load treemap_data.json: ' + (err && err.message ? err.message : err) +
-      '<br><br>This page must be served over HTTP (fetch() of a file:// URL is blocked). ' +
-      'From outputs/demo/site/ run: <code>./serve.sh</code> or ' +
-      '<code>python3 -m http.server 8080</code>, then open ' +
-      '<code>http://localhost:8080/explore.html</code>.</div>';
-  }
-})();
+  })();
 </script>
 
 </body>
