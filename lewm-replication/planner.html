@@ -141,8 +141,69 @@
     </p>
   </section>
 
+  <section class="section" id="interface" aria-labelledby="interface-h">
+    <h2 id="interface-h">7. The world-model ↔ planner interface, one env step at a time</h2>
+    <p>
+      The world model and planner share exactly four objects: the <strong>encoder</strong> (pixels → 192-d), the <strong>predictor</strong> ((z, a) → next z), the <strong>goal latent</strong> z<sub>goal</sub> (encoded once at episode start), and the <strong>scalar cost</strong> in latent space. Nothing else crosses the boundary — there is no policy network, no symbolic state, no pixel rendering anywhere in this loop. Below is what actually happens during one env step.
+    </p>
+
+    <h3 style="margin-top:18px">Step-by-step trace of one env step</h3>
+    <ol>
+      <li><strong>Encode the current observation.</strong> Env produces an RGB frame <code>o<sub>t</sub></code> (3×224×224). The encoder runs once: <code>z<sub>t</sub> = Encoder(o<sub>t</sub>)</code> → 192-d. Cost: 1 forward pass through the ViT-tiny encoder.</li>
+      <li><strong>Initialize CEM Gaussian.</strong> Mean μ = zeros, std σ = 1.0, in shape <code>[H=5 horizon, 10-d packed action]</code>. The action distribution lives entirely in action space — the world model has no role here.</li>
+      <li>
+        <strong>Run 30 CEM iterations.</strong> In each iteration:
+        <ol type="a">
+          <li>Sample <strong>300</strong> action sequences from the current Gaussian: shape <code>[300, 5, 10]</code>.</li>
+          <li>For each sample, autoregressively roll out the predictor 5 steps from <code>z<sub>t</sub></code>: <code>ẑ<sub>t+1</sub>, ẑ<sub>t+2</sub>, ..., ẑ<sub>t+5</sub></code>. Each predictor call takes a 3-frame latent history plus the corresponding action history → next-latent. <strong>Total predictor calls: 300 × 5 = 1,500 per iteration.</strong></li>
+          <li>Score each sample: <code>cost = Σ<sub>k=1..5</sub> ‖ẑ<sub>t+k</sub> − z<sub>goal</sub>‖²</code>. This is a pure tensor operation, no network call.</li>
+          <li>Pick the 30 lowest-cost samples (top-K elites).</li>
+          <li>Refit the Gaussian: μ ← elite mean, σ ← elite std.</li>
+        </ol>
+      </li>
+      <li><strong>Pick the action.</strong> Out of the final Gaussian's elite set, take the lowest-cost sequence. Use its <em>first</em> 10-d action block (which unpacks to 5 × 2-d env actions).</li>
+      <li><strong>Execute the first 2-d action in the env.</strong> Env returns a new observation <code>o<sub>t+1</sub></code>. Discard the remaining 4 actions in the plan.</li>
+      <li><strong>Loop back to step 1</strong> with <code>o<sub>t+1</sub></code>.</li>
+    </ol>
+
+    <h3 style="margin-top:18px">Cost accounting per env step</h3>
+    <table class="numbers-table">
+      <caption>What the world-model is asked to do, per env step.</caption>
+      <thead><tr><th>operation</th><th>count per env step</th><th>where in the loop</th></tr></thead>
+      <tbody>
+        <tr><td>Encoder forward (ViT-tiny, 224×224 → 192-d)</td><td class="num">1</td><td>step 1</td></tr>
+        <tr><td>Predictor forward (192-d, 6-layer transformer)</td><td class="num">300 × 5 × 30 = <strong>45,000</strong></td><td>step 3</td></tr>
+        <tr><td>Cost evaluation (latent L2 to z<sub>goal</sub>)</td><td class="num">300 × 5 × 30 = 45,000</td><td>step 3</td></tr>
+        <tr><td>Env step (simulator)</td><td class="num">1</td><td>step 5</td></tr>
+      </tbody>
+    </table>
+    <p class="muted">
+      The predictor is called <strong>45,000 times per env step</strong>. It is small enough (≈10M params for the predictor, ≈5M for the encoder/projector heads, 18M total system) that this fits on the 4080 GPU in batched CUDA in roughly 1 second of wall-clock per env step.
+    </p>
+
+    <h3 style="margin-top:18px">What crosses the interface — and what doesn't</h3>
+    <table class="numbers-table">
+      <caption>Tensors that flow across the world-model ↔ planner boundary (and tensors that don't).</caption>
+      <thead><tr><th>direction</th><th>tensor</th><th>shape</th><th>when</th></tr></thead>
+      <tbody>
+        <tr><td>env → encoder</td><td><code>o<sub>t</sub></code> (RGB frame)</td><td>[3, 224, 224]</td><td>once / env step</td></tr>
+        <tr><td>encoder → planner</td><td><code>z<sub>t</sub></code> (current latent)</td><td>[192]</td><td>once / env step</td></tr>
+        <tr><td>encoder → planner</td><td><code>z<sub>goal</sub></code> (goal latent)</td><td>[192]</td><td>once / <strong>episode</strong> (cached after first encode)</td></tr>
+        <tr><td>planner → predictor</td><td>latent history + action block</td><td>[B, 3, 192] + [B, 3, 10]</td><td>45,000× / env step</td></tr>
+        <tr><td>predictor → planner</td><td>predicted next latent</td><td>[B, 192]</td><td>45,000× / env step</td></tr>
+        <tr><td>planner → env</td><td>first action (2-d push velocity)</td><td>[2]</td><td>once / env step</td></tr>
+      </tbody>
+    </table>
+    <p>
+      Notice what is <em>absent</em> from this table. There is no policy network output. There is no symbolic state (no "block_x=283, block_y=141"). There are no pixel reconstructions. There is no reward signal during planning — the cost is purely geometric in latent space, comparing predicted latents to the cached goal latent. The whole thing reduces to: <strong>"find the 5-step action sequence whose latent rollout lands nearest the goal latent."</strong>
+    </p>
+    <p class="honesty-note">
+      Why this matters for understanding the gap. Because the loop is entirely closed in latent space, any failure mode has to be one of: (a) the encoder doesn't register the goal-relevant variables (we showed in <a href="world-model.html#latent-probes">World Model §6</a> that the encoder <em>does</em> register positions cleanly — R²≈0.97 on block (x, y)); (b) the predictor's 5-step latent rollout drifts away from physical reality (we showed in <a href="world-model.html#latent-error">§4</a> it barely beats predict-last at k=5); (c) the CEM optimizer doesn't find the low-cost region within 30 iters (we showed above it does — 100× cost reduction). The replication gap most likely lives in (a) or (b) — the encoder/predictor pair — not the planner. That's why our predictor's marginal k=5 advantage over identity is interesting: it bounds how much of the paper's 96% number can be coming from "the predictor knows physics" versus "the encoder's spatial layout + CEM's search is enough on its own."
+    </p>
+  </section>
+
   <section class="section" id="meaning" aria-labelledby="meaning-h">
-    <h2 id="meaning-h">7. What this means for the world model</h2>
+    <h2 id="meaning-h">8. What this means for the world model</h2>
     <p>
       The planner does the heavy lifting. The world model only needs to be <em>locally</em> accurate — a few steps ahead — because CEM only plans H=5 steps deep and then the loop closes on a fresh observation. Far-horizon predictions matter less: they are never the basis of an executed action.
     </p>

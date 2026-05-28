@@ -159,10 +159,75 @@
       <li>The bottom-row pixels are <strong>real training frames</strong>, picked because the predictor's output landed near them in 192-d space. They are not the model's drawings.</li>
       <li>What the model is being judged on is whether the <em>predicted latent</em> is close to the <em>encoded next observation</em>. NN-retrieval is a presentation layer on top of that judgement; it inherits the predictor's error but adds a quantization step (you can only retrieve frames that exist in the index).</li>
     </ul>
+
+    <h3 style="margin-top:28px">5a. The top two rows look identical — where does the gap actually live?</h3>
+    <p>
+      At low k, the cosine similarity between predicted and ground-truth latent is 0.998–0.999. The corresponding NN-retrieved frame is visually indistinguishable from ground truth. To make the structure of the drift visible, we add a third row: the per-pixel L1 difference, summed over RGB channels, displayed as a heatmap.
+    </p>
+    <figure class="fig" id="pixel-diff-fig">
+      <img
+        src="assets/videos/nn_pixel_diff_strip.png"
+        alt="Three-row strip across 10 macro steps. Top row: ground-truth Push-T frames. Middle row: NN-decoded retrievals — visually nearly identical to top row through k≈7. Bottom row: pixel-difference heatmaps in inferno colormap. At k=1 the diff is essentially black (0.09% mean magnitude). At k=10 the diff lights up around the T-block and agent puck (0.81% mean magnitude). The structure of the diff is informative: errors concentrate on the moving objects, not on the background — exactly what a world-model failure mode looks like."
+        loading="lazy"
+      >
+      <figcaption class="fig-caption">
+        <strong>Pixel difference between top two rows.</strong> Mean magnitude grows 0.09% → 0.81% as k goes 1 → 10. The diffs concentrate on the T-block and agent puck — never on the background. Because the encoder doesn't waste capacity on backgrounds (no pixel reconstruction tax — see §6 below), neither does the predictor, and neither does the retrieval. When the retrieval is "wrong", it's wrong about the things that matter.
+      </figcaption>
+    </figure>
+    <p class="honesty-note">
+      Even at k=10 the mean diff is under 1%. That isn't because the model is great — it's because Push-T scenes are dominated by background pixels that don't move. The diff localizes precisely where the predictor's error lives: on the manipulable object. This is consistent with §4's quantitative finding that the latent's <em>position</em> dimensions are what get predicted, accurately near k=1 and degrading by k≈8.
+    </p>
+  </section>
+
+  <section class="section" id="latent-probes" aria-labelledby="latent-probes-h">
+    <h2 id="latent-probes-h">6. What's actually inside the 192-d latent? — Linear probes</h2>
+    <p>
+      The latent is a 192-dimensional vector with no human-interpretable axis. To find out what it encodes, we run a classic interpretability move: <strong>fit a linear regression from the latent to each scalar of the ground-truth env state</strong>, and report R². A high R² means the quantity is linearly decodable from the latent — i.e. the encoder is "registering" it. A low R² means either the latent doesn't carry that information, or it's encoded in a non-linear way.
+    </p>
+    <p class="muted">
+      Probe setup: encode 3,000 random training frames, 70/30 train/test split, RidgeCV linear regression. The Push-T dataset stores a 7-d state per frame: <code>agent_x, agent_y, block_x, block_y, block_theta, agent_vx, agent_vy</code>.
+    </p>
+    <figure class="fig">
+      <img src="assets/plots/latent_probes.png"
+           alt="Horizontal bar chart of R² for each of 7 state dimensions. block_x = 0.981, block_y = 0.974, agent_x = 0.954, agent_y = 0.951, block_theta = 0.812, agent_vx = 0.076, agent_vy = 0.135. The first five bars reach near-1.0; the velocity bars are tiny."
+           loading="lazy">
+      <figcaption class="fig-caption">
+        Linear-probe R² from 192-d latent to each ground-truth state scalar. Positions are nearly perfectly decodable. Orientation is well decodable. Velocities are essentially not decodable.
+      </figcaption>
+    </figure>
+    <p>
+      The pattern is clean and pedagogically important:
+    </p>
+    <ul>
+      <li><strong>Positions (block, agent): R² ≈ 0.95–0.98.</strong> The encoder is essentially a position registrar. The block's (x, y) position is linearly recoverable from the 192-d latent with very high fidelity — exactly the quantity the planner needs in order to compute distance-to-goal.</li>
+      <li><strong>Block orientation: R² ≈ 0.81.</strong> Also linearly decodable, but less cleanly. The drop is consistent with the periodicity of angle (a linear regression can't natively handle the wraparound at 0 / 2π).</li>
+      <li><strong>Velocities: R² ≈ 0.08–0.13.</strong> Not encoded. This is mechanistically obvious in hindsight: the encoder sees one frame at a time, and a single frame contains no motion information. To recover velocity, you need the difference of consecutive frames — which is exactly what the predictor's 3-frame history (T=3) gives it.</li>
+    </ul>
+
+    <p>
+      That last point — that velocity is not in the encoder's latent but the predictor still needs it — is the cleanest explanation we have of why LeWorldModel's predictor takes a <em>history</em> of three latents as input rather than just one. The predictor's first job, implicitly, is to compute "velocity" from successive position registrations.
+    </p>
+
+    <h3 style="margin-top:24px">6a. PCA: the latent has spatial structure</h3>
+    <p>
+      A separate sanity check: project all 3,000 encoded latents to 2D via PCA, then color each point by its true <code>block_x</code> (left panel) and <code>block_y</code> (right panel). If the latent has coherent spatial structure, color gradients should emerge in the PCA plot.
+    </p>
+    <figure class="fig">
+      <img src="assets/plots/latent_pca.png"
+           alt="Two scatter plots of 3,000 latent points projected to 2D via PCA. Left panel colored by block_x; right panel colored by block_y. Both show smooth color gradients across the PCA scatter, indicating that block position is encoded coherently in the latent manifold."
+           loading="lazy">
+      <figcaption class="fig-caption">
+        PCA of the 192-d encoder latent across 3,000 training frames, colored by ground-truth block position. Smooth color gradients confirm that spatial information is organized coherently in the latent manifold — not just decodable but geometrically meaningful.
+      </figcaption>
+    </figure>
+
+    <p class="honesty-note">
+      <strong>The mechanistic takeaway:</strong> the encoder is a position registrar with smooth spatial structure. The predictor's job is to evolve that registration forward under given actions. The planner's job is to find the action sequence whose registration evolution lands near the goal's registration. That triangle is the whole system — no policy network, no pixel rendering, no symbolic state ever materializes. Everything happens in this 192-d space whose anatomy we just charted.
+    </p>
   </section>
 
   <section class="section" id="no-decoder" aria-labelledby="no-decoder-h">
-    <h2 id="no-decoder-h">6. No decoder = no reconstruction tax</h2>
+    <h2 id="no-decoder-h">7. No decoder = no reconstruction tax</h2>
     <p>
       It is tempting to read "no pixel decoder" as a limitation. It is closer to a feature. In pixel-prediction world models, a large fraction of model capacity is spent reconstructing task-irrelevant detail — wallpaper textures, the exact gradient on a table edge, motion-blur on background pixels. The reconstruction loss treats those details as first-class, because pixel MSE has no notion of what matters for control. The model pays a "reconstruction tax" on parameters and gradient signal that buys nothing for the planner.
     </p>
@@ -175,7 +240,7 @@
   </section>
 
   <section class="section" id="whats-next" aria-labelledby="whats-next-h">
-    <h2 id="whats-next-h">7. What's next</h2>
+    <h2 id="whats-next-h">8. What's next</h2>
     <p>
       The world model only predicts. It does not choose actions. Choosing actions is the planner's job — sampling 300 candidate sequences, rolling each one out in latent space using the predictor on this page, scoring by a cost-to-goal computed entirely in latent space, refining over 30 CEM iterations, taking the first action, and replanning. That's the next page.
     </p>
