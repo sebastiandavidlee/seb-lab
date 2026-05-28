@@ -156,7 +156,7 @@
       .append("div")
       .attr("class", "lewm-treemap-crumb")
       .style("font", "12px system-ui, sans-serif")
-      .style("color", "#555")
+      .style("color", "var(--explore-fg-muted, #9097a3)")
       .style("margin-bottom", "6px")
       .style("user-select", "none");
 
@@ -165,8 +165,8 @@
       .attr("width", width)
       .attr("height", height)
       .style("font", "10px system-ui, sans-serif")
-      .style("background", "#fafafa")
-      .style("border", "1px solid #e5e5e5");
+      .style("background", "var(--explore-bg-sunk, #08090b)")
+      .style("border", "1px solid var(--explore-rule, rgba(255,255,255,0.10))");
 
     // ---- Hierarchy --------------------------------------------------------
     const hierarchyData = buildHierarchy(data.points);
@@ -177,13 +177,14 @@
 
     // Color scale: by top-level c2 branch.
     const topKeys = (hierarchyData.children || []).map((c) => c.key);
-    const tableau10 = (d3.schemeTableau10 || [
-      "#4e79a7", "#f28e2c", "#e15759", "#76b7b2", "#59a14f",
-      "#edc949", "#af7aa1", "#ff9da7", "#9c755f", "#bab0ab",
-    ]);
-    const color = d3.scaleOrdinal().domain(topKeys).range(tableau10);
+    // Dark-palette cluster colors, matching styles.css --c-0..9 / --c-noise.
+    const darkPalette = [
+      "#6aa9ff", "#ffb155", "#ff7373", "#66d4cf", "#a78bfa",
+      "#7bd88f", "#f48fb1", "#d9c45a", "#b89a86", "#c7c1bb",
+    ];
+    const color = d3.scaleOrdinal().domain(topKeys).range(darkPalette);
     // noise gets a neutral gray regardless of position in the ordinal domain
-    const colorFor = (k) => (k === "noise" ? "#bdbdbd" : color(k));
+    const colorFor = (k) => (k === "noise" ? "#4a4f59" : color(k));
 
     // ---- Zoom / drill state ----------------------------------------------
     // path is an array of nodes from root → current focus
@@ -317,9 +318,12 @@
       g.append("text")
         .attr("x", 4)
         .attr("y", 12)
-        .attr("fill", "#111")
+        .attr("fill", "#fff")
         .attr("pointer-events", "none")
         .style("font-size", "10px")
+        .style("paint-order", "stroke")
+        .style("stroke", "rgba(0,0,0,0.55)")
+        .style("stroke-width", "2px")
         .text((d) => {
           const w = d.x1 - d.x0;
           const h = d.y1 - d.y0;

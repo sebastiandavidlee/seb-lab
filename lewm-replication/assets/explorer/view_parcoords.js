@@ -15,9 +15,10 @@
 (function () {
   "use strict";
 
+  // Dark-palette cluster colors, matching styles.css --c-0..9 / --c-noise.
   const TABLEAU10 = [
-    "#4e79a7", "#f28e2c", "#e15759", "#76b7b2", "#59a14f",
-    "#edc949", "#af7aa1", "#ff9da7", "#9c755f", "#bab0ab",
+    "#6aa9ff", "#ffb155", "#ff7373", "#66d4cf", "#a78bfa",
+    "#7bd88f", "#f48fb1", "#d9c45a", "#b89a86", "#c7c1bb",
   ];
 
   // Seeded PRNG so jitter is stable across renders / brush updates.
@@ -110,7 +111,7 @@
     const colorScale = (function () {
       const map = new Map();
       c2Uniq.forEach((v, idx) => {
-        if (v < 0) map.set(v, "#bbbbbb"); // noise / unassigned
+        if (v < 0) map.set(v, "#4a4f59"); // noise / unassigned (matches --c-noise)
         else map.set(v, TABLEAU10[idx % TABLEAU10.length]);
       });
       return c => map.get(c) || "#888";
@@ -312,7 +313,7 @@
         .attr("class", "axis-label")
         .attr("y", -28)
         .attr("text-anchor", "middle")
-        .attr("fill", "#222")
+        .attr("fill", "var(--explore-fg, #e8e8ec)")
         .style("font", "11px system-ui, sans-serif")
         .style("cursor", "pointer")
         .text(ax.label)

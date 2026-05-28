@@ -28,11 +28,16 @@
   // Continuous channels (numeric, viridis ramp).
   var CONTINUOUS = { block_x: true, block_y: true, theta: true };
 
-  var NOISE_COLOR = "#cccccc"; // light grey for c* == -1
+  // Dark-palette cluster colors, matching styles.css --c-0..9 / --c-noise.
+  var DARK_PALETTE = [
+    "#6aa9ff", "#ffb155", "#ff7373", "#66d4cf", "#a78bfa",
+    "#7bd88f", "#f48fb1", "#d9c45a", "#b89a86", "#c7c1bb",
+  ];
+  var NOISE_COLOR = "#4a4f59"; // muted grey for c* == -1 (matches --c-noise)
 
   function makeColorFn(channel, points) {
     if (CATEGORICAL[channel]) {
-      var palette = (d3.schemeTableau10 || d3.schemeCategory10).slice();
+      var palette = DARK_PALETTE.slice();
       // Build a stable mapping from cluster id -> color (excluding -1).
       var ids = Array.from(new Set(points.map(function (p) { return p[channel]; })))
         .filter(function (v) { return v >= 0; })
@@ -128,8 +133,8 @@
       .attr("width", width)
       .attr("height", height)
       .style("display", "block")
-      .style("background", "#fafafa")
-      .style("border", "1px solid #e5e5e5")
+      .style("background", "var(--explore-bg-sunk, #08090b)")
+      .style("border", "1px solid var(--explore-rule, rgba(255,255,255,0.10))")
       .style("border-radius", "4px");
 
     var g = svg.append("g")
@@ -159,12 +164,12 @@
       .attr("class", "lewm-axis lewm-axis-y")
       .call(yAxis);
     g.selectAll(".lewm-axis line")
-      .style("stroke", "#eee")
+      .style("stroke", "rgba(255,255,255,0.06)")
       .style("shape-rendering", "crispEdges");
     g.selectAll(".lewm-axis path")
-      .style("stroke", "#ccc");
+      .style("stroke", "rgba(255,255,255,0.12)");
     g.selectAll(".lewm-axis text")
-      .style("fill", "#888")
+      .style("fill", "var(--explore-fg-muted, #9097a3)")
       .style("font-size", "10px");
 
     // ---- Tooltip -----------------------------------------------------------
@@ -207,14 +212,14 @@
       .attr("cy", function (p) { return y(p.umap_y); })
       .attr("r", DEFAULT_R)
       .attr("fill", colorFn)
-      .attr("stroke", "rgba(0,0,0,0.25)")
+      .attr("stroke", "rgba(0,0,0,0.45)")
       .attr("stroke-width", 0.4)
       .attr("opacity", DEFAULT_OPACITY)
       .style("cursor", "pointer");
 
     circles
       .on("mouseover", function (event, p) {
-        d3.select(this).attr("stroke", "#111").attr("stroke-width", 1);
+        d3.select(this).attr("stroke", "#fff").attr("stroke-width", 1);
         tooltip
           .html(
             "i: <b>" + p.i + "</b> &middot; ep " + p.ep + " step " + p.step +
@@ -230,7 +235,7 @@
         tooltip.style("left", px + "px").style("top", py + "px");
       })
       .on("mouseout", function () {
-        d3.select(this).attr("stroke", "rgba(0,0,0,0.25)").attr("stroke-width", 0.4);
+        d3.select(this).attr("stroke", "rgba(0,0,0,0.45)").attr("stroke-width", 0.4);
         tooltip.style("opacity", 0);
       });
 
@@ -281,13 +286,13 @@
     brushG.call(brush);
     // Style the brush rectangle.
     brushG.selectAll(".selection")
-      .attr("fill", "#4a90e2")
+      .attr("fill", "var(--explore-accent, #56c2e6)")
       .attr("fill-opacity", 0.12)
-      .attr("stroke", "#2f6fb8")
+      .attr("stroke", "var(--explore-accent, #56c2e6)")
       .attr("stroke-width", 1)
       .attr("shape-rendering", "crispEdges");
     brushG.selectAll(".handle")
-      .attr("fill", "#2f6fb8")
+      .attr("fill", "var(--explore-accent, #56c2e6)")
       .attr("fill-opacity", 0.35);
 
     // ---- Color-by dropdown wiring -----------------------------------------

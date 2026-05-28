@@ -3,254 +3,254 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>LeWorldModel — Explore embeddings</title>
-  <meta name="description" content="Three linked views — UMAP scatter, parallel coordinates, and treemap — of 1,500 Push-T training latents from LeWorldModel. Brush any view to highlight the same selection in the others.">
+  <title>LeWorldModel — explore the latent space</title>
+  <meta name="description" content="Browse a map of 1,500 Push-T game-frames the model learned. Drag a box over the map and see exactly which frames you grabbed — nearby dots are similar scenes.">
   <meta property="og:type" content="article">
-  <meta property="og:title" content="LeWorldModel — Explore embeddings">
-  <meta property="og:description" content="Three linked views of 1,500 Push-T training latents. Brush anywhere; thumbnails appear in the strip below.">
+  <meta property="og:title" content="LeWorldModel — explore the latent space">
+  <meta property="og:description" content="A map of 1,500 Push-T frames. Drag a box over any blob and the frames inside appear below — near means similar.">
   <link rel="stylesheet" href="assets/styles.css">
   <style>
-    /* ---- explore-page-local layout ---- */
-    .explore-row-2col {
-      display: grid;
-      grid-template-columns: 1fr 1fr;
-      gap: 20px;
-      align-items: stretch;
-      margin-top: 20px;
-    }
-    @media (max-width: 800px) {
-      .explore-row-2col { grid-template-columns: 1fr; }
-    }
-    .explore-row-full {
-      margin-top: 20px;
-    }
-    .view-card {
-      background: #111;
-      border: 1px solid #2a2a2a;
-      border-radius: 4px;
-      padding: 12px;
-      min-height: 360px;
-      box-sizing: border-box;
-    }
-    .view-card h2 {
-      margin: 0 0 8px 0;
-      font: 600 13px/1.3 ui-monospace, SFMono-Regular, Menlo, monospace;
-      text-transform: uppercase;
-      letter-spacing: 0.6px;
-      color: #aab;
-    }
-    .view-card .view-sub {
-      font: 11px/1.4 ui-monospace, SFMono-Regular, Menlo, monospace;
-      color: #788;
-      margin-bottom: 10px;
-    }
-    #scatter, #parcoords, #treemap {
-      width: 100%;
-      min-height: 320px;
-    }
-    #treemap { min-height: 360px; }
-
-    /* ---- thumbstrip: sticky bottom on desktop ---- */
-    #thumbstrip-section {
-      background: #0d0d0d;
-      border: 1px solid #2a2a2a;
-      border-radius: 4px;
-      padding: 10px 12px;
-      margin-top: 20px;
-    }
-    @media (min-width: 801px) {
-      #thumbstrip-section {
-        position: sticky;
-        bottom: 0;
-        z-index: 20;
-        box-shadow: 0 -6px 18px rgba(0,0,0,0.45);
-      }
-    }
-    #thumbstrip-section h2 {
-      margin: 0 0 6px 0;
-      font: 600 11px/1.3 ui-monospace, SFMono-Regular, Menlo, monospace;
-      text-transform: uppercase;
-      letter-spacing: 0.6px;
-      color: #aab;
+    /* Page-local ONLY: the static "drag → frames" entry-point mini-visual.
+       Everything structural (.explore-row-2col, .view-card, #thumbstrip-section,
+       .figure-card, .glean, etc.) is owned by assets/styles.css — do not
+       redefine those here. */
+    .drag-demo {
       display: flex;
       align-items: center;
-      gap: 10px;
+      gap: clamp(12px, 4vw, 36px);
+      flex-wrap: wrap;
+      justify-content: center;
+      padding: 8px 4px;
     }
-    #thumbstrip-section h2 .count {
-      color: #6aa;
-      font-weight: 400;
+    .drag-demo svg { display: block; height: auto; }
+    .drag-demo .demo-map { width: 180px; max-width: 42vw; }
+    .drag-demo .demo-arrow { width: 64px; max-width: 16vw; color: var(--accent); }
+    .drag-demo .demo-frames {
+      display: grid;
+      grid-template-columns: repeat(2, 48px);
+      grid-auto-rows: 48px;
+      gap: 6px;
     }
-    .thumbstrip-row {
-      display: flex;
-      flex-direction: row;
-      gap: 4px;
-      overflow-x: auto;
-      overflow-y: hidden;
-      padding: 4px 0 6px 0;
-      min-height: 72px;
-      scrollbar-width: thin;
-    }
-    .thumbstrip-row::-webkit-scrollbar { height: 8px; }
-    .thumbstrip-row::-webkit-scrollbar-thumb {
-      background: #333;
+    .drag-demo .demo-frame {
+      width: 48px; height: 48px;
       border-radius: 4px;
-    }
-    .thumbstrip-item {
-      width: 64px;
-      height: 64px;
-      border-radius: 4px;
-      border: 1px solid transparent;
-      flex: 0 0 auto;
-      background-size: cover;
-      background-position: center;
+      border: 1px solid var(--rule-2);
+      background-size: cover; background-position: center;
       background-repeat: no-repeat;
       image-rendering: pixelated;
-      cursor: pointer;
-      transition: border-color 0.1s ease, transform 0.1s ease;
+      background-color: var(--bg-sunk);
     }
-    .thumbstrip-item:hover {
-      border-color: #fff;
-      transform: scale(1.04);
-    }
-    .thumbstrip-empty {
-      color: #788;
-      font: 12px/1.5 ui-monospace, SFMono-Regular, Menlo, monospace;
-      padding: 22px 4px;
-    }
-
-    /* ---- error / loading states ---- */
-    .view-error {
-      color: #faa;
-      font: 12px/1.5 ui-monospace, SFMono-Regular, Menlo, monospace;
-      padding: 10px;
-    }
-    .view-loading {
-      color: #788;
-      font: 12px/1.5 ui-monospace, SFMono-Regular, Menlo, monospace;
-      padding: 10px;
-    }
-
-    /* ---- "how this is built" ---- */
-    .build-notes {
-      margin-top: 32px;
-      padding-top: 20px;
-      border-top: 1px solid #2a2a2a;
-    }
-    .build-notes h2 {
-      font: 600 16px/1.3 system-ui, -apple-system, sans-serif;
-      margin: 0 0 10px 0;
-      color: #ddd;
-    }
-    .build-notes p {
-      font: 14px/1.55 system-ui, -apple-system, sans-serif;
-      color: #ccc;
-    }
-    .build-notes code {
-      font: 12px ui-monospace, SFMono-Regular, Menlo, monospace;
-      background: #1a1a1a;
-      padding: 1px 5px;
-      border-radius: 2px;
-      color: #cde;
+    @media (max-width: 560px) {
+      .drag-demo .demo-arrow { transform: rotate(90deg); }
     }
   </style>
 </head>
 <body>
 
-<a class="skip" href="#main">Skip to main content</a>
+<a class="skip" href="#main">Skip to content</a>
 
-<nav class="nav-bar" aria-label="Primary">
-  <a class="nav-link" href="index.html">Landing</a>
-  <a class="nav-link" href="pusht.html">Push-T</a>
-  <a class="nav-link" href="world-model.html">World Model</a>
-  <a class="nav-link" href="planner.html">Planner</a>
-  <a class="nav-link" href="tworoom.html">TwoRoom</a>
-  <a class="nav-link" href="results.html">Results</a>
-  <a class="nav-link nav-current" href="explore.html" aria-current="page">Explore</a>
+<nav class="nav-bar dark-mode" aria-label="Primary">
+  <div class="nav-bar-inner">
+    <a class="nav-brand" href="index.html">LeWorldModel</a>
+    <ul class="nav-links">
+        <li><a class="nav-link" href="index.html">Landing</a></li>
+        <li><a class="nav-link" href="pusht.html">Push-T</a></li>
+        <li><a class="nav-link" href="world-model.html">World Model</a></li>
+        <li><a class="nav-link" href="planner.html">Planner</a></li>
+        <li><a class="nav-link" href="tworoom.html">TwoRoom</a></li>
+        <li><a class="nav-link" href="results.html">Results</a></li>
+        <li><a class="nav-link nav-current" href="explore.html" aria-current="page">Explore</a></li>
+    </ul>
+  </div>
 </nav>
 
 <main id="main" class="wrap">
 
-  <header class="section" id="hero">
-    <h1 class="page-title">Embedding explorer &mdash; three linked views of 1,500 Push-T training latents</h1>
-    <p class="tldr">
-      <span class="tldr-label">What this is.</span>
-      Three views of the same 1,500 latent vectors that LeWorldModel learned while predicting
-      the next frame of Push-T: a <strong>UMAP scatter</strong> (2D layout of the latent
-      manifold), a <strong>parallel-coordinates plot</strong> over the top PCA axes plus block
-      pose, and an <strong>EVoC cluster treemap</strong> sized by cluster population. The views
-      are linked: drag a brush or lasso on any one and the others highlight the same points,
-      and a strip of thumbnails appears below showing exactly which frames are in the selection.
-      The linked-selection idiom is borrowed from Vincent Warmerdam's
-      <em>evoc</em>/Marimo demo. Honest note: EVoC clusters are <strong>unsupervised</strong>
-      &mdash; we never told the model what a phase is, and the cluster structure is
-      <em>real but diffuse</em> (silhouette &asymp; 0.035 on this corpus; see
-      <a href="world-model.html#sec-7">world-model &sect;7</a>). Use this for browsing the
-      latent space, not as semantic ground truth.
+  <!-- ===================================================================
+       §1 — Entry point FIRST: the static "drag a box → see frames" demo.
+       No interaction required; the reader learns the whole idiom in ~10s.
+       =================================================================== -->
+  <header class="hero" id="hero">
+    <h1 class="page-title">A map of 1,500 game-frames the model learned</h1>
+    <p class="entry-hook">
+      Drag a box over any blob on the map and the frames inside it appear below.
+      <strong>Nearby dots are similar scenes</strong> — that's the whole idea.
     </p>
+
+    <figure class="figure-card">
+      <div class="drag-demo" aria-hidden="false">
+        <!-- mini UMAP with a dashed brush box over a clump -->
+        <svg class="demo-map" viewBox="0 0 180 140" role="img"
+             aria-label="A scatter of dots with a dashed selection box drawn over one clump.">
+          <rect x="0" y="0" width="180" height="140" rx="6"
+                fill="var(--bg-sunk)" stroke="var(--rule)"></rect>
+          <!-- scattered dots -->
+          <g fill="var(--c-0)" opacity="0.85">
+            <circle cx="30" cy="36" r="3"></circle><circle cx="44" cy="26" r="3"></circle>
+            <circle cx="22" cy="54" r="3"></circle><circle cx="52" cy="48" r="3"></circle>
+          </g>
+          <g fill="var(--c-1)" opacity="0.85">
+            <circle cx="132" cy="100" r="3"></circle><circle cx="146" cy="88" r="3"></circle>
+            <circle cx="120" cy="112" r="3"></circle><circle cx="154" cy="106" r="3"></circle>
+          </g>
+          <g fill="var(--c-3)" opacity="0.85">
+            <circle cx="150" cy="34" r="3"></circle><circle cx="138" cy="22" r="3"></circle>
+          </g>
+          <!-- the clump that gets selected -->
+          <g fill="var(--c-2)">
+            <circle cx="80" cy="70" r="3.4"></circle><circle cx="92" cy="64" r="3.4"></circle>
+            <circle cx="86" cy="80" r="3.4"></circle><circle cx="98" cy="76" r="3.4"></circle>
+            <circle cx="74" cy="62" r="3.4"></circle><circle cx="90" cy="74" r="3.4"></circle>
+          </g>
+          <!-- dashed brush box over the clump -->
+          <rect x="68" y="54" width="42" height="36" rx="3"
+                fill="var(--accent-soft)" stroke="var(--accent)"
+                stroke-width="1.4" stroke-dasharray="4 3"></rect>
+        </svg>
+
+        <!-- arrow -->
+        <svg class="demo-arrow" viewBox="0 0 64 24" role="img" aria-label="leads to">
+          <defs>
+            <marker id="arrowhead" markerWidth="8" markerHeight="8" refX="6" refY="3"
+                    orient="auto" markerUnits="strokeWidth">
+              <path d="M0,0 L6,3 L0,6 Z" fill="currentColor"></path>
+            </marker>
+          </defs>
+          <line x1="4" y1="12" x2="52" y2="12" stroke="currentColor"
+                stroke-width="2.5" marker-end="url(#arrowhead)"></line>
+        </svg>
+
+        <!-- 4 sample frames pulled from the sprite sheet (filled by JS;
+             falls back to empty tiles if the sprite hasn't loaded) -->
+        <div class="demo-frames" id="demo-frames" aria-label="example frames inside the box">
+          <div class="demo-frame"></div><div class="demo-frame"></div>
+          <div class="demo-frame"></div><div class="demo-frame"></div>
+        </div>
+      </div>
+      <figcaption>
+        Each dot is one Push-T frame, laid out so similar scenes sit together.
+        <span class="glean">Drag a box → see those frames. Near = similar; that's all you need to know to start.</span>
+      </figcaption>
+    </figure>
   </header>
 
-  <!-- Row 1: scatter + parcoords side-by-side (stacks on mobile) -->
-  <div class="explore-row-2col" id="row-1">
-    <section id="scatter-section" class="view-card" aria-labelledby="scatter-h">
-      <h2 id="scatter-h">UMAP scatter</h2>
-      <div class="view-sub">2D UMAP of the 192-d latent, colored by top-level EVoC cluster. Drag to brush.</div>
-      <div id="scatter"><div class="view-loading">loading&hellip;</div></div>
-    </section>
-    <section id="parcoords-section" class="view-card" aria-labelledby="parcoords-h">
-      <h2 id="parcoords-h">Parallel coordinates</h2>
-      <div class="view-sub">First 8 PCA axes of the latent plus block_x / block_y / theta. Drag on any axis to filter.</div>
-      <div id="parcoords"><div class="view-loading">loading&hellip;</div></div>
-    </section>
-  </div>
+  <!-- ===================================================================
+       §2 — Browse the map: the HERO view (UMAP scatter, full width)
+       + the sticky thumbnail strip directly beneath it.
+       =================================================================== -->
+  <section class="section" id="browse" aria-labelledby="browse-h">
+    <h2 id="browse-h" class="section-label">Browse the map</h2>
+    <p class="entry-hook">
+      Each dot is one Push-T frame; <strong>drag to select a region</strong>
+      and watch the strip below fill with exactly what you grabbed.
+    </p>
 
-  <!-- Row 2: full-width treemap -->
-  <div class="explore-row-full">
-    <section id="treemap-section" class="view-card" aria-labelledby="treemap-h">
-      <h2 id="treemap-h">EVoC cluster treemap</h2>
-      <div class="view-sub">Five EVoC layers (88 &rarr; 28 &rarr; 11 &rarr; 5 &rarr; 2 clusters); area is cluster population. Click to drill.</div>
-      <div id="treemap"><div class="view-loading">loading&hellip;</div></div>
-    </section>
-  </div>
+    <div class="explore-row-full">
+      <section id="scatter-section" class="view-card" aria-labelledby="scatter-h">
+        <h2 id="scatter-h">The map</h2>
+        <div class="view-sub">
+          A 2-D layout of the <dfn id="g-latent" title="the 192 numbers the model uses instead of pixels">latent</dfn>
+          — the 192 numbers the model uses instead of pixels — colored by cluster. Drag to brush.
+        </div>
+        <div id="scatter"><div class="view-loading">loading</div></div>
+      </section>
+    </div>
 
-  <!-- Row 3: thumbstrip (sticky on desktop) -->
-  <section id="thumbstrip-section" aria-labelledby="thumbstrip-h" aria-live="polite">
-    <h2 id="thumbstrip-h">Selection <span class="count" id="thumbstrip-count">(brush any view above)</span></h2>
-    <div id="thumbstrip"><div class="thumbstrip-empty">No selection yet &mdash; brush, lasso, or click in any of the three views above.</div></div>
+    <!-- thumbstrip (sticky on desktop; styled by styles.css #thumbstrip-section) -->
+    <section id="thumbstrip-section" aria-labelledby="thumbstrip-h" aria-live="polite">
+      <h2 id="thumbstrip-h">Selection <span class="count" id="thumbstrip-count">(brush the map above)</span></h2>
+      <div id="thumbstrip"><div class="thumbstrip-empty">No selection yet — drag a box on the map above.</div></div>
+    </section>
   </section>
 
-  <!-- How this is built -->
+  <!-- ===================================================================
+       §3 — "More views" — DEMOTED parcoords + treemap, collapsed by default.
+       These are the jargon-y views. They render LAZILY on first open
+       (D3 measures width:0 inside a closed <details>, see the script below).
+       =================================================================== -->
+  <section class="section" id="more-views" aria-labelledby="more-views-h">
+    <h2 id="more-views-h" class="section-label">More views</h2>
+    <div class="detail-toggle">
+      <details id="more-views-drawer">
+        <summary>Slice it another way — filter by block position or cluster (optional)</summary>
+
+        <p class="entry-hook" style="margin-top:18px">
+          Prefer to filter by a numeric axis or pick a cluster directly, instead of
+          drawing a box on the map? These two views do that. They're more technical —
+          the map above is the friendlier starting point.
+        </p>
+
+        <div class="explore-row-2col" id="more-views-row">
+          <section id="parcoords-section" class="view-card" aria-labelledby="parcoords-h">
+            <h2 id="parcoords-h">Filter by axis</h2>
+            <div class="view-sub">
+              The first few principal axes of the latent, plus the block's x / y / angle.
+              Drag a band on any axis to keep only the frames in that range.
+            </div>
+            <div id="parcoords"><div class="view-loading">opens when you expand this drawer</div></div>
+          </section>
+          <section id="treemap-section" class="view-card" aria-labelledby="treemap-h">
+            <h2 id="treemap-h">Cluster sizes</h2>
+            <div class="view-sub">
+              Each tile is one cluster; area is how many frames it holds.
+              Click a tile to drill in, Esc to back out.
+            </div>
+            <div id="treemap"><div class="view-loading">opens when you expand this drawer</div></div>
+          </section>
+        </div>
+      </details>
+    </div>
+  </section>
+
+  <!-- ===================================================================
+       §4 — Honest note: how this is built + the diffuse-cluster caveat.
+       =================================================================== -->
   <section class="section build-notes" id="build-notes" aria-labelledby="build-h">
-    <h2 id="build-h">How this is built</h2>
+    <h2 id="build-h">How this is built — and what it isn't</h2>
     <p>
-      The 1,500 points are uniformly subsampled from the training-time latents the
-      LeWorldModel encoder produces on Push-T frames (192-d, per frame). For each point we
-      store the top 8 PCA coordinates of that latent, a 2-D <strong>UMAP</strong> projection
-      (<code>n_neighbors=15</code>, <code>min_dist=0.1</code>, cosine metric), the underlying
-      Push-T state (<code>block_x</code>, <code>block_y</code>, <code>theta</code>, agent
-      coords), and the cluster id from each of five layers of
-      <strong>EVoC</strong> (Vincent Warmerdam's <em>Evolutionary Vector Clustering</em>),
-      which we ran at depths producing 88, 28, 11, 5, and 2 clusters respectively. EVoC was
-      chosen over k-means because it does not require <em>k</em> and exposes a hierarchy
-      cheaply.
+      The 1,500 dots are training-time latents — the model encodes each Push-T frame into
+      192 numbers, and we lay them out in 2-D with <strong>UMAP</strong> so that frames with
+      similar latents land near each other. The clusters come from an unsupervised algorithm
+      (<strong>EVoC</strong>) run at several depths; thumbnails are sliced from one pre-rendered
+      sprite sheet, and all three views are plain
+      <a href="https://d3js.org/">D3 v7</a> reading a shared selection store — no React, no build step.
     </p>
-    <p>
-      Thumbnails are pre-rendered Push-T frame crops packed into a single 39&times;39 sprite
-      sheet (<code>assets/explorer-data/sprite.jpg</code>); each point indexes a tile, so the
-      thumbstrip pulls 48&times;48 crops with one HTTP request total. The data file
-      (<code>explorer_data.json</code>, &asymp;760 KB) and the sprite are
-      committed under <code>outputs/demo/explorer/</code> and symlinked into the site at
-      <code>assets/explorer-data/</code>. All three views are rendered with vanilla
-      <a href="https://d3js.org/">D3 v7</a>; no React, no build step. Source for each view is
-      in <code>assets/explorer/view_*.js</code>; the shared selection store is in
-      <code>assets/explorer/state.js</code>, and every view subscribes to it via
-      <code>LewmExplorer.subscribe(fn)</code>. The clusters here are not the same as the
-      8-cluster k-means treemap on the world-model page &mdash; that one is k-means at depth
-      1; this one is EVoC at five depths. Neither is supervised; treat both as <em>structure
-      that fell out of next-latent prediction</em>, not as labeled phases.
+    <p class="honesty-note">
+      <strong>Honestly:</strong> these clusters are <em>unsupervised</em> — we never told the model
+      what a "phase" is, and the structure is real but <strong>diffuse</strong>
+      (silhouette ≈ 0.035). Treat this as structure that fell out of next-frame prediction,
+      not as invented or labeled phases. The point of the page is browsing the
+      <a href="world-model.html#sec-7">world model's</a> latent space, not semantic ground truth.
     </p>
   </section>
 
 </main>
+
+<!-- ===================================================================
+     Glossary (shared, anchor-linked). Only the terms this page uses.
+     =================================================================== -->
+<details class="glossary-footer">
+  <summary>Plain-language glossary</summary>
+  <dl>
+    <div id="g-latent">
+      <dt>latent</dt>
+      <dd>The <strong>192 numbers</strong> the model uses to represent a frame instead of pixels.</dd>
+    </div>
+    <div id="g-encoder">
+      <dt>encoder</dt>
+      <dd>The part that turns an image into those 192 numbers.</dd>
+    </div>
+  </dl>
+</details>
+
+<footer class="site-footer" role="contentinfo">
+  <span>LeWorldModel replication &middot; static site, no build step</span>
+  <span class="footer-meta">
+    <a href="https://arxiv.org/abs/2603.19312">arXiv:2603.19312</a> &middot;
+    <a href="README.md">README</a> &middot;
+    <a href="CHANGELOG.md">changelog</a>
+  </span>
+</footer>
 
 <!-- ---- scripts: order matters ---- -->
 <script src="assets/vendor/d3.min.js"></script>
@@ -260,18 +260,50 @@
 <script src="assets/explorer/view_treemap.js"></script>
 <script src="assets/explorer/view_thumbstrip.js"></script>
 <script>
-  // ---- bootstrap: load data, render all four views ----
+  // ===================================================================
+  // bootstrap: load data, render the HERO views eagerly, and render the
+  // demoted parcoords/treemap LAZILY when the "More views" drawer opens.
+  //
+  // WHY LAZY: D3 sizes each view from its container's getBoundingClientRect().
+  // A container inside a CLOSED <details> has width:0 / height:0, so an eager
+  // render there would draw an empty (0-wide) chart. We therefore defer the
+  // first parcoords/treemap render until the drawer's `toggle` event fires
+  // with details.open === true, when the container finally has real width.
+  // We render at most once per view (the `*Rendered` guards), then leave
+  // them alone — they keep themselves in sync via LewmExplorer.subscribe().
+  // ===================================================================
   (function bootstrap() {
     var scatterEl = document.querySelector('#scatter');
     function showError(msg) {
       if (scatterEl) {
-        scatterEl.innerHTML = '<p class="view-error">Failed to load data: ' + msg + '<br>This page must be served over HTTP; from <code>outputs/demo/site/</code> run <code>./serve.sh</code> and open <code>http://localhost:8080/explore.html</code>.</p>';
+        scatterEl.innerHTML = '<p class="view-error">Failed to load data: ' + msg +
+          '<br>This page must be served over HTTP; from <code>outputs/demo/site/</code> run ' +
+          '<code>./serve.sh</code> and open <code>http://localhost:8080/explore.html</code>.</p>';
       }
     }
     if (typeof LewmExplorer === 'undefined') {
       showError('LewmExplorer namespace missing — state.js failed to load.');
       return;
     }
+
+    // Fill the static §1 entry-point demo with 4 real sprite frames so the
+    // reader sees actual game-frames in the "see those frames" slot.
+    function fillDemoFrames(data) {
+      try {
+        var host = document.getElementById('demo-frames');
+        if (!host || !data || !data.points || !data.points.length) return;
+        var tiles = host.querySelectorAll('.demo-frame');
+        var n = data.points.length;
+        // Pick 4 nearby points (consecutive indices ~ similar scenes) from
+        // the middle of the corpus so the demo mirrors "a clump".
+        var start = Math.floor(n / 2);
+        for (var k = 0; k < tiles.length; k++) {
+          var idx = (data.points[start + k] || data.points[k]).i;
+          tiles[k].setAttribute('style', LewmExplorer.spriteStyle(idx, 48));
+        }
+      } catch (e) { /* non-fatal decoration */ }
+    }
+
     fetch('assets/explorer-data/explorer_data.json', { cache: 'no-store' })
       .then(function (r) {
         if (!r.ok) throw new Error('HTTP ' + r.status);
@@ -279,21 +311,48 @@
       })
       .then(function (data) {
         LewmExplorer.data = data;
-        try { LewmExplorer.renderScatter('#scatter'); } catch (e) { console.error('scatter:', e); }
-        try { LewmExplorer.renderParcoords('#parcoords'); } catch (e) { console.error('parcoords:', e); }
-        try { LewmExplorer.renderTreemap('#treemap'); } catch (e) { console.error('treemap:', e); }
-        try { LewmExplorer.renderThumbstrip('#thumbstrip'); } catch (e) { console.error('thumbstrip:', e); }
 
-        // Subscribe to keep the section heading count in sync with the selection.
+        // ---- HERO views: render immediately (full width, always visible) ----
+        try { LewmExplorer.renderScatter('#scatter'); } catch (e) { console.error('scatter:', e); }
+        try { LewmExplorer.renderThumbstrip('#thumbstrip'); } catch (e) { console.error('thumbstrip:', e); }
+        fillDemoFrames(data);
+
+        // ---- Keep the selection-count heading in sync ----
         if (typeof LewmExplorer.subscribe === 'function') {
           LewmExplorer.subscribe(function (sel) {
             var countEl = document.getElementById('thumbstrip-count');
             if (!countEl) return;
-            var n = (sel && typeof sel.size === 'number') ? sel.size
-                   : (sel && sel.indices && sel.indices.length) ? sel.indices.length
-                   : (Array.isArray(sel) ? sel.length : 0);
-            countEl.textContent = n > 0 ? '(' + n + ' frame' + (n === 1 ? '' : 's') + ')' : '(brush any view above)';
+            var size = (sel && typeof sel.size === 'number') ? sel.size
+                     : (sel && sel.indices && sel.indices.length) ? sel.indices.length
+                     : (Array.isArray(sel) ? sel.length : 0);
+            countEl.textContent = size > 0
+              ? '(' + size + ' frame' + (size === 1 ? '' : 's') + ')'
+              : '(brush the map above)';
           });
+        }
+
+        // ---- DEMOTED views: render lazily on first drawer-open ----
+        var drawer = document.getElementById('more-views-drawer');
+        var parcoordsRendered = false;
+        var treemapRendered = false;
+        function renderDrawerViews() {
+          if (!drawer || !drawer.open) return;
+          // rAF so layout settles (the <details> has just become visible).
+          requestAnimationFrame(function () {
+            if (!parcoordsRendered) {
+              try { LewmExplorer.renderParcoords('#parcoords'); parcoordsRendered = true; }
+              catch (e) { console.error('parcoords:', e); }
+            }
+            if (!treemapRendered) {
+              try { LewmExplorer.renderTreemap('#treemap'); treemapRendered = true; }
+              catch (e) { console.error('treemap:', e); }
+            }
+          });
+        }
+        if (drawer) {
+          drawer.addEventListener('toggle', renderDrawerViews);
+          // If a browser restored the drawer open (e.g. back/forward), render now.
+          if (drawer.open) renderDrawerViews();
         }
       })
       .catch(function (e) {
@@ -302,6 +361,7 @@
       });
   })();
 </script>
+<script src="assets/reduced_motion.js" defer></script>
 
 </body>
 </html>

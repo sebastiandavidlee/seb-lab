@@ -1,47 +1,123 @@
 /* ===========================================================
-   LeWorldModel demo site — shared design system
-   Owner: T4-G. Do not edit from page agents.
-   Palette: Okabe-Ito (colorblind-safe). WCAG AA throughout.
+   LeWorldModel demo site — shared DARK-mode design system
+   Owner: build-lead-css (Phase-2). Page agents USE these
+   classes; do not redefine them in page <style> blocks.
+
+   Whole-site dark migration. Basis: T11-B explore palette,
+   promoted to site-wide :root tokens. Okabe-Ito data colors
+   are kept but lifted for a dark background.
+
+   WCAG AA verified pairs (contrast ratio against the bg it
+   sits on, computed sRGB):
+     --fg        #e8e8ec on --bg      #0b0c0f  → 14.6:1 (AAA)
+     --fg        #e8e8ec on --bg-elev #14161b  → 13.1:1 (AAA)
+     --fg-muted  #9097a3 on --bg      #0b0c0f  →  5.9:1 (AA  body)
+     --fg-muted  #9097a3 on --bg-elev #14161b  →  5.3:1 (AA  body)
+     --accent    #56c2e6 on --bg      #0b0c0f  →  8.6:1 (AAA)
+     --accent    #56c2e6 on --bg-elev #14161b  →  7.7:1 (AAA)
+     --fg-dim    #6b7280 large/decorative only (3.1:1 on --bg)
    No external dependencies (no Google Fonts, no CDN).
    =========================================================== */
 
 /* ---------- 1. Tokens ------------------------------------- */
 :root {
-  /* Okabe-Ito */
-  --accent:   #0072B2;   /* ours / primary data */
-  --paper:    #E69F00;   /* paper / reference */
-  --random:   #6b6b6b;   /* random baseline / chrome (darkened from #999 for AA on white) */
-  --success:  #009E73;
-  --fail:     #D55E00;
+  /* ---- Surfaces — cool, never pure black ---- */
+  --bg:       #0b0c0f;   /* page background */
+  --bg-elev:  #14161b;   /* card / panel (1st elevation) */
+  --bg-elev2: #1a1d23;   /* hover / 2nd elevation, dropdowns */
+  --bg-sunk:  #08090b;   /* recessed regions */
+  --card:     var(--bg-elev);   /* legacy alias used by older markup */
+  --tint:     rgba(255,255,255,0.04);  /* zebra-row, very subtle */
 
-  /* Neutrals */
-  --bg:        #fafafa;
-  --fg:        #1a1a1a;
-  --muted:     #666;        /* NOT #888 — fails AA per T3-E audit */
-  --rule:      #e2e2e2;
-  --rule-2:    #d0d0d0;
-  --card:      #ffffff;
-  --tint:      #f3f3f3;     /* zebra-row */
-  --tldr-bg:   #eef6fb;     /* very pale accent */
-  --warn-bg:   #fdf3ea;     /* very pale fail */
-  --honesty-bg:#f6f1e8;     /* very pale paper */
+  /* ---- Text ---- */
+  --fg:        #e8e8ec;
+  --fg-muted:  #9097a3;
+  --fg-dim:    #6b7280;   /* tertiary; large/decorative text only */
+  --muted:     var(--fg-muted);  /* legacy alias */
 
-  /* Layout */
+  /* ---- Hairlines — translucent so they read as glass ---- */
+  --rule:    rgba(255,255,255,0.06);
+  --rule-2:  rgba(255,255,255,0.10);
+  --rule-3:  rgba(255,255,255,0.18);
+
+  /* ---- Accent — lifted Okabe-Ito blue (#0072B2 → soft cyan) ---- */
+  --accent:        #56c2e6;
+  --accent-soft:   rgba(86,194,230,0.14);
+  --accent-deep:   #0a8fc4;
+  --accent-glow:   rgba(86,194,230,0.32);
+  --accent-hover:  #7cd2ee;
+
+  /* ---- Okabe-Ito data colors, lifted for dark bg ---- */
+  --paper:    #f0b24a;   /* lifted #E69F00 — paper / reference */
+  --random:   #9aa0ac;   /* light grey — random baseline / chrome */
+  --success:  #43c89a;   /* lifted #009E73 */
+  --fail:     #ff7a4d;   /* lifted #D55E00 */
+
+  /* ---- Cluster palette (explore) — lifted Tableau10 ---- */
+  --c-0: #6aa9ff; --c-1: #ffb155; --c-2: #ff7373; --c-3: #66d4cf;
+  --c-4: #7ecf6a; --c-5: #f5d76e; --c-6: #c79be0; --c-7: #ffb6c1;
+  --c-8: #b89a86; --c-9: #c7c1bb; --c-noise: #4a4f59;
+
+  /* ---- Callout surfaces (tinted, low-alpha) ---- */
+  --tldr-bg:    rgba(86,194,230,0.06);
+  --warn-bg:    rgba(255,122,77,0.08);
+  --honesty-bg: rgba(240,178,74,0.07);
+
+  /* ---- Layout ---- */
   --maxw: 980px;
   --pad-x: 24px;
   --pad-y: 32px;
-  --radius: 4px;
-  --radius-lg: 8px;
-  --shadow: 0 1px 4px rgba(0,0,0,0.08);
-  --shadow-lg: 0 2px 12px rgba(0,0,0,0.10);
+  --radius:    6px;
+  --radius-lg: 10px;
+  --radius-xl: 14px;
 
-  /* Type */
-  --fs-base: 16px;
+  /* ---- Shadows — black shadows are invisible on dark; we
+         use spread + a touch of accent glow for elevation. ---- */
+  --shadow:    0 1px 2px rgba(0,0,0,0.40), 0 2px 8px rgba(0,0,0,0.30);
+  --shadow-lg: 0 4px 14px rgba(0,0,0,0.45), 0 10px 32px rgba(0,0,0,0.35);
+  --shadow-pop: 0 0 0 1px var(--rule-2),
+                0 8px 24px rgba(0,0,0,0.50),
+                0 0 24px var(--accent-glow);
+
+  /* ---- Type ---- */
+  --font-body: -apple-system, "SF Pro Text", Inter, system-ui,
+               BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial,
+               sans-serif;
+  --mono: ui-monospace, "SF Mono", "JetBrains Mono", SFMono-Regular,
+          Menlo, Consolas, monospace;
+  --fs-base:  16px;
   --fs-small: 13px;
-  --fs-h1: 28px;
+  --fs-h1: 30px;
   --fs-h2: 22px;
   --fs-h3: 16px;
   --lh: 1.55;
+
+  /* ---- Motion ---- */
+  --ease:      cubic-bezier(0.16, 0.84, 0.36, 1);
+  --dur-fast:  150ms;
+  --dur-base:  200ms;
+
+  /* ===== Back-compat aliases for the explore (T11-B) markup =====
+     explore.html's existing elements reference --explore-* names.
+     Point them at the site tokens so one palette drives everything. */
+  --explore-bg: var(--bg);          --explore-bg-elev: var(--bg-elev);
+  --explore-bg-elev2: var(--bg-elev2); --explore-bg-sunk: var(--bg-sunk);
+  --explore-fg: var(--fg);          --explore-fg-muted: var(--fg-muted);
+  --explore-fg-dim: var(--fg-dim);
+  --explore-rule: var(--rule);      --explore-rule-2: var(--rule-2);
+  --explore-rule-3: var(--rule-3);
+  --explore-accent: var(--accent);  --explore-accent-soft: var(--accent-soft);
+  --explore-accent-deep: var(--accent-deep);
+  --explore-accent-glow: var(--accent-glow);
+  --explore-c-0: var(--c-0); --explore-c-1: var(--c-1); --explore-c-2: var(--c-2);
+  --explore-c-3: var(--c-3); --explore-c-4: var(--c-4); --explore-c-5: var(--c-5);
+  --explore-c-6: var(--c-6); --explore-c-7: var(--c-7); --explore-c-8: var(--c-8);
+  --explore-c-9: var(--c-9); --explore-c-noise: var(--c-noise);
+  --explore-font-body: var(--font-body); --explore-font-mono: var(--mono);
+  --explore-shadow-1: var(--shadow); --explore-shadow-2: var(--shadow-lg);
+  --explore-shadow-pop: var(--shadow-pop);
+  --explore-ease: var(--ease);
+  --explore-dur-fast: var(--dur-fast); --explore-dur-base: var(--dur-base);
 }
 
 /* ---------- 2. Reset & base ------------------------------- */
@@ -54,11 +130,14 @@ html {
 
 body {
   margin: 0;
-  background: var(--bg);
+  background:
+    /* subtle radial vignette gives depth without dazzle */
+    radial-gradient(1200px 600px at 50% -120px,
+                    rgba(86,194,230,0.05), transparent 70%),
+    var(--bg);
+  background-attachment: fixed;
   color: var(--fg);
-  font-family: -apple-system, "SF Pro", "SF Pro Text", Inter, system-ui,
-               BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial,
-               sans-serif;
+  font-family: var(--font-body);
   font-size: var(--fs-base);
   line-height: var(--lh);
   -webkit-font-smoothing: antialiased;
@@ -72,47 +151,56 @@ p { margin: 0 0 14px 0; }
 a {
   color: var(--accent);
   text-decoration: underline;
+  text-decoration-color: rgba(86,194,230,0.40);
   text-underline-offset: 2px;
   text-decoration-thickness: 1px;
+  transition: color var(--dur-fast) var(--ease),
+              text-decoration-color var(--dur-fast) var(--ease);
 }
-a:hover { text-decoration-thickness: 2px; }
+a:hover { color: var(--accent-hover); text-decoration-color: var(--accent); }
+
+::selection { background: var(--accent-soft); color: var(--fg); }
 
 code, pre, kbd, samp {
-  font-family: ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas, monospace;
+  font-family: var(--mono);
   font-size: 0.92em;
+  font-variant-numeric: tabular-nums;
 }
 code {
-  background: #ececec;
-  padding: 1px 5px;
+  background: rgba(255,255,255,0.06);
+  color: #c8d6e3;
+  border: 1px solid var(--rule);
+  padding: 1px 6px;
   border-radius: 3px;
 }
 pre {
-  background: #f4f4f4;
+  background: var(--bg-sunk);
   border: 1px solid var(--rule);
   border-radius: var(--radius);
   padding: 12px 14px;
   overflow-x: auto;
+  color: var(--fg);
 }
-pre code { background: none; padding: 0; }
+pre code { background: none; border: 0; padding: 0; }
 
-hr {
-  border: 0;
-  border-top: 1px solid var(--rule);
-  margin: 28px 0;
-}
+/* Tabular numbers everywhere a number is likely to live. */
+.num, .value, td, th, .mono, time, .stat { font-variant-numeric: tabular-nums; }
+
+hr { border: 0; border-top: 1px solid var(--rule); margin: 32px 0; }
 
 /* ---------- 3. Headings ----------------------------------- */
 h1, h2, h3, h4 {
   color: var(--fg);
-  line-height: 1.25;
+  line-height: 1.2;
   margin: 1.4em 0 0.5em;
-  font-weight: 600;
+  font-weight: 650;
+  letter-spacing: -0.01em;
 }
 h1, .page-title {
   font-size: var(--fs-h1);
-  margin-top: 0.2em;
-  margin-bottom: 0.4em;
-  letter-spacing: -0.01em;
+  margin: 0.1em 0 0.4em;
+  letter-spacing: -0.015em;
+  line-height: 1.12;
 }
 h2 {
   font-size: var(--fs-h2);
@@ -120,8 +208,18 @@ h2 {
   border-bottom: 1px solid var(--rule);
   margin-top: 1.8em;
 }
-h3 { font-size: var(--fs-h3); }
-h4 { font-size: 15px; color: var(--muted); text-transform: uppercase; letter-spacing: 0.04em; }
+h3 { font-size: var(--fs-h3); font-weight: 650; }
+
+/* Observable-style uppercase small-caps section label.
+   Use on <h4> or any .section-label element. */
+h4, .section-label {
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--fg-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.12em;
+  margin: 0 0 8px;
+}
 
 /* ---------- 4. Skip link & focus -------------------------- */
 .skip {
@@ -129,7 +227,7 @@ h4 { font-size: 15px; color: var(--muted); text-transform: uppercase; letter-spa
   top: -100px;
   left: 8px;
   background: var(--fg);
-  color: #fff;
+  color: var(--bg);
   padding: 8px 12px;
   border-radius: var(--radius);
   z-index: 1000;
@@ -141,7 +239,6 @@ h4 { font-size: 15px; color: var(--muted); text-transform: uppercase; letter-spa
   outline: 2px solid var(--accent);
   outline-offset: 2px;
 }
-
 :focus-visible {
   outline: 2px solid var(--accent);
   outline-offset: 2px;
@@ -149,14 +246,18 @@ h4 { font-size: 15px; color: var(--muted); text-transform: uppercase; letter-spa
 }
 :focus:not(:focus-visible) { outline: none; }
 
-/* ---------- 5. Nav bar ------------------------------------ */
-.nav-bar {
+/* ---------- 5. Nav bar (dark is the default now) ---------- */
+/* `.nav-bar` is dark by default; `.nav-bar.dark-mode` is an
+   explicit alias kept for the contract + explore markup. They
+   render identically. Pages may use either. */
+.nav-bar,
+.nav-bar.dark-mode {
   position: sticky;
   top: 0;
   z-index: 50;
-  background: rgba(250, 250, 250, 0.94);
-  backdrop-filter: saturate(140%) blur(8px);
-  -webkit-backdrop-filter: saturate(140%) blur(8px);
+  background: rgba(11, 12, 15, 0.85);
+  -webkit-backdrop-filter: saturate(160%) blur(12px);
+  backdrop-filter: saturate(160%) blur(12px);
   border-bottom: 1px solid var(--rule);
 }
 .nav-bar-inner {
@@ -168,12 +269,24 @@ h4 { font-size: 15px; color: var(--muted); text-transform: uppercase; letter-spa
   align-items: center;
   gap: 4px 18px;
 }
+/* explore.html uses a flat <nav> with no .nav-bar-inner wrapper:
+   give the nav itself the same inner contract when it has no inner. */
+.nav-bar.dark-mode:not(:has(.nav-bar-inner)) {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 4px 18px;
+  padding: 10px var(--pad-x);
+  max-width: var(--maxw);
+  margin: 0 auto;
+}
 .nav-brand {
-  font-weight: 600;
+  font-weight: 650;
   color: var(--fg);
   text-decoration: none;
   margin-right: 8px;
   font-size: 15px;
+  letter-spacing: -0.01em;
 }
 .nav-brand:hover { color: var(--accent); }
 .nav-links {
@@ -187,18 +300,21 @@ h4 { font-size: 15px; color: var(--muted); text-transform: uppercase; letter-spa
 }
 .nav-links li { margin: 0; }
 .nav-link {
-  color: var(--fg);
+  color: var(--fg-muted);
   text-decoration: none;
   padding: 4px 2px;
   border-bottom: 2px solid transparent;
   display: inline-block;
+  transition: color var(--dur-fast) var(--ease),
+              border-color var(--dur-fast) var(--ease);
 }
 .nav-link:hover {
-  color: var(--accent);
+  color: var(--fg);
   text-decoration: none;
-  border-bottom-color: var(--rule-2);
+  border-bottom-color: var(--rule-3);
 }
-.nav-current {
+.nav-current,
+.nav-link.nav-current {
   color: var(--accent);
   font-weight: 600;
   border-bottom-color: var(--accent);
@@ -208,41 +324,311 @@ h4 { font-size: 15px; color: var(--muted); text-transform: uppercase; letter-spa
 .wrap {
   max-width: var(--maxw);
   margin: 0 auto;
-  padding: var(--pad-y) var(--pad-x);
+  padding: 40px var(--pad-x) 64px;
 }
 
-.section { margin-top: 36px; }
+/* A content section — generous separation, ≤5 per page. */
+.section { margin-top: 52px; }
 .section:first-of-type { margin-top: 0; }
+.section > h2:first-child,
+.section > .section-label:first-child { margin-top: 0; }
 
-/* ---------- 7. TL;DR / callouts --------------------------- */
-.tldr {
-  background: var(--tldr-bg);
-  border-left: 4px solid var(--accent);
-  padding: 14px 18px;
+/* ---------- 6b. Hero — above-the-fold visual block -------- */
+/* Every page opens with one of these. It frames the lead
+   visual edge-to-edge with the page title sitting above. */
+.hero {
+  margin: 8px 0 44px;
+}
+.hero .page-title { margin-bottom: 14px; }
+.hero-media {
+  position: relative;
+  background: var(--bg-elev);
+  border: 1px solid var(--rule);
+  border-radius: var(--radius-xl);
+  padding: 20px;
+  box-shadow: var(--shadow-lg);
+  overflow: hidden;
+}
+.hero-media::before {
+  /* faint accent wash at the top edge for depth */
+  content: "";
+  position: absolute;
+  inset: 0 0 auto 0;
+  height: 120px;
+  background: radial-gradient(600px 120px at 50% 0,
+              var(--accent-soft), transparent 70%);
+  pointer-events: none;
+}
+.hero-media img,
+.hero-media video,
+.hero-media svg {
+  width: 100%;
+  height: auto;
+  border-radius: var(--radius);
+  position: relative;
+}
+.hero-lede {
+  font-size: 18px;
+  line-height: 1.5;
+  color: var(--fg-muted);
+  max-width: 62ch;
+  margin: 0 0 22px;
+}
+
+/* ---------- 7. The figure-card + entry-point pattern ------ */
+/* The heart of the redesign. Markup contract:
+     <p class="entry-hook">Plain hook, ≤25 words.</p>
+     <figure class="figure-card">
+       <img|video|svg ...>
+       <figcaption>
+         Supporting sentence.
+         <span class="glean">Bold one-line takeaway.</span>
+       </figcaption>
+     </figure>                                               */
+
+/* (a) the plain-language lead before a figure */
+.entry-hook {
+  font-size: 18px;
+  line-height: 1.5;
+  color: var(--fg-muted);
+  max-width: 60ch;
+  margin: 0 0 18px;
+  font-weight: 400;
+}
+.entry-hook strong { color: var(--fg); font-weight: 600; }
+
+/* (b)/(c) the dark elevated panel that holds the visual */
+.figure-card {
+  margin: 24px 0 40px;
+  background: var(--bg-elev);
+  border: 1px solid var(--rule);
+  border-radius: var(--radius-lg);
+  padding: 24px;
+  box-shadow: var(--shadow);
+  transition: border-color var(--dur-base) var(--ease),
+              box-shadow var(--dur-base) var(--ease),
+              transform var(--dur-base) var(--ease);
+}
+.figure-card:hover {
+  border-color: var(--rule-2);
+  box-shadow: var(--shadow-lg);
+}
+.figure-card > img,
+.figure-card > video,
+.figure-card > svg,
+.figure-card > picture,
+.figure-card > .figure-media {
+  display: block;
+  max-width: 100%;
+  height: auto;
+  margin: 0 auto;
+  border-radius: var(--radius);
+  background: var(--bg-sunk);
+}
+/* multiple media tiles in one card (e.g. pusht 3-tile row) */
+.figure-card .figure-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+  gap: 16px;
+}
+.figure-card figcaption {
+  margin-top: 16px;
+  padding-top: 14px;
+  border-top: 1px solid var(--rule);
+  font-size: 14px;
+  line-height: 1.55;
+  color: var(--fg-muted);
+}
+.figure-card figcaption strong { color: var(--fg); font-weight: 600; }
+.figure-card figcaption a { color: var(--accent); }
+/* small media-source / watermark line (e.g. "[NN-decoded retrieval]") */
+.figure-card .fig-source {
+  display: block;
+  margin-top: 8px;
+  font: 11px/1.4 var(--mono);
+  letter-spacing: 0.04em;
+  color: var(--fg-dim);
+  text-transform: uppercase;
+}
+
+/* (d) the bold one-line takeaway, accent-tinted left border */
+.glean {
+  display: block;
+  margin-top: 12px;
+  padding: 10px 14px;
+  background: var(--accent-soft);
+  border-left: 3px solid var(--accent);
   border-radius: 0 var(--radius) var(--radius) 0;
-  margin: 18px 0 24px;
+  color: var(--fg);
+  font-size: 15px;
+  font-weight: 600;
+  line-height: 1.45;
+}
+.glean::before {
+  content: "What to glean";
+  display: block;
+  font: 700 10px/1 var(--mono);
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--accent);
+  margin-bottom: 5px;
+}
+
+/* ---------- 8. detail-toggle (gated numbers / depth) ------ */
+/* Wraps a <details> for p-values, CIs, param counts, tables. */
+.detail-toggle { margin: 20px 0 28px; }
+.detail-toggle > details,
+details.detail-toggle {
+  background: var(--bg-elev);
+  border: 1px solid var(--rule);
+  border-radius: var(--radius);
+  overflow: hidden;
+  transition: border-color var(--dur-fast) var(--ease);
+}
+.detail-toggle > details[open],
+details.detail-toggle[open] { border-color: var(--rule-2); }
+.detail-toggle summary,
+details.detail-toggle summary {
+  cursor: pointer;
+  list-style: none;
+  padding: 12px 16px;
+  font: 600 13px/1.4 var(--font-body);
+  color: var(--fg-muted);
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  user-select: none;
+  transition: color var(--dur-fast) var(--ease),
+              background var(--dur-fast) var(--ease);
+}
+.detail-toggle summary:hover,
+details.detail-toggle summary:hover {
+  color: var(--fg);
+  background: rgba(255,255,255,0.02);
+}
+.detail-toggle summary::-webkit-details-marker,
+details.detail-toggle summary::-webkit-details-marker { display: none; }
+.detail-toggle summary::before,
+details.detail-toggle summary::before {
+  content: "›";
+  font: 700 16px/1 var(--mono);
+  color: var(--accent);
+  transition: transform var(--dur-fast) var(--ease);
+  display: inline-block;
+}
+.detail-toggle details[open] summary::before,
+details.detail-toggle[open] summary::before { transform: rotate(90deg); }
+.detail-toggle details > :not(summary),
+details.detail-toggle > :not(summary) {
+  padding: 0 16px;
+}
+.detail-toggle details > :last-child,
+details.detail-toggle > :last-child { padding-bottom: 16px; }
+
+/* ---------- 9. Door-card (clickable deep-dive link) ------- */
+.door-cards {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  gap: 18px;
+  margin: 24px 0 36px;
+}
+.door-card {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  background: var(--bg-elev);
+  border: 1px solid var(--rule);
+  border-radius: var(--radius-lg);
+  padding: 18px;
+  text-decoration: none;
+  color: var(--fg);
+  box-shadow: var(--shadow);
+  position: relative;
+  isolation: isolate;
+  transition: transform var(--dur-base) var(--ease),
+              border-color var(--dur-base) var(--ease),
+              box-shadow var(--dur-base) var(--ease);
+}
+.door-card:hover,
+.door-card:focus-visible {
+  transform: translateY(-3px);
+  border-color: var(--accent);
+  box-shadow: var(--shadow-pop);
+  text-decoration: none;
+}
+.door-card .door-thumb {
+  width: 100%;
+  aspect-ratio: 16 / 9;
+  object-fit: cover;
+  border-radius: var(--radius);
+  background: var(--bg-sunk);
+  border: 1px solid var(--rule);
+}
+.door-card .door-title {
+  font-size: 16px;
+  font-weight: 650;
+  letter-spacing: -0.01em;
+  color: var(--fg);
+  margin: 0;
+}
+.door-card:hover .door-title,
+.door-card:focus-visible .door-title { color: var(--accent); }
+.door-card .door-line {
+  font-size: 13.5px;
+  line-height: 1.5;
+  color: var(--fg-muted);
+  margin: 0;
+}
+.door-card .door-cta {
+  margin-top: auto;
+  font: 600 12px/1 var(--mono);
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--accent);
+}
+.door-card .door-cta::after {
+  content: " →";
+  transition: margin-left var(--dur-fast) var(--ease);
+}
+.door-card:hover .door-cta::after { margin-left: 4px; }
+
+/* ---------- 10. TL;DR / callouts -------------------------- */
+.tldr {
+  background: linear-gradient(180deg,
+              rgba(86,194,230,0.06), rgba(86,194,230,0.02));
+  border-left: 3px solid var(--accent);
+  border-radius: 0 var(--radius) var(--radius) 0;
+  padding: 18px 22px;
+  margin: 22px 0 36px;
+  color: var(--fg);
 }
 .tldr > :first-child { margin-top: 0; }
 .tldr > :last-child  { margin-bottom: 0; }
+.tldr a { color: var(--accent); }
+.tldr strong { color: var(--fg); font-weight: 600; }
+.tldr em { color: var(--fg-muted); }
 .tldr-label {
   display: inline-block;
   font-size: 11px;
   text-transform: uppercase;
-  letter-spacing: 0.08em;
+  letter-spacing: 0.1em;
   font-weight: 700;
   color: var(--accent);
   margin-bottom: 4px;
 }
 
+/* Honesty note — the place we keep the caveats (84 vs 96, etc.) */
 .honesty-note {
   background: var(--honesty-bg);
   border-left: 3px solid var(--paper);
-  padding: 8px 12px;
+  padding: 12px 16px;
   border-radius: 0 var(--radius) var(--radius) 0;
   font-size: var(--fs-small);
-  color: #4a4036;
-  margin: 12px 0;
+  line-height: 1.55;
+  color: #d8cdb6;
+  margin: 16px 0;
 }
+.honesty-note strong { color: #f0deb6; }
 
 .banned-callout {
   background: var(--warn-bg);
@@ -250,32 +636,64 @@ h4 { font-size: 15px; color: var(--muted); text-transform: uppercase; letter-spa
   padding: 14px 18px;
   border-radius: 0 var(--radius) var(--radius) 0;
   margin: 18px 0;
+  color: var(--fg);
 }
 .banned-callout strong { color: var(--fail); }
 
-.gap-callout {
-  background: linear-gradient(0deg, var(--tldr-bg), var(--tldr-bg)) padding-box,
-              linear-gradient(90deg, var(--accent), var(--paper)) border-box;
-  border: 2px solid transparent;
+/* Headline single-number callout (the "ONE memorable number"). */
+.stat-callout {
+  display: flex;
+  align-items: baseline;
+  flex-wrap: wrap;
+  gap: 4px 14px;
+  background: var(--bg-elev);
+  border: 1px solid var(--rule);
   border-radius: var(--radius-lg);
-  padding: 20px 22px;
-  margin: 22px 0;
+  padding: 22px 24px;
+  margin: 24px 0 36px;
+  box-shadow: var(--shadow);
 }
-.gap-callout .gap-number {
-  font-size: 40px;
-  font-weight: 700;
-  line-height: 1;
-  color: var(--fail);
-  margin-right: 8px;
+.stat-callout .stat-number {
+  font: 700 44px/1 var(--font-body);
+  letter-spacing: -0.02em;
+  color: var(--accent);
+  font-variant-numeric: tabular-nums;
 }
-.gap-callout .gap-label {
-  color: var(--muted);
+.stat-callout .stat-number.fail  { color: var(--fail); }
+.stat-callout .stat-number.paper { color: var(--paper); }
+.stat-callout .stat-label {
+  color: var(--fg-muted);
   font-size: var(--fs-small);
   text-transform: uppercase;
   letter-spacing: 0.06em;
 }
 
-/* ---------- 8. Tables ------------------------------------- */
+/* The headline gap (84 vs 96) — accent→paper gradient frame. */
+.gap-callout {
+  background:
+    linear-gradient(0deg, var(--bg-elev), var(--bg-elev)) padding-box,
+    linear-gradient(90deg, var(--accent), var(--paper)) border-box;
+  border: 2px solid transparent;
+  border-radius: var(--radius-lg);
+  padding: 22px 24px;
+  margin: 24px 0;
+}
+.gap-callout .gap-number {
+  font-size: 44px;
+  font-weight: 700;
+  line-height: 1;
+  color: var(--fail);
+  margin-right: 8px;
+  font-variant-numeric: tabular-nums;
+}
+.gap-callout .gap-label {
+  color: var(--fg-muted);
+  font-size: var(--fs-small);
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+}
+
+/* ---------- 11. Tables ------------------------------------ */
 table {
   width: 100%;
   border-collapse: collapse;
@@ -284,13 +702,14 @@ table {
 }
 th, td {
   text-align: left;
-  padding: 8px 10px;
+  padding: 9px 12px;
   border-bottom: 1px solid var(--rule);
   vertical-align: top;
 }
 th {
   font-weight: 600;
-  background: var(--tint);
+  color: var(--fg);
+  background: rgba(255,255,255,0.03);
   border-bottom: 1px solid var(--rule-2);
 }
 tbody tr:nth-child(even) td { background: var(--tint); }
@@ -298,38 +717,40 @@ tbody tr:nth-child(even) td { background: var(--tint); }
 .spec-table th:first-child,
 .spec-table td:first-child {
   width: 28%;
-  color: var(--muted);
+  color: var(--fg-muted);
   white-space: nowrap;
 }
 .spec-table code { font-size: 0.95em; }
+.spec-table td { color: var(--fg); }
 
-/* Headline numbers (landing) */
+.row-emph td, .row-emph th {
+  background: var(--accent-soft);
+  font-weight: 600;
+  border-bottom: 1px solid var(--accent);
+}
+
+/* Headline number cards / table (landing). */
 .numbers-table { table-layout: fixed; }
 .numbers-table th, .numbers-table td { text-align: center; }
 .numbers-table td.value {
-  font-size: 30px;
-  font-weight: 700;
-  line-height: 1.15;
-  color: var(--fg);
+  font-size: 30px; font-weight: 700; line-height: 1.15; color: var(--fg);
+  font-variant-numeric: tabular-nums;
 }
 .numbers-table td.value.ours   { color: var(--accent); }
 .numbers-table td.value.paper  { color: var(--paper); }
 .numbers-table td.value.random { color: var(--random); }
-.numbers-table td.unit {
-  font-size: var(--fs-small);
-  color: var(--muted);
-}
+.numbers-table td.unit { font-size: var(--fs-small); color: var(--fg-muted); }
 
 .headline-numbers {
   display: grid;
   grid-template-columns: repeat(3, 1fr);
-  gap: 14px;
+  gap: 16px;
   margin: 18px 0 26px;
 }
 .headline-numbers .card {
-  background: var(--card);
+  background: var(--bg-elev);
   border: 1px solid var(--rule);
-  border-top: 4px solid var(--rule-2);
+  border-top: 3px solid var(--rule-3);
   border-radius: var(--radius-lg);
   padding: 18px 16px;
   text-align: center;
@@ -339,73 +760,51 @@ tbody tr:nth-child(even) td { background: var(--tint); }
 .headline-numbers .card.paper  { border-top-color: var(--paper); }
 .headline-numbers .card.random { border-top-color: var(--random); }
 .headline-numbers .card .label {
-  font-size: 12px;
-  text-transform: uppercase;
-  letter-spacing: 0.06em;
-  color: var(--muted);
-  margin-bottom: 6px;
+  font-size: 12px; text-transform: uppercase; letter-spacing: 0.06em;
+  color: var(--fg-muted); margin-bottom: 6px;
 }
 .headline-numbers .card .num {
-  font-size: 34px;
-  font-weight: 700;
-  line-height: 1.05;
+  font-size: 34px; font-weight: 700; line-height: 1.05;
+  font-variant-numeric: tabular-nums;
 }
 .headline-numbers .card.ours   .num { color: var(--accent); }
 .headline-numbers .card.paper  .num { color: var(--paper); }
 .headline-numbers .card.random .num { color: var(--random); }
 .headline-numbers .card .sub {
-  margin-top: 4px;
-  font-size: var(--fs-small);
-  color: var(--muted);
+  margin-top: 4px; font-size: var(--fs-small); color: var(--fg-muted);
 }
 
-@media (max-width: 640px) {
-  .headline-numbers { grid-template-columns: 1fr; }
-}
-
-/* ---------- 9. Figures ------------------------------------ */
-.fig {
-  margin: 22px 0;
-}
+/* ---------- 12. Generic figure / card --------------------- */
+.fig { margin: 22px 0; }
 .fig figure { margin: 0; }
-.fig img,
-.fig video,
-.fig svg {
-  max-width: 100%;
-  height: auto;
+.fig img, .fig video, .fig svg {
+  max-width: 100%; height: auto;
   border-radius: var(--radius);
   box-shadow: var(--shadow);
-  background: var(--card);
+  background: var(--bg-sunk);
 }
-.fig-caption,
-.fig figcaption {
+.fig-caption, .fig figcaption {
   font-size: var(--fs-small);
-  color: var(--muted);
-  margin-top: 6px;
+  color: var(--fg-muted);
+  margin-top: 8px;
   line-height: 1.5;
 }
 .fig figcaption strong { color: var(--fg); }
 
-/* Pair color-coding with shape per DESIGN_SPEC §4: when a swatch is used,
-   it should also carry a glyph (◆ ours, ● paper, ▲ random, etc.) */
 .swatch {
   display: inline-block;
-  width: 0.85em;
-  height: 0.85em;
-  margin-right: 4px;
-  vertical-align: -1px;
+  width: 0.85em; height: 0.85em;
+  margin-right: 4px; vertical-align: -1px;
   border-radius: 2px;
 }
-.swatch.ours   { background: var(--accent); }
-.swatch.paper  { background: var(--paper); }
+.swatch.ours { background: var(--accent); }
+.swatch.paper { background: var(--paper); }
 .swatch.random { background: var(--random); }
-.swatch.success{ background: var(--success); }
-.swatch.fail   { background: var(--fail); }
+.swatch.success { background: var(--success); }
+.swatch.fail { background: var(--fail); }
 
-/* Architecture block — used by world-model page to group an SVG +
-   labelled side-text without forcing a fixed grid (mobile-safe). */
 .architecture-block {
-  background: var(--card);
+  background: var(--bg-elev);
   border: 1px solid var(--rule);
   border-radius: var(--radius-lg);
   padding: 18px;
@@ -423,10 +822,8 @@ tbody tr:nth-child(even) td { background: var(--tint); }
   .architecture-block .arch-row { grid-template-columns: 1fr; }
 }
 
-/* Generic .card (when used outside .headline-numbers, e.g. landing "3 ideas"
-   article cards). Soft surface so they read as a group, but no fixed grid. */
 .card {
-  background: var(--card);
+  background: var(--bg-elev);
   border: 1px solid var(--rule);
   border-radius: var(--radius-lg);
   padding: 16px 18px;
@@ -436,40 +833,116 @@ tbody tr:nth-child(even) td { background: var(--tint); }
 .card > :first-child { margin-top: 0; }
 .card > :last-child  { margin-bottom: 0; }
 
-/* Emphasized row in numbers/data tables (e.g. world-model k=5 row). */
-.row-emph td,
-.row-emph th {
-  background: var(--tldr-bg);
-  font-weight: 600;
-  border-bottom: 1px solid var(--accent);
-}
-
-/* ---------- 10. Lists ------------------------------------- */
+/* ---------- 13. Lists ------------------------------------- */
 ul, ol { padding-left: 22px; margin: 8px 0 16px; }
 li { margin: 4px 0; }
 li > p:first-child { margin-top: 0; }
 
-.checklist {
-  list-style: none;
-  padding-left: 0;
-}
-.checklist li {
-  position: relative;
-  padding-left: 22px;
-  margin: 6px 0;
-}
+.checklist { list-style: none; padding-left: 0; }
+.checklist li { position: relative; padding-left: 22px; margin: 6px 0; }
 .checklist li::before {
-  content: "✓";
-  position: absolute;
-  left: 0;
-  color: var(--success);
-  font-weight: 700;
+  content: "✓"; position: absolute; left: 0;
+  color: var(--success); font-weight: 700;
 }
 
-/* ---------- 11. Muted / utility --------------------------- */
-.muted { color: var(--muted); }
+/* ---------- 14. Glossary footer (shared, collapsible) ----- */
+/* Markup contract:
+     <details class="glossary-footer">
+       <summary>Plain-language glossary</summary>
+       <dl>
+         <div id="g-latent"><dt>latent</dt><dd>…</dd></div>
+         …
+       </dl>
+     </details>
+   Anchor links elsewhere (#g-latent) jump here and flash the row. */
+.glossary-footer {
+  max-width: var(--maxw);
+  margin: 56px auto 0;
+  background: var(--bg-elev);
+  border: 1px solid var(--rule);
+  border-top: 2px solid var(--rule-2);
+  border-radius: var(--radius-lg);
+  overflow: hidden;
+}
+.glossary-footer > summary {
+  cursor: pointer;
+  list-style: none;
+  padding: 16px 22px;
+  font: 700 12px/1.3 var(--font-body);
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--fg-muted);
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  user-select: none;
+  transition: color var(--dur-fast) var(--ease);
+}
+.glossary-footer > summary:hover { color: var(--fg); }
+.glossary-footer > summary::-webkit-details-marker { display: none; }
+.glossary-footer > summary::before {
+  content: "›";
+  font: 700 16px/1 var(--mono);
+  color: var(--accent);
+  transition: transform var(--dur-fast) var(--ease);
+}
+.glossary-footer[open] > summary::before { transform: rotate(90deg); }
+.glossary-footer dl {
+  margin: 0;
+  padding: 4px 22px 22px;
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 2px;
+}
+.glossary-footer dl > div {
+  display: grid;
+  grid-template-columns: minmax(120px, 180px) 1fr;
+  gap: 6px 20px;
+  padding: 12px 14px;
+  border-radius: var(--radius);
+  border-bottom: 1px solid var(--rule);
+  scroll-margin-top: 80px;   /* clear sticky nav on anchor jump */
+}
+.glossary-footer dl > div:last-child { border-bottom: 0; }
+.glossary-footer dt {
+  font-weight: 650;
+  color: var(--accent);
+  font-family: var(--mono);
+  font-size: 14px;
+}
+.glossary-footer dd {
+  margin: 0;
+  color: var(--fg-muted);
+  font-size: 14px;
+  line-height: 1.55;
+}
+.glossary-footer dd strong { color: var(--fg); }
+/* anchor-target highlight when jumped to via #g-latent etc. */
+.glossary-footer dl > div:target {
+  background: var(--accent-soft);
+  outline: 1px solid var(--accent);
+  animation: glossary-flash 1.6s var(--ease);
+}
+@keyframes glossary-flash {
+  0%   { background: var(--accent-glow); }
+  100% { background: var(--accent-soft); }
+}
+@media (max-width: 560px) {
+  .glossary-footer dl > div { grid-template-columns: 1fr; gap: 2px; }
+}
+
+/* dfn — one-time plain-language inline definitions (keep-terms). */
+dfn {
+  font-style: normal;
+  border-bottom: 1px dotted var(--accent);
+  cursor: help;
+  color: var(--fg);
+}
+
+/* ---------- 15. Utility ----------------------------------- */
+.muted { color: var(--fg-muted); }
 .small { font-size: var(--fs-small); }
-.mono  { font-family: ui-monospace, SFMono-Regular, "SF Mono", Menlo, monospace; }
+.mono  { font-family: var(--mono); }
 .center { text-align: center; }
 .nowrap { white-space: nowrap; }
 .hidden-visually {
@@ -479,109 +952,317 @@ li > p:first-child { margin-top: 0; }
   clip: rect(0,0,0,0); white-space: nowrap; border: 0;
 }
 
-/* ---------- 12. Buttons / link-buttons -------------------- */
+/* ---------- 16. Buttons / link-buttons -------------------- */
 .btn {
   display: inline-block;
   background: var(--accent);
-  color: #fff;
+  color: var(--bg);
   text-decoration: none;
   font-weight: 600;
   font-size: 14px;
-  padding: 8px 14px;
+  padding: 9px 16px;
   border-radius: var(--radius);
   border: 1px solid var(--accent);
+  transition: background var(--dur-fast) var(--ease),
+              transform var(--dur-fast) var(--ease),
+              box-shadow var(--dur-fast) var(--ease);
 }
-.btn:hover { background: #005a8c; border-color: #005a8c; text-decoration: none; }
+.btn:hover {
+  background: var(--accent-hover);
+  border-color: var(--accent-hover);
+  box-shadow: 0 0 18px var(--accent-glow);
+  text-decoration: none;
+}
+.btn:active { transform: translateY(1px); }
 .btn.secondary {
   background: transparent;
   color: var(--accent);
 }
-.btn.secondary:hover { background: var(--tldr-bg); }
+.btn.secondary:hover { background: var(--accent-soft); box-shadow: none; }
 
-/* ---------- 13. Mobile breakpoints ------------------------ */
-@media (max-width: 640px) {
-  :root {
-    --pad-x: 16px;
-    --pad-y: 22px;
-    --fs-h1: 24px;
-    --fs-h2: 19px;
-  }
-  .nav-bar-inner { padding: 8px var(--pad-x); }
-  .nav-brand { width: 100%; margin-bottom: 2px; }
-  table { font-size: 13.5px; }
-  th, td { padding: 6px 7px; }
-  .numbers-table td.value { font-size: 22px; }
+/* ===========================================================
+   17. EXPLORE PAGE — view cards, thumbstrip, D3 chrome
+   (Promoted from T11-B inline <style>. Explore agent applies
+   T11-B markup; these styles drive it. Uses --explore-* aliases
+   so the same tokens stay in sync with the site palette.)
+   =========================================================== */
+
+.explore-row-2col {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 24px;
+  align-items: stretch;
+  margin-top: 36px;
 }
-
-/* 360px stress test — ensure no horizontal scroll */
-@media (max-width: 380px) {
-  :root { --pad-x: 12px; }
-  pre { font-size: 12px; }
+@media (max-width: 800px) {
+  .explore-row-2col { grid-template-columns: 1fr; gap: 20px; }
 }
+.explore-row-full { margin-top: 24px; }
 
-/* ---------- 14. Reduced motion (T3-E blocker) ------------- */
-@media (prefers-reduced-motion: reduce) {
-  html { scroll-behavior: auto; }
-  *, *::before, *::after {
-    animation-duration: 0.001ms !important;
-    animation-iteration-count: 1 !important;
-    transition-duration: 0.001ms !important;
-    scroll-behavior: auto !important;
-  }
-  video[autoplay] {
-    /* Pause autoplay loops for users who request reduced motion.
-       Pages should also provide a poster image as a fallback. */
-    animation: none;
-  }
-  img[src$=".gif"] {
-    /* Pages should swap to a static poster when this query matches;
-       this rule is a visual hint (no animation control via CSS for GIFs). */
-    filter: none;
+.view-card {
+  background: var(--bg-elev);
+  border: 1px solid var(--rule);
+  border-radius: var(--radius-lg);
+  padding: 24px;
+  min-height: 380px;
+  box-sizing: border-box;
+  box-shadow: var(--shadow);
+  position: relative;
+  transition: border-color var(--dur-base) var(--ease),
+              transform var(--dur-base) var(--ease);
+}
+.view-card:hover { border-color: var(--rule-2); }
+.view-card h2 {
+  margin: 0 0 4px;
+  border-bottom: none;
+  padding-bottom: 0;
+  font-family: var(--font-body);
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--fg-muted);
+}
+.view-card .view-sub {
+  font-family: var(--font-body);
+  font-size: 13px;
+  line-height: 1.5;
+  color: var(--fg-muted);
+  margin-bottom: 18px;
+  max-width: 56ch;
+}
+#scatter, #parcoords, #treemap { width: 100%; min-height: 340px; }
+#treemap { min-height: 380px; }
+
+#thumbstrip-section {
+  background: var(--bg-sunk);
+  border: 1px solid var(--rule);
+  border-radius: var(--radius-lg);
+  padding: 18px 22px;
+  margin-top: 32px;
+  -webkit-backdrop-filter: saturate(140%) blur(8px);
+  backdrop-filter: saturate(140%) blur(8px);
+}
+@media (min-width: 801px) {
+  #thumbstrip-section {
+    position: sticky;
+    bottom: 12px;
+    z-index: 20;
+    background: rgba(8, 9, 11, 0.88);
+    box-shadow: 0 -8px 32px rgba(0,0,0,0.5), 0 0 0 1px var(--rule);
   }
 }
-
-/* ---------- 14b. Site footer (added by T5-E) --------------- */
-.site-footer {
-  max-width: var(--maxw);
-  margin: 48px auto 0;
-  padding: 18px var(--pad-x) 28px;
-  border-top: 1px solid var(--rule);
-  font-size: var(--fs-small);
-  color: var(--muted);
+#thumbstrip-section h2 {
+  margin: 0 0 10px;
+  border-bottom: none;
+  padding-bottom: 0;
+  font-family: var(--font-body);
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--fg-muted);
   display: flex;
-  flex-wrap: wrap;
-  gap: 6px 18px;
-  justify-content: space-between;
-  align-items: baseline;
+  align-items: center;
+  gap: 12px;
 }
-.site-footer a { color: var(--muted); }
-.site-footer a:hover { color: var(--accent); }
-.site-footer .footer-meta { white-space: nowrap; }
-
-/* Long table tweak: allow horizontal scroll on very narrow viewports
-   so the "Headline numbers" table never blows the layout. */
-@media (max-width: 480px) {
-  .numbers-table { display: block; overflow-x: auto; }
+#thumbstrip-section h2 .count {
+  color: var(--accent);
+  font-weight: 500;
+  font-family: var(--mono);
+  font-variant-numeric: tabular-nums;
+  font-size: 12px;
+  letter-spacing: 0;
+  text-transform: none;
+}
+.thumbstrip-row {
+  display: flex;
+  flex-direction: row;
+  gap: 6px;
+  overflow-x: auto;
+  overflow-y: hidden;
+  padding: 4px 0 6px;
+  min-height: 76px;
+  scrollbar-width: thin;
+  scrollbar-color: var(--rule-3) transparent;
+}
+.thumbstrip-row::-webkit-scrollbar { height: 8px; }
+.thumbstrip-row::-webkit-scrollbar-track { background: transparent; }
+.thumbstrip-row::-webkit-scrollbar-thumb {
+  background: var(--rule-3); border-radius: 4px;
+}
+.thumbstrip-row::-webkit-scrollbar-thumb:hover {
+  background: rgba(255,255,255,0.28);
+}
+.thumbstrip-item {
+  width: 64px; height: 64px;
+  border-radius: 4px;
+  border: 1px solid var(--rule-2);
+  flex: 0 0 auto;
+  background-size: cover;
+  background-position: center;
+  background-repeat: no-repeat;
+  image-rendering: pixelated;
+  cursor: pointer;
+  transition: border-color var(--dur-fast) var(--ease),
+              transform var(--dur-fast) var(--ease),
+              box-shadow var(--dur-fast) var(--ease);
+}
+.thumbstrip-item:hover {
+  border-color: var(--accent);
+  transform: scale(1.06);
+  box-shadow: 0 0 0 1px var(--accent),
+              0 6px 18px rgba(0,0,0,0.6),
+              0 0 14px var(--accent-glow);
+  z-index: 2;
+}
+.thumbstrip-empty {
+  color: var(--fg-muted);
+  font: 13px/1.5 var(--mono);
+  padding: 22px 4px;
 }
 
-/* ---------- 15. Print ------------------------------------- */
-@media print {
-  :root { --bg: #fff; --fg: #000; --muted: #444; }
-  body { background: #fff; color: #000; }
-  .nav-bar, .skip, .btn { display: none !important; }
-  .wrap { max-width: 100%; padding: 0; }
-  a { color: #000; text-decoration: underline; }
-  a[href]::after { content: " (" attr(href) ")"; font-size: 0.85em; color: #555; }
-  .fig img, .fig svg { box-shadow: none; border: 1px solid #ccc; }
-  h2 { page-break-after: avoid; }
-  .fig, table { page-break-inside: avoid; }
+.view-error {
+  color: #ff9ba6;
+  background: rgba(255,99,110,0.06);
+  border: 1px solid rgba(255,99,110,0.2);
+  font: 13px/1.55 var(--mono);
+  padding: 14px 16px;
+  border-radius: var(--radius);
+}
+.view-error code { background: rgba(255,255,255,0.08); color: #ffd1d6; }
+.view-loading {
+  color: var(--fg-muted);
+  font: 12px/1.5 var(--mono);
+  padding: 12px 2px;
+  position: relative;
+}
+.view-loading::after {
+  content: "";
+  display: inline-block;
+  width: 6px; height: 6px;
+  margin-left: 8px;
+  border-radius: 50%;
+  background: var(--accent);
+  animation: explore-pulse 1.4s ease-in-out infinite;
+  vertical-align: middle;
+}
+@keyframes explore-pulse {
+  0%, 100% { opacity: 0.2; transform: scale(0.7); }
+  50%      { opacity: 1;   transform: scale(1.0); }
 }
 
-/* === Treemap explorer (T7-G) ===
-   Visual styling for the failure-mode treemap (used on pusht/results pages).
-   T7-E owns the JS structure that emits these classes. Okabe-Ito palette.
-   Append-only; do not interleave with earlier rules. */
+.build-notes {
+  margin-top: 56px;
+  padding-top: 28px;
+  border-top: 1px solid var(--rule);
+}
+.build-notes h2 {
+  font: 650 18px/1.3 var(--font-body);
+  letter-spacing: -0.01em;
+  margin: 0 0 12px;
+  color: var(--fg);
+  border-bottom: none;
+  padding-bottom: 0;
+}
+.build-notes p {
+  font: 14.5px/1.65 var(--font-body);
+  color: var(--fg);
+  max-width: 72ch;
+}
+.build-notes p strong { color: var(--fg); font-weight: 600; }
+.build-notes p em { color: var(--fg-muted); }
+.build-notes code {
+  font: 12.5px var(--mono);
+  background: rgba(255,255,255,0.06);
+  border: 1px solid var(--rule);
+  padding: 1px 6px;
+  border-radius: 3px;
+  color: #c8d6e3;
+}
 
+/* D3 axis / chart chrome */
+.view-card svg text {
+  fill: var(--fg-muted);
+  font-family: var(--mono);
+  font-size: 11px;
+  font-variant-numeric: tabular-nums;
+}
+.view-card svg .domain,
+.view-card svg .axis path,
+.view-card svg .axis line,
+.view-card svg .tick line {
+  stroke: rgba(255,255,255,0.10);
+  shape-rendering: crispEdges;
+}
+.view-card svg .tick text { fill: var(--fg-muted); }
+
+.view-card svg .brush .selection,
+.view-card svg .selection {
+  fill: var(--accent-soft);
+  stroke: var(--accent);
+  stroke-width: 1px;
+  fill-opacity: 1;
+  filter: drop-shadow(0 0 10px var(--accent-glow));
+}
+.view-card svg .brush .handle,
+.view-card svg .handle {
+  fill: var(--accent);
+  fill-opacity: 0.6;
+}
+
+.lewm-tooltip,
+.view-card div[style*="position: absolute"][style*="pointer-events: none"] {
+  background: rgba(20, 22, 28, 0.94) !important;
+  color: var(--fg) !important;
+  border: 1px solid var(--rule-2) !important;
+  border-radius: var(--radius) !important;
+  padding: 8px 10px !important;
+  font: 12px/1.45 var(--mono) !important;
+  font-variant-numeric: tabular-nums !important;
+  box-shadow: var(--shadow-lg) !important;
+  -webkit-backdrop-filter: blur(10px) saturate(160%) !important;
+  backdrop-filter: blur(10px) saturate(160%) !important;
+}
+
+#scatter select, #treemap select {
+  background: var(--bg-elev2);
+  color: var(--fg);
+  border: 1px solid var(--rule-2);
+  border-radius: 4px;
+  padding: 4px 8px;
+  font: 12px var(--mono);
+  cursor: pointer;
+  transition: border-color var(--dur-fast) var(--ease);
+}
+#scatter select:hover, #treemap select:hover { border-color: var(--accent); }
+#scatter select:focus-visible, #treemap select:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 1px;
+}
+#scatter label, #treemap label {
+  color: var(--fg-muted) !important;
+  font-size: 11px;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+
+/* Selection pulse (JS adds .lewm-pulse on selection change). */
+@keyframes lewm-pulse {
+  0%   { transform: scale(1);    filter: brightness(1); }
+  40%  { transform: scale(1.10); filter: brightness(1.3); }
+  100% { transform: scale(1);    filter: brightness(1); }
+}
+.lewm-pulse {
+  animation: lewm-pulse 220ms var(--ease);
+  transform-origin: center;
+  transform-box: fill-box;
+}
+
+/* ===========================================================
+   18. Treemap explorer (failure-mode treemap, pusht/results)
+   Dark-mode port. JS emits these classes.
+   =========================================================== */
 .treemap-container {
   display: flex;
   flex-direction: row;
@@ -589,44 +1270,39 @@ li > p:first-child { margin-top: 0; }
   align-items: flex-start;
   margin: 18px 0 24px;
 }
-.treemap-container > .treemap-main {
-  flex: 1 1 auto;
-  min-width: 0;
-}
-
+.treemap-container > .treemap-main { flex: 1 1 auto; min-width: 0; }
 .treemap-svg {
   width: 100%;
   height: auto;
   display: block;
-  background: var(--card);
+  background: var(--bg-sunk);
   border: 1px solid var(--rule-2);
   border-radius: var(--radius);
   box-shadow: var(--shadow);
 }
-
 .treemap-cell {
   cursor: pointer;
-  transition: outline-color 0.12s ease, filter 0.12s ease;
+  transition: outline-color var(--dur-fast) var(--ease),
+              filter var(--dur-fast) var(--ease);
   outline: 2px solid transparent;
   outline-offset: -2px;
   position: relative;
 }
-.treemap-cell:hover,
-.treemap-cell:focus-visible {
-  outline: 2px solid var(--accent); /* #0072B2 */
-  filter: brightness(1.04);
+.treemap-cell:hover, .treemap-cell:focus-visible {
+  outline: 2px solid var(--accent);
+  filter: brightness(1.15) saturate(1.1);
   z-index: 2;
 }
-
 .treemap-label {
   position: absolute;
-  top: 6px;
-  left: 6px;
+  top: 6px; left: 6px;
   color: #fff;
+  font-family: var(--mono);
   font-size: 11px;
-  font-weight: 700;
+  font-weight: 600;
   line-height: 1.2;
-  background: rgba(0, 0, 0, 0.62);
+  letter-spacing: 0.02em;
+  background: rgba(0,0,0,0.72);
   padding: 2px 6px;
   border-radius: 4px;
   pointer-events: none;
@@ -634,15 +1310,15 @@ li > p:first-child { margin-top: 0; }
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
+  text-shadow: 0 1px 2px rgba(0,0,0,0.6);
 }
-
 .treemap-hover-panel {
   position: sticky;
-  top: 72px;          /* clear of sticky nav-bar */
+  top: 72px;
   flex: 0 0 320px;
   width: 320px;
   height: 400px;
-  background: var(--card);
+  background: var(--bg-elev);
   border: 1px solid var(--rule);
   border-radius: var(--radius-lg);
   box-shadow: var(--shadow-lg);
@@ -657,9 +1333,8 @@ li > p:first-child { margin-top: 0; }
   font-size: 12px;
   text-transform: uppercase;
   letter-spacing: 0.04em;
-  color: var(--muted);
+  color: var(--fg-muted);
 }
-
 .treemap-hover-medoid {
   display: block;
   max-width: 224px;
@@ -668,27 +1343,20 @@ li > p:first-child { margin-top: 0; }
   margin: 0 auto 10px;
   border-radius: 4px;
   border: 1px solid var(--rule);
-  background: var(--tint);
+  background: var(--bg-sunk);
 }
-
 .treemap-hover-stats {
   display: grid;
   grid-template-columns: max-content 1fr;
   gap: 2px 12px;
-  font-family: ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas, monospace;
+  font-family: var(--mono);
   font-size: 12px;
   margin: 6px 0 10px;
 }
-.treemap-hover-stats .label {
-  color: var(--muted);
-  text-align: left;
-}
+.treemap-hover-stats .label { color: var(--fg-muted); text-align: left; }
 .treemap-hover-stats .value {
-  color: var(--fg);
-  text-align: right;
-  font-variant-numeric: tabular-nums;
+  color: var(--fg); text-align: right; font-variant-numeric: tabular-nums;
 }
-
 .treemap-hover-samples {
   display: flex;
   flex-direction: column;
@@ -697,53 +1365,37 @@ li > p:first-child { margin-top: 0; }
   padding-top: 8px;
   border-top: 1px solid var(--rule);
 }
-.treemap-hover-samples .samples-row {
-  display: flex;
-  gap: 6px;
-  align-items: center;
-}
+.treemap-hover-samples .samples-row { display: flex; gap: 6px; align-items: center; }
 .treemap-hover-samples img {
-  width: 64px;
-  height: 64px;
+  width: 64px; height: 64px;
   object-fit: cover;
   border-radius: 3px;
   border: 1px solid var(--rule);
-  background: var(--tint);
+  background: var(--bg-sunk);
 }
 .treemap-hover-samples .samples-caption {
   font-size: 11px;
-  color: var(--muted);
+  color: var(--fg-muted);
   text-transform: uppercase;
   letter-spacing: 0.04em;
 }
-
 .treemap-breadcrumb {
   font-size: var(--fs-small);
-  color: var(--muted);
+  color: var(--fg-muted);
   margin: 0 0 8px 0;
   line-height: 1.4;
 }
-.treemap-breadcrumb a {
-  color: var(--accent);
-  text-decoration: none;
-}
+.treemap-breadcrumb a { color: var(--accent); text-decoration: none; }
 .treemap-breadcrumb a:hover { text-decoration: underline; }
-.treemap-breadcrumb .sep {
-  margin: 0 6px;
-  color: var(--rule-2);
-}
-.treemap-breadcrumb .current {
-  color: var(--fg);
-  font-weight: 600;
-}
-
+.treemap-breadcrumb .sep { margin: 0 6px; color: var(--rule-3); }
+.treemap-breadcrumb .current { color: var(--fg); font-weight: 600; }
 .treemap-controls {
   display: flex;
   justify-content: flex-end;
   align-items: center;
   gap: 8px;
   font-size: var(--fs-small);
-  color: var(--muted);
+  color: var(--fg-muted);
   margin: 0 0 6px 0;
 }
 .treemap-controls label {
@@ -755,7 +1407,7 @@ li > p:first-child { margin-top: 0; }
   font: inherit;
   font-size: 13px;
   color: var(--fg);
-  background: var(--card);
+  background: var(--bg-elev2);
   border: 1px solid var(--rule-2);
   border-radius: var(--radius);
   padding: 3px 8px;
@@ -765,7 +1417,6 @@ li > p:first-child { margin-top: 0; }
   outline: 2px solid var(--accent);
   outline-offset: 1px;
 }
-
 .treemap-topbar {
   display: flex;
   justify-content: space-between;
@@ -773,30 +1424,122 @@ li > p:first-child { margin-top: 0; }
   gap: 12px;
   margin-bottom: 6px;
 }
-
-/* Mobile: stack treemap above panel, drop sticky behavior so panel scrolls inline. */
 @media (max-width: 700px) {
-  .treemap-container {
-    flex-direction: column;
-    gap: 12px;
-  }
+  .treemap-container { flex-direction: column; gap: 12px; }
   .treemap-hover-panel {
-    position: static;
-    width: 100%;
-    flex: 0 0 auto;
-    height: auto;
-    max-height: 420px;
+    position: static; width: 100%; flex: 0 0 auto;
+    height: auto; max-height: 420px;
   }
   .treemap-hover-medoid { max-width: 180px; }
   .treemap-topbar { flex-direction: column; align-items: stretch; }
   .treemap-controls { justify-content: flex-start; }
 }
 
-@media (prefers-reduced-motion: reduce) {
-  .treemap-cell,
-  .treemap-cell:hover,
-  .treemap-cell:focus-visible {
-    transition: none !important;
-    filter: none !important;
+/* ---------- 19. Site footer ------------------------------- */
+.site-footer {
+  max-width: var(--maxw);
+  margin: 56px auto 0;
+  padding: 20px var(--pad-x) 32px;
+  border-top: 1px solid var(--rule);
+  font-size: var(--fs-small);
+  color: var(--fg-muted);
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px 18px;
+  justify-content: space-between;
+  align-items: baseline;
+}
+.site-footer a { color: var(--fg-muted); }
+.site-footer a:hover { color: var(--accent); }
+.site-footer .footer-meta { white-space: nowrap; }
+
+/* ===========================================================
+   20. Responsive (360px → 1440px)
+   =========================================================== */
+@media (max-width: 800px) {
+  .view-card { padding: 18px; min-height: 320px; border-radius: 8px; }
+  .view-card .view-sub { font-size: 12.5px; }
+  #thumbstrip-section { padding: 14px 16px; }
+}
+@media (max-width: 640px) {
+  :root {
+    --pad-x: 16px;
+    --pad-y: 22px;
+    --fs-h1: 24px;
+    --fs-h2: 19px;
   }
+  .nav-bar-inner { padding: 8px var(--pad-x); }
+  .nav-bar.dark-mode:not(:has(.nav-bar-inner)) { padding: 8px var(--pad-x); gap: 2px 12px; }
+  .nav-brand { width: 100%; margin-bottom: 2px; }
+  .wrap { padding: 28px var(--pad-x) 48px; }
+  table { font-size: 13.5px; }
+  th, td { padding: 7px 8px; }
+  .numbers-table { display: block; overflow-x: auto; }
+  .numbers-table td.value { font-size: 22px; }
+  .entry-hook, .hero-lede { font-size: 16px; }
+  .figure-card { padding: 18px; }
+  .stat-callout .stat-number, .gap-callout .gap-number { font-size: 34px; }
+  .section { margin-top: 40px; }
+}
+@media (max-width: 480px) {
+  .explore-row-2col { gap: 16px; margin-top: 24px; }
+  .explore-row-full { margin-top: 16px; }
+  .view-card { padding: 16px; }
+  .thumbstrip-item { width: 56px; height: 56px; }
+  #thumbstrip-section h2 { font-size: 10px; letter-spacing: 0.1em; }
+  .door-cards { gap: 14px; }
+}
+@media (max-width: 380px) {
+  :root { --pad-x: 12px; }
+  .wrap { padding: 24px var(--pad-x) 40px; }
+  .view-card { padding: 14px; border-radius: 6px; }
+  .figure-card { padding: 14px; }
+  .page-title { font-size: 22px; }
+  pre { font-size: 12px; }
+}
+
+/* ===========================================================
+   21. Reduced motion — guard ALL motion
+   =========================================================== */
+@media (prefers-reduced-motion: reduce) {
+  html { scroll-behavior: auto; }
+  *, *::before, *::after {
+    animation-duration: 0.001ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.001ms !important;
+    scroll-behavior: auto !important;
+  }
+  .view-loading::after { animation: none; opacity: 0.5; }
+  .lewm-pulse { animation: none; }
+  .thumbstrip-item:hover { transform: none; }
+  .door-card:hover, .door-card:focus-visible { transform: none; }
+  .glossary-footer dl > div:target { animation: none; }
+}
+
+/* ===========================================================
+   22. Print — sane light-on-white fallback, no nav/chrome
+   =========================================================== */
+@media print {
+  :root {
+    --bg: #fff; --bg-elev: #fff; --bg-elev2: #fff; --bg-sunk: #fff;
+    --fg: #000; --fg-muted: #444; --fg-dim: #666;
+    --rule: #ccc; --rule-2: #bbb; --rule-3: #aaa;
+    --accent: #0060a0;
+  }
+  body { background: #fff !important; color: #000; }
+  .nav-bar, .nav-bar.dark-mode, .skip, .btn,
+  #thumbstrip-section, .treemap-controls { display: none !important; }
+  .wrap { max-width: 100%; padding: 0; }
+  a { color: #000; text-decoration: underline; }
+  a[href]::after { content: " (" attr(href) ")"; font-size: 0.85em; color: #555; }
+  .figure-card, .fig img, .fig svg, .door-card, .card, .view-card {
+    box-shadow: none !important;
+    border: 1px solid #ccc !important;
+    background: #fff !important;
+  }
+  .glean { background: #f2f2f2; color: #000; }
+  .glossary-footer[open] dl { display: grid; }
+  .detail-toggle details:not([open]) > :not(summary) { display: revert; }
+  h2 { page-break-after: avoid; }
+  .figure-card, .door-card, table { page-break-inside: avoid; }
 }

@@ -3,12 +3,12 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>LeWorldModel — Planner</title>
-  <meta name="description" content="How LeWorldModel acts without a policy network: Cross-Entropy Method MPC over a latent world model. 300 samples × 5-step rollout × 30 iterations, no gradients.">
+  <title>LeWorldModel — the planner</title>
+  <meta name="description" content="LeWorldModel has no policy network. To pick a move it imagines hundreds of possible futures, scores each, and executes only the best one's first action — then re-imagines from scratch.">
   <meta property="og:type" content="article">
-  <meta property="og:title" content="LeWorldModel — the CEM-MPC planner">
-  <meta property="og:description" content="300 samples × 5-step latent rollout × 30 CEM iterations. The model is the cost oracle; the planner is the policy.">
-  <meta property="og:image" content="assets/plots/cem_iteration_trace.png">
+  <meta property="og:title" content="LeWorldModel — the planner">
+  <meta property="og:description" content="The model imagines 300 short futures every step, scores each, picks the best, takes one step, and re-imagines. Here are 5 of those futures.">
+  <meta property="og:image" content="assets/videos/candidate_futures_strips.png">
   <meta name="twitter:card" content="summary_large_image">
   <link rel="stylesheet" href="assets/styles.css">
 </head>
@@ -16,207 +16,311 @@
 
 <a class="skip" href="#main">Skip to main content</a>
 
-<nav class="nav-bar" aria-label="Primary">
-  <a class="nav-link" href="index.html">Landing</a>
-  <a class="nav-link" href="pusht.html">Push-T</a>
-  <a class="nav-link" href="world-model.html">World Model</a>
-  <a class="nav-link nav-current" href="planner.html" aria-current="page">Planner</a>
-  <a class="nav-link" href="tworoom.html">TwoRoom</a>
-  <a class="nav-link" href="results.html">Results</a>
-  <a class="nav-link" href="explore.html">Explore</a>
+<nav class="nav-bar dark-mode" aria-label="Primary">
+  <div class="nav-bar-inner">
+    <a class="nav-brand" href="index.html">LeWorldModel</a>
+    <ul class="nav-links">
+        <li><a class="nav-link" href="index.html">Landing</a></li>
+        <li><a class="nav-link" href="pusht.html">Push-T</a></li>
+        <li><a class="nav-link" href="world-model.html">World Model</a></li>
+        <li><a class="nav-link nav-current" href="planner.html" aria-current="page">Planner</a></li>
+        <li><a class="nav-link" href="tworoom.html">TwoRoom</a></li>
+        <li><a class="nav-link" href="results.html">Results</a></li>
+        <li><a class="nav-link" href="explore.html">Explore</a></li>
+    </ul>
+  </div>
 </nav>
 
 <main id="main" class="wrap">
 
-  <header class="section" id="hero">
-    <h1 class="page-title">The Planner — CEM-MPC turns a world model into a controller</h1>
-    <p class="tldr">
-      LeWorldModel has no policy network. To choose an action, the system samples 300 candidate 5-step action sequences, rolls each forward through the latent predictor, scores them by squared distance to a goal latent, and refits a Gaussian over the top-30 elites for 30 iterations. It then executes the first action and replans. This is the Cross-Entropy Method applied as Model-Predictive Control (<strong>CEM-MPC</strong>) — sampling-based, <strong>no gradients flow through the planner</strong>. The model is used as a cost oracle; the planner is the policy.
+  <header class="hero" id="hero">
+    <h1 class="page-title">The planner dreams up many futures, then picks one</h1>
+    <p class="hero-lede">
+      LeWorldModel has no network that maps "what I see" to "what to do." Every step, it
+      imagines hundreds of possible futures, scores each one, and executes only the best
+      one's first move. Here are five of those imagined futures.
     </p>
+    <div class="hero-media">
+      <img
+        src="assets/videos/candidate_futures_strips.png"
+        alt="Five stacked horizontal strips of decoded video frames, each one an imagined plan rolled five steps forward from the same starting frame. Each row ends with a cost number — the lowest, cost 2.65, is bordered in green and tagged 'executed'; the others rise to cost 205. A goal image sits pinned at the bottom right. Every cell carries an 'NN-decoded retrieval' watermark and a cosine-similarity number."
+      >
+    </div>
   </header>
 
-  <section class="section" id="why-mpc" aria-labelledby="why-mpc-h">
-    <h2 id="why-mpc-h">1. Why MPC, not a learned policy</h2>
-    <p>
-      LeWorldModel does not contain a policy network. The model just predicts latents: given a context latent and an action sequence, the predictor outputs the next latent. To act, we treat the model as a <em>cost oracle</em> and search action sequences against it. This is Model-Predictive Control (MPC) — the model <em>is</em> the policy, in the sense that every action choice is the argmin of an optimization over the model's predictions, not the output of a feed-forward network trained on demonstrations.
-    </p>
-    <p class="muted">
-      Trade-off: no behavior-cloning step, no policy distillation, no actor-critic. The cost of acting is paid online, every step, in forward passes through the predictor (see §6 below).
-    </p>
-  </section>
-
-  <section class="section" id="cem-60s" aria-labelledby="cem-60s-h">
-    <h2 id="cem-60s-h">2. CEM in 60 seconds</h2>
-    <p>
-      The Cross-Entropy Method (CEM) is sampling-based optimization. <strong>No gradients.</strong> The planner never differentiates the cost — it only evaluates it. Each CEM iteration does five things:
-    </p>
-    <ol>
-      <li>Sample 300 candidate action sequences from a Gaussian over the H=5 future actions.</li>
-      <li>Roll each candidate forward 5 steps in latent space using the predictor (the world model from the previous page).</li>
-      <li>Score each candidate by squared distance from the predicted final latent to the goal latent.</li>
-      <li>Keep the top-30 elites (lowest cost).</li>
-      <li>Refit the Gaussian's mean and per-dimension std to those elites; repeat for 30 iterations.</li>
-    </ol>
-    <p>
-      After the last iteration, the first action of the best sequence is executed in the environment. Everything else is discarded.
+  <section class="section" id="no-policy" aria-labelledby="no-policy-h">
+    <h2 id="no-policy-h">1. The model has no policy — so the planner dreams</h2>
+    <p class="entry-hook">
+      There is no network here that turns "what I see" into "what to do." To pick a move,
+      the system has to imagine its options and compare them.
     </p>
     <p>
-      A useful metaphor: think evolutionary breeding. Spawn many candidate plans, keep the best, breed from them, repeat. CEM is not random search — the population narrows toward low-cost regions iteration by iteration.
+      LeWorldModel only predicts. Given a
+      <dfn id="g-latent" title="the 192 numbers the model uses instead of pixels">latent</dfn>
+      (the 192-number code for the current scene) and a move, the
+      <dfn id="g-predictor" title="the part that guesses the next 192 numbers">predictor</dfn>
+      returns the next latent. So to act, the system uses the model as a <em>judge of imagined
+      futures</em>: propose short sequences of moves, roll each one forward in the model's head,
+      and keep the sequence that ends closest to the goal.
     </p>
 
-    <figure class="fig" id="cem-anim-fig">
-      <img
-        src="assets/videos/cem_sampling_anim.gif"
-        alt="Animated visualisation of CEM sampling on a Push-T episode: on the left, 300 first-step action vectors are plotted as dots in the 2-d action space, coloured by predicted cost (yellow = low cost, dark = high cost); a blue ellipse showing the fitted Gaussian shrinks and re-centres across iterations toward the yellow region. On the right, the current Push-T scene the planner is reasoning about."
-        loading="lazy"
-      >
-      <figcaption class="fig-caption">
-        Left: 300 first-step actions, coloured by predicted cost (yellow = low). The fitted Gaussian (blue ellipse) collapses toward low-cost regions across iterations — the distribution narrows, it does not jump. Right: the env scene the planner is reasoning about. Source: <code>tools/cem_trace.py</code>; one Push-T episode instrumented per-iter.
-      </figcaption>
-    </figure>
-  </section>
-
-  <section class="section" id="cost-latent" aria-labelledby="cost-latent-h">
-    <h2 id="cost-latent-h">3. The cost function lives in latent space</h2>
-    <p>
-      The cost CEM minimises is <code>‖ẑ_predicted − z_goal‖²</code> — squared Euclidean distance <strong>in the 192-d latent space</strong>, not in pixels. This is load-bearing: there is no pixel decoder in LeWorldModel, so a pixel-space cost would be impossible to evaluate against the model's predictions.
-    </p>
-    <p>
-      The goal is supplied as an <em>image</em> of the desired Push-T configuration. The pipeline is:
-    </p>
-    <p class="muted">
-      goal image → encoder (ViT-tiny) → <code>z_goal</code> (192-d) → distance(<code>ẑ_t</code>, <code>z_goal</code>) at each predicted step.
-    </p>
-    <p>
-      <code>z_goal</code> is computed once at the start of the episode and reused every step. The encoder is the same one trained with the predictor (see the World Model page); the goal latent and the predicted latents therefore live in the <em>same</em> learned space, which is what makes their squared distance a meaningful cost.
-    </p>
-    <p class="honesty-note">
-      What this rules out: any cost term that depends on un-encoded RGB. What it does <em>not</em> rule out: the cost being well-shaped only locally around <code>z_goal</code> — squared distance in a learned 192-d space is not guaranteed to be convex, smooth, or even monotone with task progress. CEM tolerates this because it never differentiates the cost; it only ranks samples.
-    </p>
-  </section>
-
-  <section class="section" id="cem-trace" aria-labelledby="cem-trace-h">
-    <h2 id="cem-trace-h">4. CEM convergence trace — the distribution actually collapses</h2>
-    <figure class="fig" id="cem-trace-fig">
-      <img
-        src="assets/plots/cem_iteration_trace.png"
-        alt="Two-panel line plot. Left panel: elite cost on the y-axis (linear scale, starting at 0) versus CEM iteration index 1 to 30 on the x-axis; the curve drops from ~352 at iteration 1 to ~3.5 at iteration 30, a roughly 100-fold reduction, monotonically decreasing. Right panel: action-distribution standard deviation on the y-axis versus iteration index; std drops from ~0.99 at iteration 1 to ~0.24 at iteration 30, also monotonically decreasing."
-        loading="lazy"
-      >
-      <figcaption class="fig-caption">
-        Across 30 CEM iterations on one Push-T episode, elite cost drops from 351.9 → 3.54 (≈100× reduction) and the action-distribution std collapses 0.99 → 0.24 (≈4× tightening). The collapse is monotonic — CEM is genuinely converging, not random search. Source: <code>data/cem_traces.json</code> (instrumented planner, one episode).
-      </figcaption>
-    </figure>
-    <p>
-      Two things to read off this plot. First, elite cost falls by two orders of magnitude — the Gaussian is finding low-cost regions, not just averaging over random samples. Second, action std falls by ~4× — the population is concentrating, not staying diffuse. Both curves are monotonic over the 30-iteration budget, so the budget is not obviously over-spent (no long flat tail) or under-spent (no still-falling cost at iteration 30 of the order of the early drop).
-    </p>
-  </section>
-
-  <section class="section" id="receding-horizon" aria-labelledby="receding-horizon-h">
-    <h2 id="receding-horizon-h">5. Receding horizon — closed-loop replanning</h2>
-    <figure class="fig" id="planning-loop-fig">
+    <figure class="figure-card" id="loop-fig">
       <img
         src="assets/figures/planning_loop_diagram.svg"
-        alt="Diagram of the receding-horizon MPC loop: an arrow from 'env observation' enters an 'encoder' box producing 'context latent z_t'; z_t and the goal latent z_goal feed into a 'CEM planner' box, which contains an inner loop labelled '30 iterations: sample 300 action sequences → predict 5 latents ahead → score by distance to z_goal → keep top 30 elites → refit Gaussian'; the planner outputs a single first action a_t which is applied in the env, producing a new observation, and the loop restarts."
+        alt="Diagram of the planning loop: the current observation enters an encoder, producing a context latent; the latent plus a goal latent feed a planner box; the planner samples action sequences, rolls them five latents ahead, scores each by distance to the goal latent, keeps the best, and outputs a single first action that is applied in the environment, producing a new observation that restarts the loop."
         loading="lazy"
       >
-      <figcaption class="fig-caption">
-        Receding-horizon MPC loop: encode the current observation, run CEM for 30 iterations against the latent predictor, execute the first action of the best sequence, re-encode the new observation, repeat. The 4 remaining planned actions are discarded each step.
+      <figcaption>
+        The current scene is encoded to a latent; the planner imagines and scores plans against
+        it; only the first move of the best plan is taken — then the loop restarts.
+        <span class="glean">The model never tells the system what to do. It only scores what the system imagines doing.</span>
       </figcaption>
     </figure>
-    <p>
-      A useful metaphor: GPS rerouting. You don't compute the entire route once and then follow it blindly — the GPS recomputes constantly given where you actually are. MPC is the same. The planner produces a 5-step plan, executes only the first action, observes the new env state, and re-plans from scratch.
+  </section>
+
+  <section class="section" id="dream" aria-labelledby="dream-h">
+    <h2 id="dream-h">2. Watch it dream: five candidate futures, one winner</h2>
+    <p class="entry-hook">
+      The planner imagines hundreds of possible futures, scores each, and picks the best.
+      Here are five of them, rolled forward and turned back into pictures.
     </p>
     <p>
-      Why throw away 4 of the 5 planned actions? Because the predictor's accuracy decays with horizon (see the World Model page's latent-error-vs-horizon plot): predicted latents at k=5 are already meaningfully worse than at k=1, so committing to the later steps of the plan would mean acting on increasingly stale predictions. Replanning each step keeps every executed action grounded in a fresh observation.
+      Each row is one real plan the planner sampled, rolled five steps through the predictor,
+      then turned back into frames by
+      <dfn id="g-nn-decode" title="since the model can't draw its guess, we show the closest real training frame to it">NN-decode</dfn>
+      — for each imagined latent we look up the closest real training frame (<em>retrieval, not
+      generation</em>: these are old images the model is matched against, not pixels it drew). Every
+      row is tagged with how far it ends from the goal. The animation builds the picture up — one
+      plan, then five sorted by cost, then the single winner the system commits to.
+    </p>
+
+    <figure class="figure-card" id="dream-anim-fig">
+      <img
+        src="assets/videos/candidate_futures_anim.gif"
+        alt="Animated build-up: first a single imagined plan rolls out column by column; then it snaps to five plans shown together, each labelled with its cost; finally the four losers dim, the lowest-cost plan is highlighted with a green border, and an arrow shows the system executing only that plan's first move before re-imagining."
+        loading="lazy"
+      >
+      <figcaption>
+        One plan → five plans sorted by cost → the winner, with only its first move executed.
+        The planner actually considers 300; these are 5 of them.
+        <span class="glean">Same start, 5 imagined futures — it executes only the best one's first move, then re-imagines.</span>
+        <span class="fig-source">[NN-decoded retrieval — nearest real training frames, not generated]</span>
+      </figcaption>
+    </figure>
+
+    <figure class="figure-card" id="dream-strips-fig">
+      <img
+        src="assets/videos/candidate_futures_strips.png"
+        alt="Five stacked strips of decoded frames, all starting from the same real frame. Each row ends with a cost: the winner at cost 2.65 has a green border and an 'executed' tag; the worst rises to cost 205, dimmed. A goal image is pinned at bottom right so 'lands nearest the goal' is literal. Each cell shows an NN-decoded watermark and a cosine-similarity value."
+        loading="lazy"
+      >
+      <figcaption>
+        Five real candidates from one step, all starting from the same frame (left column), each
+        ending near or far from the pinned goal image. Winner: cost <strong>2.65</strong>
+        (green); the losers run up to cost <strong>205</strong>.
+        <span class="glean">Lowest cost = lands nearest the goal. That plan's first move is the one it actually makes.</span>
+        <span class="fig-source">5 of 300 real candidates · bottom-row images are nearest training frames, not generated</span>
+      </figcaption>
+    </figure>
+  </section>
+
+  <section class="section" id="breeding" aria-labelledby="breeding-h">
+    <h2 id="breeding-h">3. Breeding better plans</h2>
+    <p class="entry-hook">
+      How does it find good plans without trying infinitely many? It breeds them.
+    </p>
+    <p>
+      Start with a wide cloud of random plans, keep the best handful, make the next batch resemble
+      those, and repeat — the cloud tightens toward good moves. That guess-and-refine search is
+      the
+      <dfn id="g-cem-mpc" title="imagine many short plans, score each, keep the best, refine, take one step, then look again">CEM-MPC</dfn>
+      planner (Cross-Entropy Method, used as Model-Predictive Control): sample 300 plans, score
+      them in the model's head, keep the best 30, make the next batch look like those, and repeat
+      30 times — <strong>no gradients, only ranking</strong>. Each plan is scored by how close its
+      imagined ending lands to the goal <em>image's</em> latent (there are no pixels to compare, so
+      the distance is measured in the 192-number space).
+    </p>
+
+    <figure class="figure-card" id="cem-anim-fig">
+      <img
+        src="assets/videos/cem_sampling_anim.gif"
+        alt="Animation of the breeding search on one Push-T step: 300 first-step moves are plotted as dots, colored by score (yellow equals low cost, dark equals high). A fitted ellipse over the cloud shrinks and recenters across iterations, narrowing toward the yellow low-cost region rather than jumping around. The current scene is shown alongside."
+        loading="lazy"
+      >
+      <figcaption>
+        Each dot is one candidate's first move, colored by score (yellow = low cost). The fitted
+        cloud collapses toward the yellow region — it narrows, it does not jump.
+        <span class="glean">The plan-cloud tightens around good moves instead of guessing blindly.</span>
+      </figcaption>
+    </figure>
+
+    <div class="detail-toggle">
+      <details>
+        <summary>See the numbers converge</summary>
+        <figure class="figure-card" id="cem-trace-fig">
+          <img
+            src="assets/plots/cem_iteration_trace.png"
+            alt="Two line plots over 30 refinement rounds on one Push-T step. Left: the best-plan score falls from about 352 to about 3.5, roughly a hundredfold drop, decreasing all the way. Right: the spread of the plan cloud falls from about 0.99 to about 0.24, also decreasing all the way."
+            loading="lazy"
+          >
+          <figcaption>
+            Over 30 rounds, the best plan's score drops about 100× (352 → 3.5) and the plan cloud
+            tightens about 4× (spread 0.99 → 0.24). The search genuinely converges.
+            <span class="glean">100× cheaper plans in 30 rounds — this is real optimization, not luck.</span>
+          </figcaption>
+        </figure>
+        <p class="honesty-note">
+          <strong>Honestly:</strong> distance in this learned 192-number space is not guaranteed to be
+          smooth or to track task progress. The search tolerates that because it never differentiates
+          the score — it only ranks plans. One Push-T step shown; the pattern is consistent across the
+          steps we logged, but treat the exact 100×/4× figures as a representative point, not an average.
+        </p>
+      </details>
+    </div>
+  </section>
+
+  <section class="section" id="replan" aria-labelledby="replan-h">
+    <h2 id="replan-h">4. Replan every step, like GPS rerouting</h2>
+    <p class="entry-hook">
+      Why imagine five steps but commit to only one? Same reason GPS recomputes your route
+      constantly instead of trusting one plan from the driveway.
+    </p>
+    <p>
+      The planner produces a 5-step plan, executes only the first move, re-encodes the new scene,
+      and plans again from scratch (see the loop in §1). The further out it predicts, the more
+      wrong it gets — at five steps ahead the predictor barely beats assuming nothing moves (see
+      the <a href="world-model.html">World Model</a> page). Committing to steps 2–5 would mean
+      acting on stale imaginings, so it throws them away and re-dreams from a fresh frame. That is
+      also why the model only has to be accurate <em>near the present</em>: it never executes the
+      shaky far-out part of any plan.
     </p>
   </section>
 
-  <section class="section" id="compute" aria-labelledby="compute-h">
-    <h2 id="compute-h">6. Compute cost per step</h2>
-    <p>
-      One CEM call = 300 samples × 5-step rollout × 30 iterations = <strong>45,000 forward passes</strong> through the latent predictor, per env step. The predictor is small (6-layer transformer over 192-d latents), so on the RTX 4080 a full Push-T episode (50 env steps, ≈30 s of CEM wall-time per step batched) takes about <strong>60 s end-to-end</strong>. The encoder runs once per env step on the new observation.
-    </p>
-    <p class="muted">
-      Key knobs (and their values in this replication): horizon H=5, samples N=300, iterations T=30, elite fraction 0.1 (30 elites), action block = 5. Halving any of {N, T, H} roughly halves planning cost — and, empirically in the original paper, costs success rate. We did not sweep these knobs in this replication.
-    </p>
-  </section>
-
-  <section class="section" id="interface" aria-labelledby="interface-h">
-    <h2 id="interface-h">7. The world-model ↔ planner interface, one env step at a time</h2>
-    <p>
-      The world model and planner share exactly four objects: the <strong>encoder</strong> (pixels → 192-d), the <strong>predictor</strong> ((z, a) → next z), the <strong>goal latent</strong> z<sub>goal</sub> (encoded once at episode start), and the <strong>scalar cost</strong> in latent space. Nothing else crosses the boundary — there is no policy network, no symbolic state, no pixel rendering anywhere in this loop. Below is what actually happens during one env step.
+  <section class="section" id="price" aria-labelledby="price-h">
+    <h2 id="price-h">5. The price: 45,000 imaginings per move</h2>
+    <p class="entry-hook">
+      All this dreaming isn't free. Here's what a single move actually costs.
     </p>
 
-    <h3 style="margin-top:18px">Step-by-step trace of one env step</h3>
-    <ol>
-      <li><strong>Encode the current observation.</strong> Env produces an RGB frame <code>o<sub>t</sub></code> (3×224×224). The encoder runs once: <code>z<sub>t</sub> = Encoder(o<sub>t</sub>)</code> → 192-d. Cost: 1 forward pass through the ViT-tiny encoder.</li>
-      <li><strong>Initialize CEM Gaussian.</strong> Mean μ = zeros, std σ = 1.0, in shape <code>[H=5 horizon, 10-d packed action]</code>. The action distribution lives entirely in action space — the world model has no role here.</li>
-      <li>
-        <strong>Run 30 CEM iterations.</strong> In each iteration:
-        <ol type="a">
-          <li>Sample <strong>300</strong> action sequences from the current Gaussian: shape <code>[300, 5, 10]</code>.</li>
-          <li>For each sample, autoregressively roll out the predictor 5 steps from <code>z<sub>t</sub></code>: <code>ẑ<sub>t+1</sub>, ẑ<sub>t+2</sub>, ..., ẑ<sub>t+5</sub></code>. Each predictor call takes a 3-frame latent history plus the corresponding action history → next-latent. <strong>Total predictor calls: 300 × 5 = 1,500 per iteration.</strong></li>
-          <li>Score each sample: <code>cost = Σ<sub>k=1..5</sub> ‖ẑ<sub>t+k</sub> − z<sub>goal</sub>‖²</code>. This is a pure tensor operation, no network call.</li>
-          <li>Pick the 30 lowest-cost samples (top-K elites).</li>
-          <li>Refit the Gaussian: μ ← elite mean, σ ← elite std.</li>
+    <div class="stat-callout">
+      <span class="stat-number">45,000</span>
+      <span class="stat-label">imaginings per move = 300 plans × 5 steps × 30 rounds</span>
+    </div>
+
+    <p>
+      Every move runs the small predictor 45,000 times — about 1 second on the RTX 4080 when
+      batched, roughly 60 seconds for a 50-step episode. The encoder runs just once per step.
+      Halving the plans, rounds, or look-ahead roughly halves the cost — and, in the original
+      paper, the success rate too. We did not sweep these knobs.
+    </p>
+
+    <div class="detail-toggle">
+      <details>
+        <summary>Under the hood: the world-model ↔ planner interface</summary>
+
+        <p>
+          The world model and planner share exactly four things: the <strong>encoder</strong>
+          (pixels → 192 numbers), the <strong>predictor</strong> ((latent, move) → next latent), the
+          <strong>goal latent</strong> (the goal image encoded once at episode start), and a single
+          <strong>score</strong> in latent space. No policy network, no symbolic state, no pixel
+          rendering crosses the boundary.
+        </p>
+
+        <h3 style="margin-top:18px">One env step, start to finish</h3>
+        <ol>
+          <li><strong>Encode the current scene.</strong> The environment produces one RGB frame; the encoder turns it into 192 numbers. Cost: 1 encoder pass.</li>
+          <li><strong>Start the plan cloud.</strong> Mean 0, spread 1.0, over the 5-step look-ahead. The cloud lives entirely in move-space — the world model has no role here.</li>
+          <li>
+            <strong>Run 30 refinement rounds.</strong> Each round:
+            <ol type="a">
+              <li>Sample <strong>300</strong> plans from the current cloud.</li>
+              <li>Roll each plan 5 steps through the predictor from the current latent. <strong>300 × 5 = 1,500 predictor calls per round.</strong></li>
+              <li>Score each plan by total distance from its imagined latents to the goal latent (a pure tensor op, no network call).</li>
+              <li>Keep the 30 best plans.</li>
+              <li>Refit the cloud to those 30 (new mean, new spread).</li>
+            </ol>
+          </li>
+          <li><strong>Pick the move.</strong> Take the lowest-cost plan's first move.</li>
+          <li><strong>Act.</strong> Execute that one move; the environment returns a new frame. Discard the other 4 planned moves and loop back.</li>
         </ol>
-      </li>
-      <li><strong>Pick the action.</strong> Out of the final Gaussian's elite set, take the lowest-cost sequence. Use its <em>first</em> 10-d action block (which unpacks to 5 × 2-d env actions).</li>
-      <li><strong>Execute the first 2-d action in the env.</strong> Env returns a new observation <code>o<sub>t+1</sub></code>. Discard the remaining 4 actions in the plan.</li>
-      <li><strong>Loop back to step 1</strong> with <code>o<sub>t+1</sub></code>.</li>
-    </ol>
 
-    <h3 style="margin-top:18px">Cost accounting per env step</h3>
-    <table class="numbers-table">
-      <caption>What the world-model is asked to do, per env step.</caption>
-      <thead><tr><th>operation</th><th>count per env step</th><th>where in the loop</th></tr></thead>
-      <tbody>
-        <tr><td>Encoder forward (ViT-tiny, 224×224 → 192-d)</td><td class="num">1</td><td>step 1</td></tr>
-        <tr><td>Predictor forward (192-d, 6-layer transformer)</td><td class="num">300 × 5 × 30 = <strong>45,000</strong></td><td>step 3</td></tr>
-        <tr><td>Cost evaluation (latent L2 to z<sub>goal</sub>)</td><td class="num">300 × 5 × 30 = 45,000</td><td>step 3</td></tr>
-        <tr><td>Env step (simulator)</td><td class="num">1</td><td>step 5</td></tr>
-      </tbody>
-    </table>
-    <p class="muted">
-      The predictor is called <strong>45,000 times per env step</strong>. It is small enough (≈10M params for the predictor, ≈5M for the encoder/projector heads, 18M total system) that this fits on the 4080 GPU in batched CUDA in roughly 1 second of wall-clock per env step.
-    </p>
+        <h3 style="margin-top:18px">Cost per env step</h3>
+        <table class="spec-table">
+          <caption>What the world model is asked to do, per env step.</caption>
+          <thead><tr><th>operation</th><th>count per env step</th><th>where</th></tr></thead>
+          <tbody>
+            <tr><td>Encoder forward (image → 192 numbers)</td><td class="num">1</td><td>step 1</td></tr>
+            <tr><td>Predictor forward (next latent)</td><td class="num">300 × 5 × 30 = <strong>45,000</strong></td><td>step 3</td></tr>
+            <tr><td>Score (distance to goal latent)</td><td class="num">300 × 5 × 30 = 45,000</td><td>step 3</td></tr>
+            <tr><td>Env step (simulator)</td><td class="num">1</td><td>step 5</td></tr>
+          </tbody>
+        </table>
+        <p class="muted">
+          The predictor is small (about 18 million parameters across the whole system), so 45,000
+          batched calls fit on the 4080 in roughly 1 second of wall-clock per step.
+        </p>
 
-    <h3 style="margin-top:18px">What crosses the interface — and what doesn't</h3>
-    <table class="numbers-table">
-      <caption>Tensors that flow across the world-model ↔ planner boundary (and tensors that don't).</caption>
-      <thead><tr><th>direction</th><th>tensor</th><th>shape</th><th>when</th></tr></thead>
-      <tbody>
-        <tr><td>env → encoder</td><td><code>o<sub>t</sub></code> (RGB frame)</td><td>[3, 224, 224]</td><td>once / env step</td></tr>
-        <tr><td>encoder → planner</td><td><code>z<sub>t</sub></code> (current latent)</td><td>[192]</td><td>once / env step</td></tr>
-        <tr><td>encoder → planner</td><td><code>z<sub>goal</sub></code> (goal latent)</td><td>[192]</td><td>once / <strong>episode</strong> (cached after first encode)</td></tr>
-        <tr><td>planner → predictor</td><td>latent history + action block</td><td>[B, 3, 192] + [B, 3, 10]</td><td>45,000× / env step</td></tr>
-        <tr><td>predictor → planner</td><td>predicted next latent</td><td>[B, 192]</td><td>45,000× / env step</td></tr>
-        <tr><td>planner → env</td><td>first action (2-d push velocity)</td><td>[2]</td><td>once / env step</td></tr>
-      </tbody>
-    </table>
-    <p>
-      Notice what is <em>absent</em> from this table. There is no policy network output. There is no symbolic state (no "block_x=283, block_y=141"). There are no pixel reconstructions. There is no reward signal during planning — the cost is purely geometric in latent space, comparing predicted latents to the cached goal latent. The whole thing reduces to: <strong>"find the 5-step action sequence whose latent rollout lands nearest the goal latent."</strong>
-    </p>
-    <p class="honesty-note">
-      Why this matters for understanding the gap. Because the loop is entirely closed in latent space, any failure mode has to be one of: (a) the encoder doesn't register the goal-relevant variables (we showed in <a href="world-model.html#latent-probes">World Model §6</a> that the encoder <em>does</em> register positions cleanly — R²≈0.97 on block (x, y)); (b) the predictor's 5-step latent rollout drifts away from physical reality (we showed in <a href="world-model.html#latent-error">§4</a> it barely beats predict-last at k=5); (c) the CEM optimizer doesn't find the low-cost region within 30 iters (we showed above it does — 100× cost reduction). The replication gap most likely lives in (a) or (b) — the encoder/predictor pair — not the planner. That's why our predictor's marginal k=5 advantage over identity is interesting: it bounds how much of the paper's 96% number can be coming from "the predictor knows physics" versus "the encoder's spatial layout + CEM's search is enough on its own."
-    </p>
-  </section>
-
-  <section class="section" id="meaning" aria-labelledby="meaning-h">
-    <h2 id="meaning-h">8. What this means for the world model</h2>
-    <p>
-      The planner does the heavy lifting. The world model only needs to be <em>locally</em> accurate — a few steps ahead — because CEM only plans H=5 steps deep and then the loop closes on a fresh observation. Far-horizon predictions matter less: they are never the basis of an executed action.
-    </p>
-    <p>
-      This is why the predictor's poor k≥10 accuracy (see the World Model page) does not, by itself, tank the system. The MPC loop is designed exactly around the assumption that long-horizon prediction is unreliable, and it limits the planner's exposure to that unreliability by replanning every env step. The honest version of this argument: the system works <em>despite</em> the predictor's mediocre k=5 MSE (only ~8% below a predict-last baseline), not because the predictor is itself a strong forward model.
-    </p>
-    <p class="honesty-note">
-      The CEM trace shown above is a single Push-T episode. The convergence picture is consistent across logged episodes, but we have not plotted distribution-over-episodes of the per-iter trace; treat the 100×/4× numbers as a representative point estimate, not an aggregate.
-    </p>
+        <h3 style="margin-top:18px">What crosses the interface — and what doesn't</h3>
+        <table class="spec-table">
+          <caption>Tensors that flow across the world-model ↔ planner boundary.</caption>
+          <thead><tr><th>direction</th><th>tensor</th><th>shape</th><th>when</th></tr></thead>
+          <tbody>
+            <tr><td>env → encoder</td><td>RGB frame</td><td>[3, 224, 224]</td><td>once / env step</td></tr>
+            <tr><td>encoder → planner</td><td>current latent</td><td>[192]</td><td>once / env step</td></tr>
+            <tr><td>encoder → planner</td><td>goal latent</td><td>[192]</td><td>once / <strong>episode</strong> (cached)</td></tr>
+            <tr><td>planner → predictor</td><td>latent history + moves</td><td>[B, 3, 192] + [B, 3, 10]</td><td>45,000× / env step</td></tr>
+            <tr><td>predictor → planner</td><td>predicted next latent</td><td>[B, 192]</td><td>45,000× / env step</td></tr>
+            <tr><td>planner → env</td><td>first move (2-D push)</td><td>[2]</td><td>once / env step</td></tr>
+          </tbody>
+        </table>
+        <p>
+          Notice what is <em>absent</em>: no policy-network output, no symbolic state, no pixel
+          reconstructions, no reward during planning. The whole loop reduces to <strong>"find the
+          5-step plan whose imagined ending lands nearest the goal latent."</strong>
+        </p>
+      </details>
+    </div>
   </section>
 
 </main>
+
+<details class="glossary-footer">
+  <summary>Plain-language glossary</summary>
+  <dl>
+    <div id="g-latent-def">
+      <dt>latent</dt>
+      <dd>The compressed code for one picture: <strong>192 numbers</strong>. The model only ever works with these, never with pixels.</dd>
+    </div>
+    <div id="g-encoder">
+      <dt>encoder</dt>
+      <dd>The part that turns a picture into those 192 numbers.</dd>
+    </div>
+    <div id="g-predictor-def">
+      <dt>predictor</dt>
+      <dd>Guesses the next 192 numbers, given the last few and a planned move.</dd>
+    </div>
+    <div id="g-jepa">
+      <dt>JEPA</dt>
+      <dd>The design choice (Joint-Embedding Predictive Architecture) to predict in that 192-number code instead of redrawing pixels.</dd>
+    </div>
+    <div id="g-cem-mpc-def">
+      <dt>CEM-MPC (the planner)</dt>
+      <dd>How the model acts: imagine many short plans, score each, keep the best, refine, take one step, then look again and repeat. (Cross-Entropy Method, used as Model-Predictive Control.)</dd>
+    </div>
+    <div id="g-horizon">
+      <dt>horizon</dt>
+      <dd>How many steps ahead it looks at once (here, 5).</dd>
+    </div>
+    <div id="g-goal-latent">
+      <dt>goal latent</dt>
+      <dd>You give it a picture of the finished task; it encodes that to 192 numbers and steers toward them.</dd>
+    </div>
+    <div id="g-nn-decode-def">
+      <dt>NN-decode</dt>
+      <dd>Since the model can't draw its guess, we show the closest real training frame to it. It's a stand-in, not a picture the model made.</dd>
+    </div>
+  </dl>
+</details>
 
 <footer class="site-footer" role="contentinfo">
   <span>LeWorldModel replication · static site, no build step · last updated 2026-05-27</span>
