@@ -7,7 +7,7 @@ This folder is a self-contained scaffold for the 9-page LeRobot Study site. Page
 **Final page lives at the lerobot-study root, NOT under `pages/`.**
 
 ```
-/home/seb/projects/lab/builds/lerobot-study/<your-page>.html
+/home/seb/projects/research/builds/lerobot-study/<your-page>.html
 ```
 
 so that nav links like `<a href="anatomy.html">` resolve correctly. The empty `pages/` directory was a placeholder and can be removed at the end of the scaffold. **Do not write into `pages/`.**
