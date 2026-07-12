@@ -1,0 +1,640 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Data→Inference — AV Study v2</title>
+<link rel="stylesheet" href="assets/style.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/katex.min.css">
+<script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/katex.min.js"></script>
+<script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/contrib/auto-render.min.js"></script>
+<script defer src="assets/app.js"></script>
+</head>
+<body>
+<nav class="topnav"><a href="index.html">Home</a><a href="classification.html">Classification</a><a href="inference.html">Data→Inference</a><a href="encoder.html">Encoder</a><a href="playbook.html">Playbook</a><a href="math.html">Math</a><a href="gd-lab.html">GD Lab</a><a href="glossary.html">Glossary</a></nav>
+<main class="page">
+
+<h1>From growing data complexity to deployable inference</h1>
+<p class="concept">This is the arc the "handling increasing data complexity to inference" round wants you to narrate end to end: data scales past what supervision can label → curation and self-supervision extract signal → scaling laws budget the pretraining → fine-tuning specializes → compression and serving tricks fit it in the compute and latency envelope of a car. You have lived several stages of this (synthetic keypoint data, AWQ-int4 world-model quantization); this page connects your anecdotes into the canonical story.</p>
+
+<!-- ================================================================ 1 -->
+<section id="arc">
+<h2>1. The arc, in one picture</h2>
+
+<figure class="viz">
+  <svg viewBox="0 0 920 250" role="img" aria-label="Pipeline from raw data growth through curation, pretraining, fine-tuning, optimization, to serving" style="min-width:720px">
+    <defs>
+      <marker id="arr" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path d="M0 0 L10 5 L0 10 z" fill="var(--axis)"/></marker>
+    </defs>
+    <!-- stage blocks: data stages use --s3, model stages --s1, optimize --s2, serve --good -->
+    <g font-size="13" text-anchor="middle">
+      <rect x="10"  y="70" width="130" height="70" rx="10" fill="var(--s3)" opacity="0.22" stroke="var(--s3)" stroke-width="2"/>
+      <text x="75" y="98" fill="var(--ink)" font-weight="600">raw data growth</text>
+      <text x="75" y="118" fill="var(--muted)" font-size="11">fleet logs, sim, web</text>
+
+      <rect x="165" y="70" width="130" height="70" rx="10" fill="var(--s3)" opacity="0.22" stroke="var(--s3)" stroke-width="2"/>
+      <text x="230" y="98" fill="var(--ink)" font-weight="600">curation</text>
+      <text x="230" y="118" fill="var(--muted)" font-size="11">dedup, filter, mine</text>
+
+      <rect x="320" y="70" width="130" height="70" rx="10" fill="var(--s1)" opacity="0.22" stroke="var(--s1)" stroke-width="2"/>
+      <text x="385" y="98" fill="var(--ink)" font-weight="600">pretraining</text>
+      <text x="385" y="118" fill="var(--muted)" font-size="11">SSL / next-token</text>
+
+      <rect x="475" y="70" width="130" height="70" rx="10" fill="var(--s1)" opacity="0.22" stroke="var(--s1)" stroke-width="2"/>
+      <text x="540" y="98" fill="var(--ink)" font-weight="600">fine-tuning</text>
+      <text x="540" y="118" fill="var(--muted)" font-size="11">task heads, LoRA</text>
+
+      <rect x="630" y="70" width="130" height="70" rx="10" fill="var(--s2)" opacity="0.22" stroke="var(--s2)" stroke-width="2"/>
+      <text x="695" y="98" fill="var(--ink)" font-weight="600">optimization</text>
+      <text x="695" y="118" fill="var(--muted)" font-size="11">quantize, prune, distill</text>
+
+      <rect x="785" y="70" width="125" height="70" rx="10" fill="var(--good)" opacity="0.22" stroke="var(--good)" stroke-width="2"/>
+      <text x="847" y="98" fill="var(--ink)" font-weight="600">serving</text>
+      <text x="847" y="118" fill="var(--muted)" font-size="11">batch, compile, monitor</text>
+    </g>
+    <g stroke="var(--axis)" stroke-width="1.5" marker-end="url(#arr)">
+      <line x1="140" y1="105" x2="162" y2="105"/><line x1="295" y1="105" x2="317" y2="105"/>
+      <line x1="450" y1="105" x2="472" y2="105"/><line x1="605" y1="105" x2="627" y2="105"/>
+      <line x1="760" y1="105" x2="782" y2="105"/>
+    </g>
+    <!-- feedback loop -->
+    <path d="M 847 142 L 847 200 L 75 200 L 75 144" fill="none" stroke="var(--s6)" stroke-width="1.5" stroke-dasharray="6 5" marker-end="url(#arr)"/>
+    <text x="460" y="192" text-anchor="middle" fill="var(--ink-2)" font-size="12">the flywheel: production failures + drift signals become the next round's mined training data</text>
+    <text x="460" y="34" text-anchor="middle" fill="var(--muted)" font-size="12">label cost per unit of data falls left→right requirements shift from "more data" to "better data" to "cheaper compute"</text>
+  </svg>
+  <figcaption>The whole round in one diagram. Data blocks (--s3) are about <em>what enters the model</em>; model blocks (--s1) are about <em>fitting</em>; the optimization block (--s2) reshapes the trained model; serving (green) is where latency, throughput and monitoring live. The dashed return path is the data flywheel — the part interviewers most reward you for volunteering.</figcaption>
+</figure>
+
+<div class="concept">
+<p>Two phase changes happen as data grows. First, <strong>labels stop scaling</strong>: human annotation grows linearly in cost while fleet data grows superlinearly, so the center of gravity moves to self-supervision, auto-labeling (big offline models labeling for small online ones), and synthetic data. Second, <strong>the bottleneck migrates</strong>: small-data regimes are limited by variance (get more data), mid-scale by data quality (curate), large-scale by compute allocation (scaling laws), and deployment by memory bandwidth and latency (compression). A senior answer names <em>which regime the interviewer's scenario is in</em> before proposing anything.</p>
+</div>
+
+<div class="callout"><strong>Intuition.</strong> Each stage exists to convert an abundant resource into a scarce one: curation converts raw bytes into signal, pretraining converts unlabeled data into representations, fine-tuning converts representations into task performance, compression converts accuracy headroom into latency. If you can say what's abundant and what's scarce, the right stage to invest in falls out automatically.</div>
+
+<aside class="term-box">
+<strong>Memorize</strong>
+<ul>
+<li><span class="term">data flywheel</span> — deployment failures mined into training data; the loop that compounds.</li>
+<li><span class="term">auto-labeling</span> — large offline model (no latency budget) generates labels for the small online model.</li>
+<li><span class="term">active learning / hard-example mining</span> — spend label budget where the model is uncertain or wrong.</li>
+<li><span class="term">long tail</span> — the rare-event mass that dominates AV risk; the reason "more of the same data" saturates.</li>
+</ul>
+<div class="related">Related: data engine (Tesla/Waymo usage), curriculum, dataset deduplication.</div>
+</aside>
+
+<details class="quiz"><summary>Quiz: name the regime</summary>
+<p><em>Q: "Our detector plateaued even though we doubled the dataset." What do you probe first?</em> — Whether the new data adds tail diversity or duplicates the head; plateau under naive scaling is the classic signal to switch from volume to curation/mining.</p>
+<p><em>Q: Why do auto-labeling pipelines use models too big to deploy?</em> — Offline labeling has no latency/memory constraint, so you can spend 100× compute per frame; the knowledge reaches the car via training data instead of weights.</p>
+</details>
+</section>
+
+<!-- ================================================================ 2 -->
+<section id="shift">
+<h2>2. Distribution shift: the three ways your test set betrays you</h2>
+
+<figure class="viz">
+  <svg id="svg-shift" viewBox="0 0 920 280" role="img" aria-label="Three panels: covariate shift as shifted input distributions, label shift as changed class priors, concept shift as a moved conditional" style="min-width:720px"></svg>
+  <figcaption>Three mathematically distinct failures, all called "shift". Left: covariate shift — \(p(x)\) moves, \(p(y\mid x)\) intact. Middle: label shift — class priors \(p(y)\) change, \(p(x\mid y)\) intact. Right: concept shift — \(p(y\mid x)\) itself changes; no reweighting can save you, only new labels. Curves computed in-page from the stated Gaussians/sigmoids.</figcaption>
+  <div class="legend"><span><span style="display:inline-block;width:14px;height:2px;background:var(--s3);vertical-align:middle"></span> train</span> <span><span style="display:inline-block;width:14px;height:2px;background:var(--s2);vertical-align:middle"></span> deployment</span></div>
+</figure>
+
+<div class="concept">
+<p>Factor the joint: \(p(x,y) = p(y\mid x)\,p(x) = p(x\mid y)\,p(y)\). Each factor can move independently:</p>
+<ul>
+<li><strong>Covariate shift</strong> — \(p(x)\) changes, \(p(y\mid x)\) fixed. Sim-to-real is exactly this: a rendered box and a real box should map to the same pose, but the pixel statistics differ. Fixes: importance weighting, domain adaptation, and — the fix you've used — <strong>domain randomization</strong>: randomize textures, lighting, camera pose in the synthetic keypoint pipeline so hard that the real domain looks like just another draw from \(p_{train}(x)\). DR doesn't shrink the domain gap; it widens the training distribution until the gap is inside it.</li>
+<li><strong>Label shift</strong> — \(p(y)\) changes, \(p(x\mid y)\) fixed. Deploy a Phoenix-trained model in a snowy city: pedestrians-with-umbrellas frequency changes even if what they look like doesn't. Fixable without new labels (prior correction / BBSE) because the class-conditionals still hold.</li>
+<li><strong>Concept shift</strong> — \(p(y\mid x)\) changes: the same input now means something else (a new traffic-cone convention, a policy change in labeling guidelines). The only cure is new labeled data; detection is the best you can automate.</li>
+</ul>
+<p>Interview move: when asked "your metrics dropped in a new city," walk this factorization out loud — it converts a vibes question into a diagnosis tree with a distinct fix per branch.</p>
+</div>
+
+<div class="callout"><strong>Intuition.</strong> Covariate shift = same rules, different questions on the exam. Label shift = same questions, different mix of topics. Concept shift = the answer key changed. Reweighting handles the first two because the rules/answers survive; nothing but relabeling handles the third.</div>
+
+<aside class="term-box">
+<strong>Memorize</strong>
+<ul>
+<li><span class="term">covariate / label / concept shift</span> — which factor of \(p(x,y)\) moved; different fixes each.</li>
+<li><span class="term">domain gap</span> — train-vs-deploy distribution distance; sim-to-real's core obstacle.</li>
+<li><span class="term">domain randomization</span> — widen synthetic \(p(x)\) until reality is in-support.</li>
+<li><span class="term">importance weighting</span> — reweight train samples by \(p_{test}(x)/p_{train}(x)\); exact for covariate shift, high variance in practice.</li>
+<li><span class="term">i.i.d. assumption</span> — the thing every offline metric silently assumes and deployment silently violates.</li>
+</ul>
+<div class="related">Related: domain adaptation (DANN, style transfer), test-time adaptation, OOD detection.</div>
+</aside>
+
+<details class="quiz"><summary>Quiz: classify the shift</summary>
+<p><em>Q: Your keypoint model trained on synthetic renders underperforms on real camera frames although geometry and labels are defined identically. Which shift, which fix?</em> — Covariate shift; more aggressive domain randomization (or real-domain fine-tuning / adaptation). \(p(y\mid x)\) is shared by construction.</p>
+<p><em>Q: A model deployed from the US to Japan sees the same vehicle appearances but wildly different class frequencies. Which shift, and can you fix it without labels?</em> — Label shift; yes — estimate the new priors from predictions (BBSE) and correct the posterior.</p>
+</details>
+</section>
+
+<!-- ================================================================ 3 -->
+<section id="scaling">
+<h2>3. Scaling laws: budgeting the pretraining</h2>
+
+<figure class="viz">
+  <svg id="svg-scaling" viewBox="0 0 680 360" role="img" aria-label="Log-log plot of loss versus training compute for four model sizes, with the compute-optimal frontier as their lower envelope"></svg>
+  <figcaption>Loss vs training compute (log–log), computed in-page from the Chinchilla parametric fit \(L(N,D)=E + A/N^{0.34} + B/D^{0.28}\) with the published constants (E=1.69, A=406.4, B=410.7), using \(C \approx 6ND\). Each curve fixes model size N and spends compute on tokens D. The frontier is the pointwise-lower envelope over a dense sweep of N: for every budget there is one right model size — bigger is <em>not</em> monotonically better at fixed compute.</figcaption>
+  <div class="legend" id="scaling-legend"></div>
+</figure>
+
+<div class="concept">
+<p>Empirically, pretraining loss falls as a power law in model size N, data D, and compute C — smooth over many orders of magnitude. The Chinchilla result: at a fixed compute budget, loss is minimized by scaling N and D <em>together</em>, roughly \(N \propto C^{0.5},\, D \propto C^{0.5}\) (≈20 tokens per parameter), which convicted the previous generation (GPT-3-era) of being oversized and undertrained. Two readings matter for the interview:</p>
+<ul>
+<li><strong>Planning tool:</strong> scaling laws let you extrapolate from cheap runs — fit the curve on small models, predict the big run's loss before you pay for it. This is how frontier labs de-risk training.</li>
+<li><strong>Deployment twist:</strong> compute-optimal ≠ inference-optimal. If the model will be served billions of times (or in a car), it pays to <em>overtrain a smaller model</em> far past 20 tokens/param — spend extra training compute once to save inference compute forever. That's the stated rationale of the small-but-overtrained model families, and it's the bridge to §4: inference cost pressure shapes training decisions.</li>
+</ul>
+<p><strong>Where does the endless D come from? Self-supervision.</strong> Labels don't scale; pretext tasks do. Contrastive learning's InfoNCE objective is — structurally — the same softmax + cross-entropy from the classification page: for query \(q\) and positive key \(k^{+}\) among negatives,</p>
+<div class="math-block">$$\mathcal{L}_{\text{InfoNCE}} = -\log \frac{\exp(q\cdot k^{+}/\tau)}{\sum_{i}\exp(q\cdot k_i/\tau)}$$</div>
+<p>i.e., an N-way classification where "the classes" are the other samples in the batch and similarity plays the logit. Masked modeling (BERT/MAE) is likewise just classification/regression on hidden content. Pretrain on the pretext at web scale, then fine-tune the representation on your labeled task — the pretrain→fine-tune split is what makes the data-growth stage of the arc consumable at all.</p>
+</div>
+
+<div class="callout"><strong>Intuition.</strong> A scaling curve at fixed N flattens when the model runs out of capacity to absorb more tokens; a curve at fixed D flattens when parameters outrun signal. The compute-optimal frontier threads between the two starvation modes. Say "are we parameter-starved or token-starved?" and you sound like you've trained things — because it's the same question as bias-vs-variance, one page ago, wearing log-log axes.</div>
+
+<aside class="term-box">
+<strong>Memorize</strong>
+<ul>
+<li><span class="term">scaling laws</span> — loss ~ power law in N, D, C; smooth and extrapolable.</li>
+<li><span class="term">Chinchilla-optimal</span> — N and D scale together, ≈20 tokens/param at fixed compute.</li>
+<li><span class="term">overtraining for inference</span> — small model, huge D: pay training once, save serving forever.</li>
+<li><span class="term">SSL / pretext task</span> — supervision manufactured from data itself (contrastive, masked, next-token).</li>
+<li><span class="term">InfoNCE</span> — contrastive loss = softmax+CE over in-batch negatives with temperature τ.</li>
+</ul>
+<div class="related">Related: emergent capabilities debate, data-constrained scaling (repeating epochs), MAE, CLIP-style pretraining for perception backbones.</div>
+</aside>
+
+<details class="quiz"><summary>Quiz: allocate the budget</summary>
+<p><em>Q: Your compute budget just 4×'d. Chinchilla says the new N and D are…?</em> — Both ×2: N ∝ C^0.5, D ∝ C^0.5.</p>
+<p><em>Q: Why might you deliberately train a compute-<b>sub</b>optimal (too small, overtrained) model?</em> — When inference volume dominates lifetime cost: the smaller model's serving savings outweigh the extra pretraining loss.</p>
+</details>
+</section>
+
+<!-- ================================================================ 4 -->
+<section id="quant">
+<h2>4. Interactive: quantization explorer</h2>
+
+<figure class="viz">
+  <svg id="svg-quant" viewBox="0 0 680 320" role="img" aria-label="Gaussian weight distribution with uniform quantization grid lines whose density is set by the bit-width slider"></svg>
+  <div class="viz-controls">
+    <label>bit-width
+      <input type="range" id="q-bits" min="1" max="3" step="1" value="2">
+      <span id="q-bits-val" class="readout">4-bit</span>
+    </label>
+    <label><input type="checkbox" id="q-act"> also quantize activations (W+A)</label>
+  </div>
+  <div class="readout" id="q-readout">—</div>
+  <figcaption>A Gaussian-ish weight distribution (density curve, computed) with the uniform quantization grid overlaid: every weight snaps to its nearest line. Slider steps through 8 / 4 / 2 bits. Memory is exact arithmetic (bits ÷ 16 vs FP16); the quality bar is <em>qualitative</em>, reflecting the community's consistent empirical findings, not a computed metric.</figcaption>
+</figure>
+
+<div class="concept">
+<p>b-bit uniform quantization maps each weight to one of \(2^b\) levels: \(w_q = \text{round}(w/s)\cdot s\) with scale \(s\) set by the clip range. Memory shrinks by exactly \(b/16\) vs FP16 — and for autoregressive or small-batch inference, <strong>memory bandwidth is the binding constraint</strong>: each generated step must stream every weight from VRAM, so halving bytes ≈ halving step time. That's the whole reason <strong>weight-only int4</strong> is the sweet spot you found on the 4080: weights ride the bus quantized, get dequantized in registers, and the matmul still runs in FP16 — quality barely moves because activations (the numerically nasty part, with their outlier channels) stay in high precision.</p>
+<ul>
+<li><strong>PTQ vs QAT:</strong> post-training quantization calibrates scales on a few hundred samples with no retraining — the default at 8 and 4 bits. Quantization-aware training inserts fake-quant ops in the forward pass (straight-through estimator on the backward) so the network learns around the rounding — needed as you push to 2–3 bits or quantize activations aggressively.</li>
+<li><strong>Weight-only vs W+A:</strong> W+A (e.g. W8A8) lets you use integer tensor cores for real compute speedups at large batch — but activation outliers make it much harder; that's the compute-bound server regime. Weight-only is the memory-bound edge regime. Know which regime the question is in.</li>
+<li><strong>AWQ, in your own words:</strong> a small fraction of weight channels sit under large-magnitude activations, so <em>their</em> rounding error dominates output error. AWQ finds those salient channels from activation statistics and rescales weights/activations (per-channel, mathematically equivalent transform) so the important channels land on a friendlier grid — protecting maybe 1% of channels recovers most of the quality gap. It's why your AWQ-int4 world model ran near-BF16 quality at 0.3 s/step while naive int4 lost quality: same bit budget, smarter allocation of rounding error.</li>
+</ul>
+</div>
+
+<div class="callout"><strong>Intuition.</strong> Quantization error is rounding noise ∝ grid spacing. Halving bits doubles spacing → 8→4 bits is usually benign (noise still under the weight distribution's natural scale), 4→2 is brutal (spacing comparable to the weights themselves — look at the widget at 2 bits: most of the Gaussian's mass shares four levels). And the reason weight-only-int4 feels "free" on your hardware: you were never compute-bound, you were paying per byte.</div>
+
+<aside class="term-box">
+<strong>Memorize</strong>
+<ul>
+<li><span class="term">PTQ / QAT</span> — calibrate after training vs train with fake-quant + straight-through estimator.</li>
+<li><span class="term">weight-only vs W+A</span> — memory-bandwidth savings vs integer-compute savings; edge vs server regimes.</li>
+<li><span class="term">scale / zero-point, per-channel</span> — the affine map of the grid; per-channel scales are the cheap accuracy win.</li>
+<li><span class="term">activation outliers</span> — rare huge-magnitude channels; the central obstacle to W+A (SmoothQuant/AWQ territory).</li>
+<li><span class="term">AWQ</span> — activation-aware per-channel rescaling that protects salient weight channels before int4 rounding.</li>
+</ul>
+<div class="related">Related: GPTQ (Hessian-guided rounding), KV-cache quantization, NF4/QLoRA (quantized fine-tuning).</div>
+</aside>
+
+<details class="quiz"><summary>Quiz: pick the recipe</summary>
+<p><em>Q: 7B model, batch-1 latency-bound on an edge GPU. First move?</em> — Weight-only int4 PTQ (AWQ/GPTQ): inference is memory-bound, so 4× fewer weight bytes ≈ big step-time win at near-zero quality cost; no retraining.</p>
+<p><em>Q: When is QAT worth its training cost?</em> — Sub-4-bit weights, aggressive activation quantization, or small models with no redundancy to spare — anywhere PTQ's calibrated rounding visibly bleeds accuracy.</p>
+</details>
+</section>
+
+<!-- ================================================================ 5 -->
+<section id="menu">
+<h2>5. The rest of the compression & serving menu</h2>
+
+<figure class="viz">
+  <svg id="svg-prune" viewBox="0 0 680 300" role="img" aria-label="Two weight matrices: structured pruning removes whole rows, unstructured pruning scatters individual zeros"></svg>
+  <figcaption>The same weight matrix pruned two ways (cell shade = |weight|, sequential blues; empty = zeroed; fixed random pattern). Left, <strong>structured</strong>: whole rows (neurons/channels) removed — the matrix genuinely shrinks, so dense hardware gets real speedup at more accuracy cost. Right, <strong>unstructured</strong>: the smallest individual weights zeroed — better accuracy at the same sparsity, but scattered zeros need sparse kernels (or 2:4 hardware sparsity) to pay off.</figcaption>
+</figure>
+
+<div class="concept">
+<p><strong>Pruning.</strong> Magnitude pruning zeroes the smallest weights, usually iteratively with fine-tuning between rounds. The structured/unstructured split above is the deployment-relevant fact: unstructured sparsity numbers in papers often buy nothing on a GPU. NVIDIA's 2:4 semi-structured sparsity (2 zeros per 4-element group) is the hardware-blessed compromise.</p>
+<p><strong>Distillation.</strong> Train a small student to match a big teacher's <em>soft</em> outputs:</p>
+<div class="math-block">$$\mathcal{L} = \alpha\, T^2\, \mathrm{KL}\big(p_{teacher}^{(T)} \,\|\, p_{student}^{(T)}\big) + (1-\alpha)\,\mathcal{L}_{CE}(y, p_{student})$$</div>
+<p>The temperature is the same knob from the classification page's softmax figure and calibration section: raising T softens the teacher, exposing the "dark knowledge" in the near-zero tail (that this truck is <em>slightly</em> bus-like) which one-hot labels destroy. Distillation is also how auto-labeling works at system level: the offline giant is a teacher whose knowledge reaches the car as training signal.</p>
+<p><strong>Compilation & kernel fusion.</strong> TensorRT / torch.compile fuse elementwise chains into single kernels, pick tile sizes, and pre-plan memory. The win is mostly eliminating memory round-trips between ops (again: bandwidth, not FLOPs) plus launch overhead. In AV deployment this is table stakes — the model that ships is the compiled engine, and you re-validate <em>after</em> compilation because numerics can shift.</p>
+<p><strong>Batching.</strong> Batching amortizes weight-loading across requests: throughput rises, but each request waits for batch assembly and a longer step — the fundamental latency/throughput tension below.</p>
+</div>
+
+<figure class="viz">
+  <svg id="svg-batch" viewBox="0 0 680 300" role="img" aria-label="Throughput versus latency curve traced by increasing batch size, with a marker at the current slider value"></svg>
+  <div class="viz-controls">
+    <label>batch size <input type="range" id="bt-b" min="1" max="64" step="1" value="8"> <span id="bt-b-val" class="readout">8</span></label>
+  </div>
+  <div class="readout" id="bt-readout">—</div>
+  <figcaption><em>Illustrative</em> queueing-flavored model: step time = 20 ms fixed (weight-streaming) + 1.5 ms per batch element (compute), latency = one step, throughput = batch / step. Moving the slider slides you along the curve: latency and throughput rise together — you buy throughput <em>with</em> latency. Real serving (continuous batching, paged KV) shifts the curve but not the tension.</figcaption>
+  <div class="legend"><span><span style="display:inline-block;width:14px;height:2px;background:var(--s1);vertical-align:middle"></span> operating curve</span> <span><span style="display:inline-block;width:10px;height:10px;border-radius:50%;background:var(--s6)"></span> your batch size</span></div>
+</figure>
+
+<div class="callout"><strong>Intuition.</strong> A GPU is a freight train: the fixed cost of moving the weights is the locomotive; requests are cargo. One passenger per train = terrible economics, but everyone waits for the train to fill. Online AV inference is the degenerate case — batch is whatever this frame contains, latency budget is hard — which is why AV compression leans on quantization/compilation (per-step cost) rather than batching (amortization).</div>
+
+<aside class="term-box">
+<strong>Memorize</strong>
+<ul>
+<li><span class="term">structured vs unstructured pruning</span> — real dense-hardware speedup vs better accuracy that needs sparse kernels; 2:4 is the hardware compromise.</li>
+<li><span class="term">distillation</span> — student matches temperature-softened teacher; KL term scaled by T²; "dark knowledge" lives in the soft tail.</li>
+<li><span class="term">kernel fusion</span> — merge ops to kill intermediate memory round-trips; the compiler's main win.</li>
+<li><span class="term">latency vs throughput</span> — batching trades one for the other; know which the product buys.</li>
+<li><span class="term">continuous batching</span> — LLM-serving trick: refill the batch per step instead of per request.</li>
+</ul>
+<div class="related">Related: lottery-ticket hypothesis, speculative decoding, CUDA graphs, TensorRT engine validation.</div>
+</aside>
+
+<details class="quiz"><summary>Quiz: menu selection</summary>
+<p><em>Q: Order the menu for a camera model that must run at 30 Hz on the vehicle.</em> — Compile/fuse (free), quantize weight-only (memory-bound win), structured prune or distill into a smaller architecture if still short; batching is irrelevant at batch≈1 with a hard deadline.</p>
+<p><em>Q: Why does the distillation loss multiply the KL term by T²?</em> — Soft-target gradients scale as 1/T²; the factor keeps the KL and hard-label gradients on comparable magnitudes as you tune T.</p>
+</details>
+</section>
+
+<!-- ================================================================ 6 -->
+<section id="pareto">
+<h2>6. Accuracy vs latency: the Pareto frontier is the deliverable</h2>
+
+<figure class="viz">
+  <svg id="svg-pareto" viewBox="0 0 680 360" role="img" aria-label="Scatter of candidate models in latency-accuracy space with the Pareto frontier marked"></svg>
+  <figcaption>Candidate models in latency–accuracy space (<em>fictional illustrative points</em>, labeled). Filled points are Pareto-optimal: nothing is both faster and more accurate. Hollow points are dominated — engineering effort spent below the frontier is wasted. Hover a point for its coordinates.</figcaption>
+  <div class="legend"><span><span style="display:inline-block;width:10px;height:10px;border-radius:50%;background:var(--s1)"></span> Pareto-optimal</span> <span><span style="display:inline-block;width:10px;height:10px;border-radius:50%;border:2px solid var(--s2);background:transparent"></span> dominated</span> <span><span style="display:inline-block;width:14px;height:2px;background:var(--s1);vertical-align:middle"></span> frontier</span></div>
+</figure>
+
+<div class="concept">
+<p>The deployment decision is never "which model is most accurate" — it's "which point on the frontier does the product's latency budget select". The senior framing has three moves:</p>
+<ul>
+<li><strong>Build the frontier, not a model.</strong> Sweep the knobs from §4–5 (bits, sparsity, student sizes, input resolution) and plot every candidate. Dominated points are deleted, whatever effort they cost.</li>
+<li><strong>The budget picks the point.</strong> A 30 Hz camera pipeline hands you ~33 ms minus everything else in the frame; walk left along the frontier to the last point that fits, and that accuracy is what the product gets. Argue about the budget, not the model.</li>
+<li><strong>Report the tail, not the mean.</strong> Serving latency is a distribution; the planner cares about p99 under worst-case scene complexity, and compiled engines with static shapes exist precisely to crush that tail.</li>
+</ul>
+</div>
+
+<div class="callout"><strong>Intuition.</strong> Compression techniques are not point-fixes, they are <em>moves in this plane</em>: quantization slides a point left at slight cost down; distillation manufactures a new point down-left; a bigger backbone moves up-right. Once you narrate optimization as "shaping the frontier, then letting the budget choose," every §4–5 technique has an obvious purpose.</div>
+
+<aside class="term-box">
+<strong>Memorize</strong>
+<ul>
+<li><span class="term">Pareto frontier / dominated point</span> — no candidate beats a frontier point on both axes; dominated = strictly beaten.</li>
+<li><span class="term">latency budget</span> — end-to-end deadline minus upstream/downstream stages; the selector on the frontier.</li>
+<li><span class="term">p99 / tail latency</span> — the number safety consumers care about; means hide stalls.</li>
+<li><span class="term">operating point (system sense)</span> — chosen (model, precision, resolution, threshold) tuple; version it like code.</li>
+</ul>
+<div class="related">Related: accuracy-per-FLOP curves, roofline model, hardware-aware NAS.</div>
+</aside>
+
+<details class="quiz"><summary>Quiz: frontier reasoning</summary>
+<p><em>Q: Model E is 2 points more accurate than model B but 5× slower, and both fit the budget. Which ships?</em> — E, if it fits p99 under worst-case load and leaves margin for the rest of the frame — "fits the budget" must mean tail, not mean. If margin is thin, B ships and E becomes the auto-labeling teacher.</p>
+<p><em>Q: A teammate spent a month on a model that's slower and less accurate than an existing one. What's the one-word verdict?</em> — Dominated.</p>
+</details>
+</section>
+
+<!-- ================================================================ 7 -->
+<section id="production">
+<h2>7. Production: monitoring, drift detection, shadow & canary</h2>
+
+<figure class="viz">
+  <svg viewBox="0 0 920 240" role="img" aria-label="Production traffic split between the live model and a canary, with a shadow model receiving mirrored traffic and a monitor watching all outputs" style="min-width:720px">
+    <defs><marker id="arr2" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path d="M0 0 L10 5 L0 10 z" fill="var(--axis)"/></marker></defs>
+    <g font-size="13" text-anchor="middle">
+      <rect x="15" y="85" width="120" height="60" rx="10" fill="var(--s3)" opacity="0.22" stroke="var(--s3)" stroke-width="2"/>
+      <text x="75" y="112" fill="var(--ink)" font-weight="600">live traffic</text>
+      <rect x="230" y="30" width="150" height="60" rx="10" fill="var(--s1)" opacity="0.22" stroke="var(--s1)" stroke-width="2"/>
+      <text x="305" y="55" fill="var(--ink)" font-weight="600">model vN</text><text x="305" y="75" fill="var(--muted)" font-size="11">95% of traffic</text>
+      <rect x="230" y="140" width="150" height="60" rx="10" fill="var(--s2)" opacity="0.22" stroke="var(--s2)" stroke-width="2"/>
+      <text x="305" y="165" fill="var(--ink)" font-weight="600">canary vN+1</text><text x="305" y="185" fill="var(--muted)" font-size="11">5%, auto-rollback</text>
+      <rect x="470" y="140" width="160" height="60" rx="10" fill="var(--s2)" opacity="0.12" stroke="var(--s2)" stroke-width="2" stroke-dasharray="6 4"/>
+      <text x="550" y="165" fill="var(--ink)" font-weight="600">shadow vN+2</text><text x="550" y="185" fill="var(--muted)" font-size="11">mirrored input, output logged only</text>
+      <rect x="700" y="80" width="200" height="70" rx="10" fill="var(--s6)" opacity="0.15" stroke="var(--s6)" stroke-width="2"/>
+      <text x="800" y="105" fill="var(--ink)" font-weight="600">monitor</text>
+      <text x="800" y="125" fill="var(--muted)" font-size="11">input stats · confidence · proxy KPIs · disagreement</text>
+    </g>
+    <g stroke="var(--axis)" stroke-width="1.5" fill="none" marker-end="url(#arr2)">
+      <path d="M135 105 L 227 65"/><path d="M135 120 L 227 165"/>
+      <path d="M135 128 C 300 235 380 175 467 175"/>
+      <path d="M380 60 L 697 100"/><path d="M380 170 L 697 125"/><path d="M630 170 L 697 135"/>
+    </g>
+    <text x="460" y="228" text-anchor="middle" fill="var(--ink-2)" font-size="12">shadow answers "would the new model have agreed?" at zero user risk; canary answers it with bounded real risk</text>
+  </svg>
+  <figcaption>The standard promotion ladder: offline eval → shadow (mirrored traffic, outputs logged, zero blast radius) → canary (small real slice, automatic rollback triggers) → full rollout. The monitor watches inputs and outputs continuously, because ground truth arrives late or never.</figcaption>
+</figure>
+
+<div class="concept">
+<p>The production problem in one sentence: <strong>accuracy is unobservable at serve time</strong> — labels are delayed, sparse, or nonexistent — so you monitor proxies and detect <em>change</em> rather than error. The standard proxy stack: input-distribution statistics (feature means, embedding-drift distance, PSI/KL per feature) to catch covariate shift; prediction statistics (confidence histograms, class-frequency mix, entropy) to catch behavioral change — this is where calibration from the classification page pays rent, since an uncalibrated model's confidence stream is noise; disagreement signals (new-vs-old model divergence in shadow, model-vs-heuristic disagreement, downstream intervention rates as late labels). Alert on distribution distance, triage against the §2 taxonomy, and route: covariate drift → mine and retrain; label drift → reweight/re-threshold; concept drift → relabel. The flywheel from §1 closes here: drift alerts are your hard-example miner.</p>
+</div>
+
+<div class="callout"><strong>Intuition.</strong> Shadow vs canary is science vs surgery: shadow is a controlled experiment with zero patient risk but no outcome data (its outputs act on nothing); canary is a small incision with real consequences and real feedback. You run both, in that order, and you never promote on offline metrics alone — the offline set is last month's distribution.</div>
+
+<aside class="term-box">
+<strong>Memorize</strong>
+<ul>
+<li><span class="term">shadow deployment</span> — mirrored traffic, logged-only outputs; zero blast radius, no outcome feedback.</li>
+<li><span class="term">canary release</span> — small real traffic slice + automatic rollback criteria.</li>
+<li><span class="term">drift detection</span> — statistical distance (PSI, KL, embedding distance) between live and reference windows.</li>
+<li><span class="term">proxy metric</span> — confidence/agreement/intervention-rate stand-ins for unobservable accuracy.</li>
+<li><span class="term">training-serving skew</span> — feature pipeline divergence between offline and online paths; the boring bug that outranks all the fancy ones.</li>
+</ul>
+<div class="related">Related: A/B testing vs canary, feature stores, data validation (schema checks), model registries.</div>
+</aside>
+
+<details class="quiz"><summary>Quiz: production judgment</summary>
+<p><em>Q: Confidence histogram shifted low overnight, input stats unchanged. Suspects?</em> — Model/config change (wrong checkpoint, broken preprocessing producing in-range garbage) before real-world drift — input stats unchanged argues against covariate shift. Check training-serving skew first.</p>
+<p><em>Q: Why not promote a model that wins offline by 2 mAP straight to 100%?</em> — Offline eval is on a stale distribution and can't see integration effects; shadow catches distribution surprises free, canary bounds the cost of what shadow can't see (real feedback loops).</p>
+</details>
+</section>
+
+<script>
+(function(){
+"use strict";
+var SVGNS="http://www.w3.org/2000/svg";
+function el(tag,attrs,parent){var e=document.createElementNS(SVGNS,tag);for(var k in attrs)e.setAttribute(k,attrs[k]);if(parent)parent.appendChild(e);return e;}
+function txt(parent,x,y,s,attrs){var e=el("text",Object.assign({x:x,y:y,fill:"var(--muted)","font-size":"11"},attrs||{}),parent);e.textContent=s;return e;}
+function clearSvg(s){while(s.firstChild)s.removeChild(s.firstChild);}
+function fmt(v,d){return Number(v).toFixed(d===undefined?2:d);}
+function mulberry32(a){return function(){a|=0;a=a+0x6D2B79F5|0;var t=Math.imul(a^a>>>15,1|a);t=t+Math.imul(t^t>>>7,61|t)^t;return((t^t>>>14)>>>0)/4294967296;};}
+function gaussPdf(x,mu,s){return Math.exp(-0.5*Math.pow((x-mu)/s,2))/(s*Math.sqrt(2*Math.PI));}
+
+// ================= 2. distribution shift panels =================
+(function(){
+  var svg=document.getElementById("svg-shift");if(!svg)return;
+  var panels=[
+    {x0:10,title:"covariate shift",sub:"p(x) moves, p(y|x) fixed"},
+    {x0:315,title:"label shift",sub:"p(y) moves, p(x|y) fixed"},
+    {x0:620,title:"concept shift",sub:"p(y|x) itself moves"}
+  ];
+  var PW=290,PT=46,PH=180,PB=PT+PH;
+  panels.forEach(function(p){
+    txt(svg,p.x0+PW/2,20,p.title,{"text-anchor":"middle","font-size":"14",fill:"var(--ink)","font-weight":"600"});
+    txt(svg,p.x0+PW/2,38,p.sub,{"text-anchor":"middle","font-size":"11"});
+    el("line",{x1:p.x0+10,x2:p.x0+PW-10,y1:PB,y2:PB,stroke:"var(--axis)","stroke-width":1},svg);
+  });
+  function curvePath(x0,f,xa,xb,ymax){
+    var d="";
+    for(var t=0;t<=1.0001;t+=0.01){
+      var x=xa+t*(xb-xa),y=f(x);
+      d+=(d?"L":"M")+fmt(x0+10+t*(PW-20),1)+" "+fmt(PB-(y/ymax)*PH*0.92,1);
+    }
+    return d;
+  }
+  // panel 1: covariate shift — p(x) train N(-1,0.8) vs deploy N(0.8,0.8)
+  var p1=panels[0],ym1=gaussPdf(0,0,0.8);
+  el("path",{d:curvePath(p1.x0,function(x){return gaussPdf(x,-1,0.8);},-3.5,3.5,ym1),fill:"none",stroke:"var(--s3)","stroke-width":2},svg);
+  el("path",{d:curvePath(p1.x0,function(x){return gaussPdf(x,0.8,0.8);},-3.5,3.5,ym1),fill:"none",stroke:"var(--s2)","stroke-width":2},svg);
+  txt(svg,p1.x0+PW/2,PB+22,"x (input feature)",{"text-anchor":"middle"});
+  txt(svg,p1.x0+58,PT+30,"train p(x)",{fill:"var(--ink-2)"});
+  txt(svg,p1.x0+195,PT+30,"deploy p(x)",{fill:"var(--ink-2)"});
+  // panel 2: label shift — prior bars 0.7/0.3 -> 0.3/0.7
+  var p2=panels[1],bw=42,base=PB;
+  [["car",0.7,0.3],["pedestrian",0.3,0.7]].forEach(function(cls,i){
+    var gx=p2.x0+55+i*130;
+    el("rect",{x:gx,y:base-cls[1]*PH*0.9,width:bw,height:cls[1]*PH*0.9,fill:"var(--s3)",rx:3},svg);
+    el("rect",{x:gx+bw+6,y:base-cls[2]*PH*0.9,width:bw,height:cls[2]*PH*0.9,fill:"var(--s2)",rx:3},svg);
+    txt(svg,gx+bw+3,base-cls[1]*PH*0.9-6,fmt(cls[1],1)+" → "+fmt(cls[2],1),{"text-anchor":"middle",fill:"var(--ink-2)"});
+    txt(svg,gx+bw+3,PB+22,cls[0],{"text-anchor":"middle"});
+  });
+  txt(svg,p2.x0+PW/2,PB+38,"class priors p(y)",{"text-anchor":"middle"});
+  // panel 3: concept shift — p(y=1|x) sigmoid moves
+  var p3=panels[2];
+  el("path",{d:curvePath(p3.x0,function(x){return 1/(1+Math.exp(-2*x));},-3.5,3.5,1.05),fill:"none",stroke:"var(--s3)","stroke-width":2},svg);
+  el("path",{d:curvePath(p3.x0,function(x){return 1/(1+Math.exp(-2*(x-1.2)));},-3.5,3.5,1.05),fill:"none",stroke:"var(--s2)","stroke-width":2},svg);
+  txt(svg,p3.x0+PW/2,PB+22,"x",{"text-anchor":"middle"});
+  txt(svg,p3.x0+42,PT+26,"old p(y=1|x)",{fill:"var(--ink-2)"});
+  txt(svg,p3.x0+186,PT+26,"new p(y=1|x)",{fill:"var(--ink-2)"});
+})();
+
+// ================= 3. scaling-law curves =================
+(function(){
+  var svg=document.getElementById("svg-scaling"),legend=document.getElementById("scaling-legend");
+  if(!svg)return;
+  // Chinchilla parametric fit (Hoffmann et al. 2022): L = E + A/N^0.34 + B/D^0.28, C ≈ 6ND
+  var E=1.69,A=406.4,B=410.7,alpha=0.34,beta=0.28;
+  function L(N,D){return E+A/Math.pow(N,alpha)+B/Math.pow(D,beta);}
+  function lossAtC(N,C){return L(N,C/(6*N));}
+  var Ns=[1e8,3e8,1e9,3e9],names=["100M","300M","1B","3B"],cols=["var(--seq-3)","var(--seq-4)","var(--seq-5)","var(--seq-7)"];
+  var C0=1e17,C1=1e22,Y0=1.9,Y1=4.2;
+  var M={l:64,r:16,t:18,b:48},W=680,H=360,pw=W-M.l-M.r,ph=H-M.t-M.b;
+  function sx(C){return M.l+(Math.log10(C)-Math.log10(C0))/(Math.log10(C1)-Math.log10(C0))*pw;}
+  function syv(l){return M.t+(Y1-Math.max(Math.min(l,Y1),Y0))/(Y1-Y0)*ph;}
+  // axes
+  for(var e=17;e<=22;e++){
+    var x=sx(Math.pow(10,e));
+    el("line",{x1:x,x2:x,y1:M.t,y2:H-M.b,stroke:"var(--grid)","stroke-width":1},svg);
+    txt(svg,x,H-M.b+18,"10^"+e,{"text-anchor":"middle"});
+  }
+  [2,2.5,3,3.5,4].forEach(function(l){
+    el("line",{x1:M.l,x2:W-M.r,y1:syv(l),y2:syv(l),stroke:"var(--grid)","stroke-width":1},svg);
+    txt(svg,M.l-8,syv(l)+4,fmt(l,1),{"text-anchor":"end"});
+  });
+  el("line",{x1:M.l,x2:W-M.r,y1:H-M.b,y2:H-M.b,stroke:"var(--axis)","stroke-width":1},svg);
+  el("line",{x1:M.l,x2:M.l,y1:M.t,y2:H-M.b,stroke:"var(--axis)","stroke-width":1},svg);
+  txt(svg,W/2,H-8,"training compute C (FLOPs, log scale)",{"text-anchor":"middle","font-size":"12"});
+  txt(svg,16,H/2,"pretraining loss",{transform:"rotate(-90 16 "+(H/2)+")","text-anchor":"middle","font-size":"12"});
+  // fixed-N curves
+  var steps=140;
+  Ns.forEach(function(N,i){
+    var d="";
+    for(var s=0;s<=steps;s++){
+      var C=Math.pow(10,Math.log10(C0)+s/steps*(Math.log10(C1)-Math.log10(C0)));
+      if(C/(6*N)<1e6)continue; // skip absurd sub-1M-token regime
+      var l=lossAtC(N,C);
+      if(l>Y1)continue;
+      d+=(d?"L":"M")+fmt(sx(C),1)+" "+fmt(syv(l),1);
+    }
+    el("path",{d:d,fill:"none",stroke:cols[i],"stroke-width":2},svg);
+  });
+  // compute-optimal frontier: pointwise min over dense N sweep
+  var dF="";
+  for(var s2=0;s2<=steps;s2++){
+    var C=Math.pow(10,Math.log10(C0)+s2/steps*(Math.log10(C1)-Math.log10(C0)));
+    var best=Infinity;
+    for(var k=0;k<=200;k++){
+      var N=Math.pow(10,6+k/200*6); // N from 1e6 to 1e12
+      if(C/(6*N)<1e6)continue;
+      var l2=lossAtC(N,C);if(l2<best)best=l2;
+    }
+    if(best<=Y1)dF+=(dF?"L":"M")+fmt(sx(C),1)+" "+fmt(syv(best),1);
+  }
+  el("path",{d:dF,fill:"none",stroke:"var(--s6)","stroke-width":2,"stroke-dasharray":"7 5"},svg);
+  txt(svg,sx(3e20),syv(2.12),"compute-optimal frontier",{fill:"var(--ink-2)","font-size":"12"});
+  txt(svg,sx(2e21),syv(2.62),"fixed-N curves flatten:",{fill:"var(--ink-2)","font-size":"11","text-anchor":"middle"});
+  txt(svg,sx(2e21),syv(2.52),"token-rich but parameter-starved",{fill:"var(--ink-2)","font-size":"11","text-anchor":"middle"});
+  if(legend){
+    legend.innerHTML=Ns.map(function(_,i){return '<span><span style="display:inline-block;width:14px;height:2px;background:'+cols[i]+';vertical-align:middle"></span> N = '+names[i]+'</span>';}).join(" ")+' <span><span style="display:inline-block;width:14px;height:2px;background:var(--s6);vertical-align:middle"></span> compute-optimal frontier</span>';
+  }
+})();
+
+// ================= 4. quantization explorer =================
+(function(){
+  var svg=document.getElementById("svg-quant"),slider=document.getElementById("q-bits"),
+      bitsV=document.getElementById("q-bits-val"),act=document.getElementById("q-act"),out=document.getElementById("q-readout");
+  if(!svg||!slider||!out)return;
+  var bitMap={1:8,2:4,3:2}; // slider position -> bits (8/4/2)
+  var M={l:56,r:16,t:16,b:64},W=680,H=320,pw=W-M.l-M.r,ph=H-M.t-M.b,X0=-4,X1=4;
+  function sx(x){return M.l+(x-X0)/(X1-X0)*pw;}
+  var ymax=gaussPdf(0,0,1);
+  function sy(y){return M.t+(1-y/ymax*0.92)*ph;}
+  // quality: qualitative, stated in caption
+  function quality(bits,wa){
+    if(bits===8)return wa?{f:0.93,t:"near-lossless (W8A8 with per-channel scales)"}:{f:0.98,t:"lossless in practice"};
+    if(bits===4)return wa?{f:0.60,t:"noticeable loss — activation outliers bite (needs SmoothQuant/QAT)"}:{f:0.90,t:"near-lossless with AWQ/GPTQ-style calibration"};
+    return wa?{f:0.15,t:"severe — research territory"}:{f:0.30,t:"severe loss — needs QAT + exotic formats"};
+  }
+  function render(){
+    var bits=bitMap[slider.value],wa=act&&act.checked;
+    if(bitsV)bitsV.textContent=bits+"-bit";
+    clearSvg(svg);
+    el("line",{x1:M.l,x2:W-M.r,y1:M.t+ph,y2:M.t+ph,stroke:"var(--axis)","stroke-width":1},svg);
+    txt(svg,W/2,M.t+ph+18,"weight value (units of σ)",{"text-anchor":"middle","font-size":"12"});
+    // weight density curve (filled)
+    var d="M"+fmt(sx(X0),1)+" "+fmt(M.t+ph,1);
+    for(var x=X0;x<=X1+0.0001;x+=0.05)d+="L"+fmt(sx(x),1)+" "+fmt(sy(gaussPdf(x,0,1)),1);
+    d+="L"+fmt(sx(X1),1)+" "+fmt(M.t+ph,1)+"Z";
+    el("path",{d:d,fill:"var(--s3)",opacity:0.25,stroke:"var(--s3)","stroke-width":2},svg);
+    // quantization grid: 2^bits levels uniform over [X0,X1]
+    var levels=Math.pow(2,bits),step=(X1-X0)/(levels-1);
+    for(var i=0;i<levels;i++){
+      var gx=sx(X0+i*step);
+      el("line",{x1:gx,x2:gx,y1:M.t+6,y2:M.t+ph,stroke:"var(--s1)","stroke-width":bits>=8?0.6:1.5,opacity:bits>=8?0.55:0.9},svg);
+    }
+    txt(svg,sx(0),M.t+2,levels+" levels — every weight snaps to its nearest line",{"text-anchor":"middle",fill:"var(--ink-2)","font-size":"12"});
+    if(bits===2)txt(svg,sx(0),sy(ymax*0.45),"grid spacing ≈ weight scale → huge rounding error",{"text-anchor":"middle",fill:"var(--ink-2)","font-size":"11"});
+    // quality bar (qualitative)
+    var q=quality(bits,wa),bx=M.l,bw2=pw*0.55,by=H-34;
+    el("rect",{x:bx,y:by,width:bw2,height:12,rx:6,fill:"var(--grid)"},svg);
+    el("rect",{x:bx,y:by,width:bw2*q.f,height:12,rx:6,fill:q.f>0.8?"var(--good)":(q.f>0.45?"var(--s2)":"var(--s6)")},svg);
+    txt(svg,bx,by-6,"qualitative quality retained: "+q.t,{"font-size":"11"});
+    out.textContent="levels 2^"+bits+" = "+levels+"  ·  weight memory vs FP16: ×"+fmt(bits/16,3)+" ("+fmt(16/bits,1)+"× smaller)"+"  ·  mode: "+(wa?"weight + activation":"weight-only (activations stay FP16)");
+  }
+  slider.addEventListener("input",render);
+  if(act)act.addEventListener("change",render);
+  render();
+})();
+
+// ================= 5a. pruning matrices =================
+(function(){
+  var svg=document.getElementById("svg-prune");if(!svg)return;
+  var n=12,cell=16,gap=2;
+  var seq=["var(--seq-2)","var(--seq-3)","var(--seq-4)","var(--seq-5)","var(--seq-6)","var(--seq-7)"];
+  var rng=mulberry32(11);
+  // one shared weight matrix (magnitudes 0..1)
+  var Wm=[];for(var r=0;r<n;r++){Wm.push([]);for(var c=0;c<n;c++)Wm[r].push(rng());}
+  // target ~ 33% sparsity both sides. structured: prune the 4 rows with lowest L1 norm. unstructured: prune smallest 48 weights.
+  var norms=Wm.map(function(row,i){return {i:i,s:row.reduce(function(a,b){return a+b;},0)};}).sort(function(a,b){return a.s-b.s;});
+  var deadRows={};norms.slice(0,4).forEach(function(o){deadRows[o.i]=true;});
+  var flat=[];Wm.forEach(function(row,r2){row.forEach(function(v,c2){flat.push({r:r2,c:c2,v:v});});});
+  flat.sort(function(a,b){return a.v-b.v;});
+  var deadCells={};flat.slice(0,48).forEach(function(o){deadCells[o.r+"_"+o.c]=true;});
+  function drawMat(x0,y0,killFn,title,sub){
+    txt(svg,x0+n*(cell+gap)/2,y0-14,title,{"text-anchor":"middle","font-size":"13",fill:"var(--ink)","font-weight":"600"});
+    txt(svg,x0+n*(cell+gap)/2,y0+n*(cell+gap)+18,sub,{"text-anchor":"middle","font-size":"11"});
+    for(var r=0;r<n;r++)for(var c=0;c<n;c++){
+      var x=x0+c*(cell+gap),y=y0+r*(cell+gap);
+      if(killFn(r,c)){el("rect",{x:x,y:y,width:cell,height:cell,rx:2,fill:"none",stroke:"var(--grid)","stroke-width":1},svg);}
+      else{el("rect",{x:x,y:y,width:cell,height:cell,rx:2,fill:seq[Math.min(Math.floor(Wm[r][c]*6),5)]},svg);}
+    }
+  }
+  drawMat(70,40,function(r){return !!deadRows[r];},"structured (whole rows)","matrix truly shrinks → dense-hardware speedup");
+  drawMat(400,40,function(r,c){return !!deadCells[r+"_"+c];},"unstructured (smallest weights)","better accuracy, needs sparse kernels / 2:4");
+})();
+
+// ================= 5b. batching widget =================
+(function(){
+  var svg=document.getElementById("svg-batch"),slider=document.getElementById("bt-b"),
+      bV=document.getElementById("bt-b-val"),out=document.getElementById("bt-readout");
+  if(!svg||!slider||!out)return;
+  // illustrative model, stated in caption: step = t0 + c*B
+  var t0=20,c=1.5;
+  function lat(B){return t0+c*B;}
+  function thr(B){return B/lat(B)*1000;}
+  var M={l:64,r:16,t:18,b:46},W=680,H=300,pw=W-M.l-M.r,ph=H-M.t-M.b;
+  var LMAX=lat(64)*1.05,TMAX=thr(64)*1.1;
+  function sx(l){return M.l+l/LMAX*pw;}
+  function sy(t){return M.t+(1-t/TMAX)*ph;}
+  function render(){
+    var B=parseInt(slider.value,10);
+    if(bV)bV.textContent=String(B);
+    clearSvg(svg);
+    [0,0.25,0.5,0.75,1].forEach(function(g){
+      el("line",{x1:M.l,x2:W-M.r,y1:M.t+ph*g,y2:M.t+ph*g,stroke:g===1?"var(--axis)":"var(--grid)","stroke-width":1},svg);
+      txt(svg,M.l-8,M.t+ph*g+4,fmt(TMAX*(1-g),0),{"text-anchor":"end"});
+    });
+    [0,30,60,90,120].forEach(function(l){
+      if(l>LMAX)return;
+      txt(svg,sx(l),H-M.b+18,String(l),{"text-anchor":"middle"});
+      el("line",{x1:sx(l),x2:sx(l),y1:M.t,y2:M.t+ph,stroke:"var(--grid)","stroke-width":1},svg);
+    });
+    txt(svg,W/2,H-6,"latency per request (ms)",{"text-anchor":"middle","font-size":"12"});
+    txt(svg,16,H/2,"throughput (req/s)",{transform:"rotate(-90 16 "+(H/2)+")","text-anchor":"middle","font-size":"12"});
+    var d="";
+    for(var b2=1;b2<=64;b2++)d+=(d?"L":"M")+fmt(sx(lat(b2)),1)+" "+fmt(sy(thr(b2)),1);
+    el("path",{d:d,fill:"none",stroke:"var(--s1)","stroke-width":2},svg);
+    [1,8,32,64].forEach(function(bb){txt(svg,sx(lat(bb))+6,sy(thr(bb))-6,"B="+bb,{"font-size":"10"});});
+    el("circle",{cx:sx(lat(B)),cy:sy(thr(B)),r:7,fill:"var(--s6)",stroke:"var(--ink)","stroke-width":1.5},svg);
+    out.textContent="batch "+B+"  ·  latency "+fmt(lat(B),1)+" ms (up with batch)  ·  throughput "+fmt(thr(B),1)+" req/s (up with batch, saturating toward "+fmt(1000/c,0)+")  ·  illustrative model";
+  }
+  slider.addEventListener("input",render);
+  render();
+})();
+
+// ================= 6. Pareto frontier =================
+(function(){
+  var svg=document.getElementById("svg-pareto");if(!svg)return;
+  // fictional candidates (latency ms, accuracy %) — labeled as fictional in the caption
+  var models=[
+    {n:"tiny-distilled",l:3,a:70.5},{n:"small-int4",l:6,a:75.0},{n:"small-fp16",l:9,a:75.4},
+    {n:"base-int4",l:12,a:79.2},{n:"base-fp16",l:22,a:80.0},{n:"base-pruned",l:16,a:77.0},
+    {n:"large-int4",l:34,a:82.6},{n:"large-fp16",l:60,a:83.4},{n:"huge-ensemble",l:140,a:84.1},
+    {n:"legacy-v1",l:45,a:78.2}
+  ];
+  // Pareto set: no other model with lower-or-equal latency and strictly higher accuracy (or equal acc, lower lat)
+  models.forEach(function(m){
+    m.dom=models.some(function(o){return o!==m&&o.l<=m.l&&o.a>=m.a&&(o.l<m.l||o.a>m.a);});
+  });
+  var M={l:60,r:20,t:18,b:48},W=680,H=360,pw=W-M.l-M.r,ph=H-M.t-M.b;
+  var L0=2,L1=200,A0=68,A1=86;
+  function sx(l){return M.l+(Math.log10(l)-Math.log10(L0))/(Math.log10(L1)-Math.log10(L0))*pw;}
+  function sy(a){return M.t+(A1-a)/(A1-A0)*ph;}
+  [2,5,10,20,50,100,200].forEach(function(l){
+    el("line",{x1:sx(l),x2:sx(l),y1:M.t,y2:M.t+ph,stroke:"var(--grid)","stroke-width":1},svg);
+    txt(svg,sx(l),H-M.b+18,String(l),{"text-anchor":"middle"});
+  });
+  [70,74,78,82,86].forEach(function(a){
+    el("line",{x1:M.l,x2:W-M.r,y1:sy(a),y2:sy(a),stroke:"var(--grid)","stroke-width":1},svg);
+    txt(svg,M.l-8,sy(a)+4,String(a),{"text-anchor":"end"});
+  });
+  el("line",{x1:M.l,x2:W-M.r,y1:M.t+ph,y2:M.t+ph,stroke:"var(--axis)","stroke-width":1},svg);
+  el("line",{x1:M.l,x2:M.l,y1:M.t,y2:M.t+ph,stroke:"var(--axis)","stroke-width":1},svg);
+  txt(svg,W/2,H-6,"latency (ms, log scale)",{"text-anchor":"middle","font-size":"12"});
+  txt(svg,14,H/2,"accuracy (%)",{transform:"rotate(-90 14 "+(H/2)+")","text-anchor":"middle","font-size":"12"});
+  // frontier line through pareto points sorted by latency
+  var front=models.filter(function(m){return !m.dom;}).sort(function(a,b){return a.l-b.l;});
+  var d="";front.forEach(function(m){d+=(d?"L":"M")+fmt(sx(m.l),1)+" "+fmt(sy(m.a),1);});
+  el("path",{d:d,fill:"none",stroke:"var(--s1)","stroke-width":2,"stroke-dasharray":"2 0"},svg);
+  // latency budget line (fictional 33ms frame budget)
+  el("line",{x1:sx(33),x2:sx(33),y1:M.t,y2:M.t+ph,stroke:"var(--s6)","stroke-width":1.5,"stroke-dasharray":"6 4"},svg);
+  txt(svg,sx(33)+5,M.t+14,"33 ms budget →",{fill:"var(--ink-2)","font-size":"11"});
+  models.forEach(function(m){
+    var c;
+    if(m.dom)c=el("circle",{cx:sx(m.l),cy:sy(m.a),r:6,fill:"none",stroke:"var(--s2)","stroke-width":2},svg);
+    else c=el("circle",{cx:sx(m.l),cy:sy(m.a),r:7,fill:"var(--s1)"},svg);
+    txt(svg,sx(m.l)+9,sy(m.a)+4,m.n,{"font-size":"10"});
+    if(window.vizTooltip)window.vizTooltip(c,function(){return m.n+": "+m.l+" ms, "+m.a+"% "+(m.dom?"(dominated)":"(Pareto-optimal)");});
+  });
+})();
+})();
+</script>
+</main>
+</body>
+</html>

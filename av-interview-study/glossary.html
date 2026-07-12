@@ -1,0 +1,499 @@
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>Glossary — AV Interview Study</title><link rel="stylesheet" href="assets/style.css"><link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/katex.min.css"><script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/katex.min.js"></script><script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/contrib/auto-render.min.js"></script><script defer src="assets/app.js"></script></head><body>
+<nav class="topnav"><a href="index.html">Home</a><a href="fundamentals-classification.html">Classification</a><a href="fundamentals-inference.html">Data→Inference</a><a href="multimodal-encoder.html">Multimodal Encoder</a><a href="sysdesign-playbook.html">Sys-Design Playbook</a><a href="math-code.html">Math+Code</a><a href="gradient-descent-lab.html">GD Lab</a><a href="glossary.html">Glossary</a></nav>
+<main class="page">
+
+<h1>Glossary</h1>
+<p class="subtitle">Searchable reference. Type a term, concept, or tag (e.g. "fusion", "quantization", "loss") — matches on definition text and tags.</p>
+
+<div class="glossary-search">
+  <input id="glossary-search" type="text" placeholder="Search terms…" autocomplete="off">
+  <div class="glossary-count" id="glossary-count"></div>
+</div>
+
+<section class="glossary-category">
+<h2>Classification &amp; Fundamentals</h2>
+
+<div class="entry" data-tags="classification linear model regression">
+<span class="term">Logistic Regression</span> — A linear model that outputs a probability via the sigmoid function: <code>p = 1/(1+e^-z)</code> where <code>z = w·x + b</code>. Despite the name it's a classifier, trained by minimizing cross-entropy (log-loss), not squared error.
+<span class="related">Related: sigmoid, cross-entropy, softmax, decision boundary</span>
+</div>
+
+<div class="entry" data-tags="multiclass activation output layer">
+<span class="term">Softmax</span> — Generalizes sigmoid to multiple classes: converts a vector of logits into a probability distribution, <code>softmax(z)_i = e^{z_i} / Σ_j e^{z_j}</code>. Sensitive to logit scale, which is why it's usually paired with a temperature term in calibration or distillation.
+<span class="related">Related: logistic regression, cross-entropy, temperature scaling, calibration</span>
+</div>
+
+<div class="entry" data-tags="loss objective classification">
+<span class="term">Cross-Entropy Loss</span> — Measures the divergence between predicted class probabilities and the true one-hot label: <code>-Σ y_i log(p_i)</code>. Convex in the logits for a single softmax layer, which is why it's the default classification objective over squared error.
+<span class="related">Related: softmax, negative log-likelihood, label smoothing, focal loss</span>
+</div>
+
+<div class="entry" data-tags="generalization theory core tradeoff">
+<span class="term">Bias-Variance Tradeoff</span> — Expected test error decomposes into bias² (error from a model too simple to capture the true function), variance (error from sensitivity to the specific training sample), and irreducible noise. Increasing model capacity typically lowers bias but raises variance; regularization and more data both primarily attack variance.
+<span class="related">Related: overfitting, regularization, capacity, ensembling</span>
+</div>
+
+<div class="entry" data-tags="regularization penalty sparsity">
+<span class="term">L1 Regularization (Lasso)</span> — Adds <code>λΣ|w_i|</code> to the loss. Its non-differentiable corner at zero pushes many weights to exactly zero, producing sparse, more interpretable models — useful for implicit feature selection.
+<span class="related">Related: L2 regularization, sparsity, feature selection</span>
+</div>
+
+<div class="entry" data-tags="regularization penalty weight decay">
+<span class="term">L2 Regularization (Ridge / Weight Decay)</span> — Adds <code>λΣw_i²</code> to the loss, shrinking all weights smoothly toward zero rather than sparsifying. Implemented in most optimizers as "weight decay"; the standard default regularizer for deep nets.
+<span class="related">Related: L1 regularization, AdamW, overfitting</span>
+</div>
+
+<div class="entry" data-tags="generalization failure mode">
+<span class="term">Overfitting</span> — A model fits the training set's noise/idiosyncrasies rather than the underlying signal, so training loss keeps dropping while validation loss rises. Symptom of low bias, high variance; fixed with regularization, more data, augmentation, or early stopping.
+<span class="related">Related: bias-variance tradeoff, dropout, early stopping, train/val/test split</span>
+</div>
+
+<div class="entry" data-tags="data imbalance sampling">
+<span class="term">Class Imbalance</span> — When one class vastly outnumbers another (e.g. rare pedestrians vs. background in AV perception), naive accuracy is misleading and cross-entropy is dominated by the majority class. Fixed with resampling, class weighting, or a loss designed for imbalance like focal loss.
+<span class="related">Related: focal loss, PR-AUC, resampling, data leakage</span>
+</div>
+
+<div class="entry" data-tags="loss imbalance detection">
+<span class="term">Focal Loss</span> — A cross-entropy variant, <code>-(1-p_t)^γ log(p_t)</code>, that down-weights easy/well-classified examples so the model spends gradient budget on hard, misclassified ones. Standard in dense object detection where background examples vastly outnumber objects.
+<span class="related">Related: class imbalance, cross-entropy, object detection</span>
+</div>
+
+<div class="entry" data-tags="metric evaluation">
+<span class="term">Precision / Recall / F1</span> — Precision = TP/(TP+FP) — of predicted positives, how many were right. Recall = TP/(TP+FN) — of actual positives, how many were caught. F1 is their harmonic mean. In AV safety contexts recall on rare hazard classes usually matters more than precision.
+<span class="related">Related: PR-AUC, ROC-AUC, confusion matrix, class imbalance</span>
+</div>
+
+<div class="entry" data-tags="metric evaluation threshold">
+<span class="term">ROC-AUC vs. PR-AUC</span> — ROC-AUC plots true-positive rate vs. false-positive rate across thresholds; it's threshold-independent but can look deceptively good under heavy class imbalance because true negatives dominate. PR-AUC (precision vs. recall) ignores true negatives entirely, so it's the more honest metric when positives are rare — the common case in AV detection tasks.
+<span class="related">Related: precision/recall/F1, class imbalance, calibration</span>
+</div>
+
+<div class="entry" data-tags="probability confidence reliability">
+<span class="term">Calibration</span> — A model is calibrated if its predicted confidence matches empirical accuracy — among predictions with 0.8 confidence, ~80% should be correct. Modern deep nets are often overconfident; fixed post-hoc with temperature scaling or during training with label smoothing.
+<span class="related">Related: temperature scaling, label smoothing, softmax</span>
+</div>
+
+<div class="entry" data-tags="regularization label uncertainty">
+<span class="term">Label Smoothing</span> — Replaces hard one-hot targets (e.g. [0,1,0]) with softened ones (e.g. [0.03,0.94,0.03]), discouraging the model from driving logits to extremes. Improves calibration and generalization at a small cost to peak training accuracy.
+<span class="related">Related: cross-entropy, calibration, overfitting</span>
+</div>
+
+<div class="entry" data-tags="evaluation methodology bug">
+<span class="term">Data Leakage</span> — Information from outside the training set (often indirectly, via preprocessing fit on the full dataset, near-duplicate frames across splits, or a feature that encodes the label) leaks into training, producing inflated validation metrics that don't hold at deployment. A classic AV example: consecutive video frames from the same clip landing in both train and val.
+<span class="related">Related: train/val/test split, distribution shift, overfitting</span>
+</div>
+
+<div class="entry" data-tags="methodology evaluation split">
+<span class="term">Train / Validation / Test Split</span> — Train fits parameters; validation tunes hyperparameters and model selection; test gives a final, only-looked-at-once estimate of real-world performance. Splits must respect real-world grouping (e.g. by driving scenario or vehicle, not by frame) to avoid leakage.
+<span class="related">Related: data leakage, cross-validation, distribution shift</span>
+</div>
+
+<div class="entry" data-tags="classification geometry model">
+<span class="term">Decision Boundary</span> — The surface in feature space where a classifier's predicted class changes. Linear models (logistic regression) produce a flat hyperplane boundary; deep nets can carve arbitrarily curved boundaries — more expressive but harder to reason about and more prone to overfitting the training set's noise.
+<span class="related">Related: logistic regression, overfitting, bias-variance tradeoff</span>
+</div>
+
+<div class="entry" data-tags="evaluation metric table">
+<span class="term">Confusion Matrix</span> — A table of predicted vs. actual class counts (TP, FP, TN, FN for binary) that all other classification metrics (precision, recall, F1) are derived from. The first thing to look at when a single accuracy number seems suspicious, since it exposes exactly which classes are being confused.
+<span class="related">Related: precision/recall/F1, class imbalance</span>
+</div>
+
+<div class="entry" data-tags="methodology model selection">
+<span class="term">Hyperparameter Tuning</span> — Searching over settings the optimizer doesn't learn directly (learning rate, batch size, regularization strength, architecture width/depth) using the validation set, via grid search, random search, or Bayesian optimization. Must never touch the test set, or the "final" performance estimate becomes optimistic.
+<span class="related">Related: train/val/test split, learning-rate schedule</span>
+</div>
+
+<div class="entry" data-tags="methodology evaluation robustness">
+<span class="term">Cross-Validation</span> — Splitting data into k folds, training on k-1 and validating on the held-out fold, rotating through all folds — gives a more robust performance estimate than a single train/val split when data is limited, at the cost of k× the training compute.
+<span class="related">Related: train/val/test split, hyperparameter tuning</span>
+</div>
+
+<div class="entry" data-tags="variance combination models">
+<span class="term">Ensembling (Bagging / Boosting)</span> — Combining multiple models' predictions to improve accuracy/robustness. Bagging (e.g. random forests) trains models independently on bootstrapped data samples and averages them, mainly reducing variance. Boosting (e.g. gradient boosting) trains models sequentially, each correcting the previous ones' errors, mainly reducing bias.
+<span class="related">Related: bias-variance tradeoff, dropout, knowledge distillation</span>
+</div>
+
+</section>
+
+<section class="glossary-category">
+<h2>Training &amp; Scaling</h2>
+
+<div class="entry" data-tags="optimizer gradient descent">
+<span class="term">SGD (Stochastic Gradient Descent)</span> — Updates weights using the gradient of the loss computed on a small random mini-batch rather than the full dataset: <code>w ← w - η∇L</code>. The noise from mini-batching acts as an implicit regularizer and lets training scale to huge datasets.
+<span class="related">Related: learning rate, Adam/AdamW, batch size, momentum</span>
+</div>
+
+<div class="entry" data-tags="optimizer adaptive">
+<span class="term">Adam / AdamW</span> — Adam adapts the per-parameter learning rate using running estimates of the first (mean) and second (variance) moments of the gradient, giving fast, robust convergence with little tuning. AdamW fixes a bug in vanilla Adam where L2 regularization interacted badly with the adaptive scaling — it decouples weight decay from the gradient update. AdamW is the default optimizer for most modern deep nets, including transformers.
+<span class="related">Related: SGD, weight decay, learning-rate schedule</span>
+</div>
+
+<div class="entry" data-tags="hyperparameter training schedule">
+<span class="term">Learning-Rate Schedule</span> — How the learning rate changes over training — e.g. cosine decay, step decay, or linear decay to zero. Too high a rate causes divergence or oscillation; too low wastes compute and can get stuck in sharp minima. Schedules typically combine warmup with decay.
+<span class="related">Related: warmup, SGD, cosine annealing</span>
+</div>
+
+<div class="entry" data-tags="stability training start">
+<span class="term">Warmup</span> — Linearly (or otherwise) ramping the learning rate up from ~0 over the first few hundred/thousand steps before applying the main schedule. Prevents early, poorly-conditioned gradients (especially in transformers with randomly initialized attention) from causing instability.
+<span class="related">Related: learning-rate schedule, transformer encoder/decoder</span>
+</div>
+
+<div class="entry" data-tags="normalization stability cnn">
+<span class="term">Batch Normalization</span> — Normalizes activations to zero mean/unit variance across the batch dimension per layer, then applies a learned scale/shift. Stabilizes and accelerates CNN training but its statistics depend on batch size and composition, which causes issues at small batch sizes or during inference-time distribution shift.
+<span class="related">Related: layer normalization, internal covariate shift, CNN</span>
+</div>
+
+<div class="entry" data-tags="normalization stability transformer">
+<span class="term">Layer Normalization</span> — Normalizes activations across the feature dimension per sample (not across the batch), making it batch-size-independent and well-suited to variable-length sequences. The standard normalization in transformers; batch norm is standard in CNNs.
+<span class="related">Related: batch normalization, transformer encoder/decoder</span>
+</div>
+
+<div class="entry" data-tags="regularization overfitting">
+<span class="term">Dropout</span> — Randomly zeroes a fraction of activations during training, forcing the network to not rely on any single unit and approximating an ensemble of subnetworks. Turned off at inference (or scaled to compensate).
+<span class="related">Related: overfitting, regularization, ensembling</span>
+</div>
+
+<div class="entry" data-tags="data generalization robustness">
+<span class="term">Data Augmentation</span> — Applying label-preserving transformations (crop, flip, color jitter, sensor-realistic noise, simulated rain/occlusion for AV) to training data to increase effective dataset size and robustness to nuisance variation.
+<span class="related">Related: overfitting, distribution shift, domain randomization</span>
+</div>
+
+<div class="entry" data-tags="training strategy ordering">
+<span class="term">Curriculum Learning</span> — Ordering training examples from easy to hard (rather than random shuffling) so the model builds up representations progressively. Used in AV pipelines to start on clean-weather/common scenarios before introducing rare, hard edge cases.
+<span class="related">Related: distribution shift, hard-example mining</span>
+</div>
+
+<div class="entry" data-tags="scale compute data model">
+<span class="term">Scaling Laws</span> — Empirical power-law relationships (Kaplan et al., Chinchilla) between model size, dataset size, compute, and loss. The key practical takeaway: for a fixed compute budget there's an optimal balance of model size vs. data size — a big model is often "undertrained" if data doesn't scale with it.
+<span class="related">Related: data complexity, compute-optimal training</span>
+</div>
+
+<div class="entry" data-tags="deployment robustness gap">
+<span class="term">Distribution Shift</span> — When the data seen at inference differs systematically from training data (new city, new weather, new sensor rig, night vs. day). The central risk in AV deployment; mitigated by domain adaptation/randomization, broader data collection, and continuous monitoring.
+<span class="related">Related: domain adaptation, domain randomization, data augmentation</span>
+</div>
+
+<div class="entry" data-tags="robustness transfer sim2real">
+<span class="term">Domain Adaptation / Domain Randomization</span> — Domain adaptation explicitly aligns feature distributions between a source and target domain (e.g. sim-trained to real-world) via techniques like adversarial alignment or fine-tuning. Domain randomization instead trains on a wide, randomized range of simulated conditions so the real world just looks like "one more sample" — common in sim-to-real robotics/AV pipelines.
+<span class="related">Related: distribution shift, sim-to-real, data augmentation</span>
+</div>
+
+<div class="entry" data-tags="pretraining labels representation">
+<span class="term">Self-Supervised Learning (SSL)</span> — Learning representations from unlabeled data using a pretext task derived from the data itself (predict masked tokens/patches, predict a transformation, match augmented views) rather than human labels. The dominant pretraining paradigm for both language and vision foundation models.
+<span class="related">Related: MAE, contrastive learning, pretraining, CLIP-style alignment</span>
+</div>
+
+<div class="entry" data-tags="ssl representation similarity">
+<span class="term">Contrastive Learning</span> — A self-supervised objective that pulls representations of matching/positive pairs together and pushes non-matching/negative pairs apart in embedding space (e.g. SimCLR, CLIP). Requires careful negative sampling and large batch sizes to work well.
+<span class="related">Related: self-supervised learning, CLIP-style alignment, embedding space</span>
+</div>
+
+<div class="entry" data-tags="ssl vision reconstruction">
+<span class="term">MAE (Masked Autoencoder)</span> — A self-supervised vision pretraining method: mask a large fraction (e.g. 75%) of image patches, encode only the visible ones, and train a lightweight decoder to reconstruct the masked pixels. Cheap to pretrain since the encoder never sees most of the image, and produces strong transferable features.
+<span class="related">Related: self-supervised learning, ViT, patch embedding</span>
+</div>
+
+<div class="entry" data-tags="compression efficiency deployment">
+<span class="term">Knowledge Distillation</span> — Training a smaller "student" model to match a larger "teacher" model's output distribution (often its softened, temperature-scaled logits) rather than only hard labels, transferring the teacher's learned generalization into a cheaper model.
+<span class="related">Related: temperature scaling, quantization, pruning, model compression</span>
+</div>
+
+<div class="entry" data-tags="optimizer stability acceleration">
+<span class="term">Momentum</span> — Accumulates a running exponential average of past gradients and uses it (instead of the raw current gradient) for the update, damping oscillation across steep/narrow loss-surface directions and accelerating progress along consistent ones. Built into SGD-with-momentum and into Adam's first-moment estimate.
+<span class="related">Related: SGD, Adam/AdamW, learning-rate schedule</span>
+</div>
+
+<div class="entry" data-tags="training instability depth">
+<span class="term">Vanishing / Exploding Gradients</span> — In deep networks, repeated multiplication through many layers can shrink gradients toward zero (vanishing — early layers stop learning) or blow them up (exploding — training diverges). Addressed by residual connections, normalization layers, careful weight initialization, and gradient clipping.
+<span class="related">Related: ResNet, batch normalization, gradient clipping, weight initialization</span>
+</div>
+
+<div class="entry" data-tags="nonlinearity layer building block">
+<span class="term">Activation Functions (ReLU / GELU)</span> — The nonlinearity applied after each linear layer, without which stacked layers would collapse into one linear map. ReLU (<code>max(0,x)</code>) is cheap and mitigates vanishing gradients but can "die" (permanently zero gradient) for negative inputs. GELU is a smooth, probabilistic variant standard in transformers (BERT, GPT, ViT).
+<span class="related">Related: vanishing/exploding gradients, ViT, transformer encoder/decoder</span>
+</div>
+
+<div class="entry" data-tags="training start convergence">
+<span class="term">Weight Initialization</span> — How weights are set before training starts (e.g. Xavier/Glorot, He initialization) — scaled so activation variance stays roughly constant across layers at the start, preventing immediate vanishing/exploding gradients. A bad init can make an otherwise-correct architecture fail to train at all.
+<span class="related">Related: vanishing/exploding gradients, batch normalization</span>
+</div>
+
+<div class="entry" data-tags="training stability regularization">
+<span class="term">Gradient Clipping</span> — Rescaling gradients (by norm or value) when they exceed a threshold, before the optimizer step — a cheap safeguard against occasional large/exploding gradients, especially common early in transformer training or with long sequences.
+<span class="related">Related: vanishing/exploding gradients, warmup</span>
+</div>
+
+<div class="entry" data-tags="pretraining adaptation efficiency">
+<span class="term">Transfer Learning / Fine-Tuning</span> — Reusing a model pretrained on a large, general dataset and adapting it to a target task, either by fine-tuning all weights on the smaller target dataset or by freezing the backbone and training only a new head (linear probing). Dramatically reduces the labeled data needed for the target task versus training from scratch.
+<span class="related">Related: self-supervised learning, catastrophic forgetting, LoRA</span>
+</div>
+
+<div class="entry" data-tags="fine-tuning efficiency parameter">
+<span class="term">LoRA (Low-Rank Adaptation)</span> — A parameter-efficient fine-tuning method that freezes the pretrained weights and injects small trainable low-rank matrices into each layer, updating only a tiny fraction of parameters. Makes fine-tuning large foundation models feasible on limited compute/memory, and multiple LoRA adapters can be swapped for different tasks.
+<span class="related">Related: transfer learning/fine-tuning, quantization</span>
+</div>
+
+<div class="entry" data-tags="fine-tuning failure mode">
+<span class="term">Catastrophic Forgetting</span> — Fine-tuning a pretrained model on a new task/domain can overwrite the general knowledge learned during pretraining, degrading performance on the original distribution. Mitigated with lower learning rates, LoRA-style adapters that leave base weights frozen, or replay of original-domain data.
+<span class="related">Related: transfer learning/fine-tuning, LoRA, distribution shift</span>
+</div>
+
+<div class="entry" data-tags="training shared representation">
+<span class="term">Multi-Task Learning</span> — Training one shared backbone with multiple task-specific heads (e.g. detection + segmentation + depth from one AV perception encoder) jointly. Can improve data efficiency and generalization via shared representations, but requires careful loss-weighting across tasks so one task doesn't dominate the gradient signal.
+<span class="related">Related: multimodal encoder, sensor fusion (early/mid/late)</span>
+</div>
+
+</section>
+
+<section class="glossary-category">
+<h2>Inference &amp; Deployment</h2>
+
+<div class="entry" data-tags="compression efficiency numeric precision">
+<span class="term">Quantization (PTQ vs. QAT)</span> — Reducing numeric precision of weights/activations (e.g. FP32 → INT8) to shrink memory and speed up inference. Post-training quantization (PTQ) quantizes a fully-trained model, often with a small calibration set — fast but can lose accuracy. Quantization-aware training (QAT) simulates quantization noise during training so the model adapts to it, typically preserving more accuracy at the cost of extra training.
+<span class="related">Related: AWQ, mixed precision, pruning, inference latency</span>
+</div>
+
+<div class="entry" data-tags="quantization llm weight-only">
+<span class="term">AWQ (Activation-aware Weight Quantization)</span> — A weight-only PTQ method that identifies the small fraction of weights most "salient" to activations (via activation magnitude statistics) and protects them from precision loss, while aggressively quantizing the rest — achieving near-lossless low-bit (e.g. 4-bit) compression without retraining.
+<span class="related">Related: quantization, model compression, inference latency</span>
+</div>
+
+<div class="entry" data-tags="compression sparsity efficiency">
+<span class="term">Pruning</span> — Removing weights, channels, or whole structures that contribute little to output (by magnitude, gradient, or learned importance), producing a sparser and cheaper-to-run model. Unstructured pruning gives higher sparsity but needs specialized hardware/kernels to realize speedups; structured pruning (removing whole channels/heads) gives dense speedups on ordinary hardware.
+<span class="related">Related: quantization, knowledge distillation, model compression</span>
+</div>
+
+<div class="entry" data-tags="deployment compiler graph">
+<span class="term">ONNX / TensorRT-style Compilation</span> — Exporting a trained model to a standardized computation-graph format (ONNX) and then compiling/optimizing it for a target runtime (e.g. TensorRT for NVIDIA GPUs) — fusing operators, selecting optimal kernels, and applying quantization — to minimize inference latency on the deployment hardware.
+<span class="related">Related: quantization, inference latency, mixed precision</span>
+</div>
+
+<div class="entry" data-tags="serving performance tradeoff">
+<span class="term">Latency vs. Throughput</span> — Latency is the time to process one request (critical for AV, a hard real-time constraint); throughput is total requests processed per unit time (matters for offline/batch training-data labeling). Techniques that improve throughput (large batching) often hurt latency, and vice versa — the two must be optimized for separately depending on the serving context.
+<span class="related">Related: batching, inference latency, real-time constraint</span>
+</div>
+
+<div class="entry" data-tags="serving efficiency">
+<span class="term">Batching</span> — Grouping multiple inference requests to run through the model together, amortizing fixed overhead and improving GPU utilization/throughput. In latency-critical settings (AV perception) batch size is often forced to 1, so other techniques (quantization, compilation, hardware) carry more weight.
+<span class="related">Related: latency vs. throughput, inference latency</span>
+</div>
+
+<div class="entry" data-tags="transformer inference memory">
+<span class="term">KV Cache</span> — In autoregressive transformer inference, caching the key/value projections of previous tokens so each new token only computes attention against the cache instead of recomputing the whole sequence — the standard trick that makes generation cost roughly linear instead of quadratic in sequence length. Cache size grows with sequence length and batch size, often the binding memory constraint for serving.
+<span class="related">Related: attention Q/K/V, transformer encoder/decoder, inference latency</span>
+</div>
+
+<div class="entry" data-tags="numeric precision training inference">
+<span class="term">Mixed Precision</span> — Using lower precision (FP16/BF16) for most computation while keeping select operations (e.g. loss scaling, some accumulations) in FP32 for numerical stability — speeds up both training and inference on hardware with native low-precision support, with minimal accuracy loss.
+<span class="related">Related: quantization, ONNX/TensorRT-style compilation</span>
+</div>
+
+</section>
+
+<section class="glossary-category">
+<h2>Architectures</h2>
+
+<div class="entry" data-tags="vision backbone convolution">
+<span class="term">CNN (Convolutional Neural Network)</span> — Applies learned, spatially-shared filters (convolutions) over an image, giving built-in translation equivariance and a strong inductive bias for local, hierarchical visual structure. Pre-ViT default architecture for vision; still dominant where inductive bias and efficiency at small data matter.
+<span class="related">Related: ViT, FPN, receptive field, inductive bias</span>
+</div>
+
+<div class="entry" data-tags="cnn depth gradient">
+<span class="term">ResNet</span> — Introduced residual/skip connections (<code>y = F(x) + x</code>) that let gradients flow directly through identity paths, solving the vanishing-gradient problem that previously made very deep CNNs hard to train. The skip-connection idea is now ubiquitous, including inside transformer blocks.
+<span class="related">Related: CNN, vanishing gradient, transformer encoder/decoder</span>
+</div>
+
+<div class="entry" data-tags="vision transformer sequence">
+<span class="term">ViT (Vision Transformer)</span> — Applies the standard transformer encoder to images by splitting them into fixed-size patches, linearly embedding each as a token, and processing the resulting sequence with self-attention — trading the CNN's built-in spatial inductive bias for scalability, at the cost of needing more data/pretraining to match CNN performance from scratch.
+<span class="related">Related: patch embedding, attention Q/K/V, CNN, positional encoding</span>
+</div>
+
+<div class="entry" data-tags="vit tokenization input">
+<span class="term">Patch Embedding</span> — The ViT input step: cut an image into non-overlapping fixed-size patches (e.g. 16×16 pixels), flatten each, and linearly project it into a token embedding — the visual analog of tokenizing text into word/subword embeddings.
+<span class="related">Related: ViT, tokenization, positional encoding</span>
+</div>
+
+<div class="entry" data-tags="transformer attention mechanism core">
+<span class="term">Attention (Q/K/V)</span> — The core transformer operation: each token produces a query, key, and value vector; attention weights are <code>softmax(QK^T/√d)</code>, used to compute a weighted sum of values. Lets every token directly attend to every other token regardless of distance, unlike the local receptive field of convolution or the sequential bottleneck of RNNs.
+<span class="related">Related: cross-attention, transformer encoder/decoder, KV cache</span>
+</div>
+
+<div class="entry" data-tags="attention fusion multimodal">
+<span class="term">Cross-Attention</span> — Attention where queries come from one sequence/modality and keys/values come from another (e.g. text tokens attending to image patch tokens). The standard mechanism for fusing two modalities inside a transformer, as opposed to self-attention where Q/K/V all come from the same sequence.
+<span class="related">Related: attention Q/K/V, sensor fusion (early/mid/late), VLM</span>
+</div>
+
+<div class="entry" data-tags="transformer architecture sequence">
+<span class="term">Transformer Encoder / Decoder</span> — The encoder maps an input sequence to contextualized representations using self-attention (bidirectional — every token sees every other token); the decoder generates output autoregressively using causal self-attention (each token only sees earlier tokens) plus, in encoder-decoder models, cross-attention into the encoder output. Encoder-only (BERT-style) suits representation/classification tasks; decoder-only (GPT-style) suits generation.
+<span class="related">Related: attention Q/K/V, cross-attention, KV cache, warmup</span>
+</div>
+
+<div class="entry" data-tags="nlp input preprocessing">
+<span class="term">Tokenization</span> — Splitting raw input (text into subwords/BPE tokens, images into patches, point clouds into voxels/pillars) into the discrete units a model actually consumes. The choice of tokenization scheme fundamentally shapes what the model can represent efficiently.
+<span class="related">Related: patch embedding, voxelization, positional encoding</span>
+</div>
+
+<div class="entry" data-tags="transformer sequence order">
+<span class="term">Positional Encoding</span> — Since self-attention itself is permutation-invariant (order-blind), positional encodings (fixed sinusoidal, learned, or relative like RoPE) are added/injected to give the model information about token order or spatial location.
+<span class="related">Related: attention Q/K/V, patch embedding, transformer encoder/decoder</span>
+</div>
+
+<div class="entry" data-tags="segmentation dense prediction cnn">
+<span class="term">U-Net</span> — An encoder-decoder CNN with skip connections directly linking each encoder resolution level to its matching decoder level, preserving fine spatial detail that would otherwise be lost through downsampling — the standard architecture for dense pixel-level prediction (segmentation, depth).
+<span class="related">Related: CNN, FPN, occupancy network</span>
+</div>
+
+<div class="entry" data-tags="detection multiscale cnn">
+<span class="term">FPN (Feature Pyramid Network)</span> — Builds a multi-scale feature pyramid by combining high-resolution/low-semantic features from early CNN layers with low-resolution/high-semantic features from deep layers via top-down pathways and lateral connections — lets a detector handle both small and large objects well. Standard backbone add-on for object detectors.
+<span class="related">Related: CNN, ResNet, object detection</span>
+</div>
+
+<div class="entry" data-tags="sequence model recurrence legacy">
+<span class="term">RNN / LSTM</span> — Recurrent networks process sequences step-by-step, carrying a hidden state forward; LSTMs add gating (input/forget/output gates) to control what information is kept or discarded, mitigating vanishing gradients over long sequences. Mostly superseded by transformers for sequence modeling, but still relevant for low-latency streaming/online settings where full-sequence attention is too costly.
+<span class="related">Related: transformer encoder/decoder, vanishing/exploding gradients, temporal fusion</span>
+</div>
+
+<div class="entry" data-tags="representation vector space">
+<span class="term">Embedding</span> — A learned, dense, lower-dimensional vector representation of a discrete or high-dimensional input (a word, an image, a point in a point cloud), positioned in a continuous space where geometric relationships (distance, direction) capture semantic relationships.
+<span class="related">Related: CLIP-style alignment, contrastive learning, cosine similarity</span>
+</div>
+
+<div class="entry" data-tags="similarity metric embedding">
+<span class="term">Cosine Similarity</span> — Measures the angle between two vectors, <code>(a·b)/(|a||b|)</code>, ignoring magnitude — the standard similarity metric for comparing embeddings (retrieval, contrastive learning) since embedding norm often carries little semantic meaning.
+<span class="related">Related: embedding, contrastive learning, CLIP-style alignment</span>
+</div>
+
+<div class="entry" data-tags="cnn spatial context">
+<span class="term">Receptive Field</span> — The region of the input image that influences a given output neuron/feature. Grows with network depth, kernel size, and dilation in CNNs; in ViTs, self-attention gives every layer a global receptive field from the start, which is one of its key advantages over convolution for capturing long-range context.
+<span class="related">Related: CNN, ViT, FPN</span>
+</div>
+
+<div class="entry" data-tags="detection prior box">
+<span class="term">Anchor Boxes</span> — Predefined reference boxes of various scales/aspect ratios tiled across the image that a detector regresses offsets from, rather than predicting box coordinates from scratch — simplifies the detection problem to classification + regression per anchor. Anchor-free detectors (e.g. predicting box centers/corners directly) remove this design complexity at some cost in recall for extreme aspect ratios.
+<span class="related">Related: object detection, IoU, NMS</span>
+</div>
+
+<div class="entry" data-tags="detection metric overlap">
+<span class="term">IoU (Intersection over Union)</span> — Measures overlap between a predicted and ground-truth box (or mask) as intersection area divided by union area. Used both as a training target (regression loss) and as the threshold for deciding whether a detection counts as a true positive during evaluation.
+<span class="related">Related: anchor boxes, NMS, mAP</span>
+</div>
+
+<div class="entry" data-tags="detection postprocessing duplicates">
+<span class="term">NMS (Non-Maximum Suppression)</span> — Post-processing step that removes duplicate/overlapping detections of the same object: keep the highest-confidence box, suppress others with IoU above a threshold against it, repeat. A classic detection-pipeline bottleneck for latency-critical settings, motivating NMS-free detector designs (e.g. DETR-style set prediction).
+<span class="related">Related: IoU, anchor boxes, object detection</span>
+</div>
+
+<div class="entry" data-tags="detection evaluation aggregate metric">
+<span class="term">mAP (mean Average Precision)</span> — The standard object-detection benchmark metric: compute average precision (area under the precision-recall curve) per class at a given IoU threshold, then average across classes (and often across multiple IoU thresholds, e.g. COCO's mAP@[.5:.95]).
+<span class="related">Related: IoU, precision/recall/F1, PR-AUC</span>
+</div>
+
+</section>
+
+<section class="glossary-category">
+<h2>Multimodal &amp; Autonomous Vehicles</h2>
+
+<div class="entry" data-tags="representation fusion coordinate frame">
+<span class="term">BEV (Bird's-Eye-View) Representation</span> — Projecting features from multiple cameras (and optionally LiDAR/radar) into a shared top-down 2D grid anchored in the vehicle's coordinate frame. Solves the multi-camera fusion problem elegantly since all sensors get expressed in one consistent metric space, making downstream detection/tracking/planning simpler.
+<span class="related">Related: sensor fusion (early/mid/late), ego-motion, occupancy network</span>
+</div>
+
+<div class="entry" data-tags="multimodal architecture design choice">
+<span class="term">Sensor Fusion: Early / Mid / Late</span> — Early fusion combines raw or near-raw sensor data before feature extraction (max information sharing, but sensitive to calibration/sync errors and hard to scale to modality-specific architectures). Late fusion runs separate pipelines per modality and combines only final outputs/detections (robust, modular, but loses cross-modal signal that could help disambiguate hard cases). Mid (feature-level) fusion combines learned features partway through, and is the common sweet spot in modern AV encoders — e.g. fusing BEV-projected camera and LiDAR features before the detection head.
+<span class="related">Related: BEV representation, cross-attention, multimodal encoder</span>
+</div>
+
+<div class="entry" data-tags="sensor camera modality">
+<span class="term">Camera Characteristics</span> — Dense, high-resolution semantic/texture information (color, text, classification cues) but no direct depth — depth must be inferred (monocular) or triangulated (stereo/multi-view), and performance degrades in low light, glare, rain, and occlusion.
+<span class="related">Related: LiDAR characteristics, radar characteristics, sensor fusion</span>
+</div>
+
+<div class="entry" data-tags="sensor lidar modality">
+<span class="term">LiDAR Characteristics</span> — Direct, accurate 3D geometry via time-of-flight laser ranging, largely lighting-invariant, but sparse (especially at range), gives no color/texture/semantic information on its own, and is comparatively expensive and mechanically complex.
+<span class="related">Related: camera characteristics, point-cloud networks, voxelization</span>
+</div>
+
+<div class="entry" data-tags="sensor radar modality">
+<span class="term">Radar Characteristics</span> — Directly measures velocity via Doppler shift (unique among the three), works well in rain/fog/darkness where camera and LiDAR degrade, and has long range — but very low spatial/angular resolution, making object shape and fine localization poor without fusion.
+<span class="related">Related: camera characteristics, LiDAR characteristics, ego-motion</span>
+</div>
+
+<div class="entry" data-tags="lidar architecture raw points">
+<span class="term">PointNet</span> — A neural architecture that consumes raw, unordered 3D point sets directly (no voxelization needed) using per-point shared MLPs followed by a permutation-invariant symmetric aggregation (max pooling), so output is invariant to point ordering. Foundational for later point-cloud detection/segmentation architectures.
+<span class="related">Related: point-cloud networks, voxelization, LiDAR characteristics</span>
+</div>
+
+<div class="entry" data-tags="lidar preprocessing discretization">
+<span class="term">Voxelization</span> — Discretizing a 3D point cloud into a regular grid of volumetric cells (voxels), each summarizing the points inside it — enables applying standard 3D (or sparse 3D) convolutions to point-cloud data at the cost of quantization error and cubic memory growth with resolution.
+<span class="related">Related: pillars, PointNet, point-cloud networks</span>
+</div>
+
+<div class="entry" data-tags="lidar preprocessing bev">
+<span class="term">Pillars (PointPillars-style)</span> — A voxelization variant that discretizes only in the ground-plane (x, y) dimensions into tall vertical "pillars," collapsing the z-dimension per pillar with a learned encoder — cheaper than full 3D voxelization and naturally produces a BEV-aligned feature map, a common LiDAR frontend for AV detection.
+<span class="related">Related: voxelization, BEV representation, point-cloud networks</span>
+</div>
+
+<div class="entry" data-tags="pretraining alignment zero-shot">
+<span class="term">CLIP-style Alignment</span> — Contrastively pretraining an image encoder and a text encoder jointly so matching image-caption pairs land close together in a shared embedding space and mismatched pairs land far apart — yields strong zero-shot classification/retrieval and is the standard backbone for connecting vision features to language in VLMs.
+<span class="related">Related: contrastive learning, VLM, cross-attention</span>
+</div>
+
+<div class="entry" data-tags="multimodal language vision model">
+<span class="term">VLM (Vision-Language Model)</span> — A model that jointly processes images and text, typically a vision encoder (often CLIP-style or ViT) whose output features are projected into a language model's token/embedding space so it can reason over and generate text conditioned on visual input.
+<span class="related">Related: CLIP-style alignment, VLA, cross-attention</span>
+</div>
+
+<div class="entry" data-tags="multimodal robotics action">
+<span class="term">VLA (Vision-Language-Action Model)</span> — Extends a VLM by adding an action output head/decoder, so the model maps (image, language instruction) directly to robot/vehicle control outputs — the emerging paradigm for end-to-end embodied policies, including some AV planning stacks.
+<span class="related">Related: VLM, world model, ego-motion</span>
+</div>
+
+<div class="entry" data-tags="prediction simulation representation">
+<span class="term">World Model</span> — A learned model of environment dynamics that predicts future states (often future sensor observations or latent representations) conditioned on actions — used for planning by simulating rollouts internally, and for self-supervised pretraining by predicting future frames from past ones.
+<span class="related">Related: VLA, temporal fusion, self-supervised learning</span>
+</div>
+
+<div class="entry" data-tags="representation dense 3d free-space">
+<span class="term">Occupancy Network</span> — Predicts, for a dense 3D (or BEV) grid around the vehicle, the probability that each cell is occupied (and often by what class/with what velocity) — a more general representation than discrete bounding-box detection, since it naturally handles arbitrary/unknown-class obstacles ("general-purpose obstacle" detection), a key AV safety property.
+<span class="related">Related: BEV representation, U-Net, sensor fusion</span>
+</div>
+
+<div class="entry" data-tags="video sequence dynamics">
+<span class="term">Temporal Fusion</span> — Combining information across multiple time steps (consecutive frames/sweeps) rather than processing each instant independently — improves detection of occluded/fast-moving objects, reduces flicker, and is essential for velocity/trajectory estimation. Implemented via recurrence, temporal attention, or simple feature-map warping+concatenation across frames.
+<span class="related">Related: world model, ego-motion, BEV representation</span>
+</div>
+
+<div class="entry" data-tags="localization motion coordinate frame">
+<span class="term">Ego-Motion</span> — The vehicle's own motion (position/velocity/pose change) over time, estimated from IMU, wheel odometry, and/or visual/LiDAR odometry. Must be accounted for when fusing sensor data across time (temporal fusion) since the vehicle's own reference frame is constantly shifting.
+<span class="related">Related: temporal fusion, BEV representation, sensor fusion</span>
+</div>
+
+<div class="entry" data-tags="multi-sensor geometry alignment">
+<span class="term">Sensor Calibration (Intrinsics / Extrinsics)</span> — Intrinsics describe a sensor's internal geometry (camera focal length, principal point, lens distortion); extrinsics describe each sensor's pose (rotation + translation) relative to a common vehicle frame. Fusion architectures implicitly assume good calibration — miscalibration is a common, hard-to-diagnose source of degraded fused perception.
+<span class="related">Related: sensor fusion (early/mid/late), ego-motion, BEV representation</span>
+</div>
+
+<div class="entry" data-tags="simulation deployment gap">
+<span class="term">Sim-to-Real Gap</span> — The performance drop when a model trained (partly or fully) in simulation is deployed on real sensor data, caused by simulators imperfectly modeling real sensor noise, lighting, and material properties. Narrowed via domain randomization, real-data fine-tuning, or generative sensor-realism models.
+<span class="related">Related: domain adaptation/randomization, distribution shift, data augmentation</span>
+</div>
+
+<div class="entry" data-tags="stack architecture responsibility">
+<span class="term">Perception vs. Prediction vs. Planning</span> — The classic AV stack decomposition: perception detects/tracks what's in the scene now (objects, lanes, occupancy); prediction forecasts how those agents will move over the next few seconds; planning decides the ego vehicle's own trajectory given that forecast. End-to-end/VLA approaches blur these boundaries by learning a more direct observation-to-action mapping, trading interpretability for potentially better joint optimization.
+<span class="related">Related: world model, VLA, ego-motion</span>
+</div>
+
+<div class="entry" data-tags="prediction forecasting agents">
+<span class="term">Trajectory Prediction</span> — Forecasting the future path(s) of other agents (vehicles, pedestrians, cyclists) given their observed history and scene context — typically multimodal (an agent might turn left or go straight), so models often output a distribution over plausible future trajectories rather than a single path.
+<span class="related">Related: world model, temporal fusion, perception vs. prediction vs. planning</span>
+</div>
+
+<div class="entry" data-tags="map prior representation">
+<span class="term">HD Map</span> — A high-definition, centimeter-accurate prior map encoding lane geometry, traffic-control locations, and road topology, used as a strong structural prior for perception, prediction, and planning — reduces the burden on real-time perception but requires costly mapping/maintenance and creates a dependency on map freshness.
+<span class="related">Related: BEV representation, perception vs. prediction vs. planning</span>
+</div>
+
+</section>
+
+</main>
+</body></html>

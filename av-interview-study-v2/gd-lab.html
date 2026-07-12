@@ -1,0 +1,505 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>GD Lab — AV Study v2</title>
+<link rel="stylesheet" href="assets/style.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/katex.min.css">
+<script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/katex.min.js"></script>
+<script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/contrib/auto-render.min.js"></script>
+<script defer src="assets/app.js"></script>
+</head>
+<body>
+<nav class="topnav"><a href="index.html">Home</a><a href="classification.html">Classification</a><a href="inference.html">Data→Inference</a><a href="encoder.html">Encoder</a><a href="playbook.html">Playbook</a><a href="math.html">Math</a><a href="gd-lab.html">GD Lab</a><a href="glossary.html">Glossary</a></nav>
+<main class="page">
+
+<h1>GD Lab — "Find the Minimum of a Quadratic with Gradient Descent"</h1>
+<p>This is the known coding question for this loop. Below: the canonical answer, the six follow-ups they actually ask, and a live simulator to build intuition for every regime they can push you into. The derivations behind the \(1/a\) threshold are on the <a href="math.html">Math</a> page.</p>
+
+<!-- ============ 1. CANONICAL SOLUTION ============ -->
+<section class="concept" id="solution">
+<h2>1 · The Canonical Pure-Python Solution</h2>
+<p>For \(f(x) = ax^2 + bx + c\), the gradient is \(f'(x) = 2ax + b\) — say this out loud before typing. Write it clean, with the analytic gradient, a real convergence check, and the input guard:</p>
+
+<pre class="code-block"><code>def minimize_quadratic(a, b, c=0.0, lr=0.1, x0=0.0, tol=1e-8, max_iter=10_000):
+    """Minimize f(x) = a*x**2 + b*x + c by gradient descent.
+
+    Gradient: f'(x) = 2*a*x + b.  Requires a &gt; 0, else f has no minimum.
+    """
+    if a &lt;= 0:
+        raise ValueError("a must be positive: f is unbounded below")
+    x = x0
+    for it in range(max_iter):
+        grad = 2*a*x + b
+        if abs(grad) &lt; tol:          # converged: slope is flat
+            return x, it
+        x -= lr * grad               # the update
+    return x, max_iter               # ran out of budget — say so
+
+# sanity: minimize_quadratic(1, -4) -&gt; x ≈ 2.0, matches -b/(2a)</code></pre>
+
+<p>Talk track while writing: "gradient is analytic so I don't need autodiff; I stop on gradient norm, not iteration count; I return the iteration count so the caller can tell convergence from budget exhaustion; and I guard \(a \le 0\) because the problem is ill-posed there."</p>
+
+<h3>The six follow-ups (they will ask 2–3 of these)</h3>
+
+<h4>a) "What if I don't give you the gradient?" — numerical differentiation</h4>
+<pre class="code-block"><code>def num_grad(f, x, h=1e-5):
+    return (f(x + h) - f(x - h)) / (2 * h)   # central difference</code></pre>
+<p>Why central: Taylor-expand \(f(x\pm h) = f \pm hf' + \tfrac{h^2}{2}f'' \pm \tfrac{h^3}{6}f''' + \dots\) Subtracting, the even-order terms <em>cancel</em>, leaving error \(O(h^2)\); the forward difference \((f(x+h)-f(x))/h\) keeps the \(\tfrac{h}{2}f''\) term, so it's only \(O(h)\). Also mention the floating-point floor: too-small \(h\) amplifies round-off, so \(h \approx \sqrt{\varepsilon_{machine}} \approx 10^{-8}\)–\(10^{-5}\) is the sweet spot.</p>
+
+<h4>b) "How do you decide when to stop?" — the criteria menu</h4>
+<ul>
+<li>\(|f'(x)| &lt; \text{tol}\) — first-order optimality; the principled default.</li>
+<li>\(|x_{t+1} - x_t| &lt; \text{tol}\) — parameter movement; note it equals \(\eta|f'|\), so it's the same test rescaled by lr.</li>
+<li>\(|f(x_{t+1}) - f(x_t)| &lt; \text{tol}\) — loss plateau; what you actually watch in training.</li>
+<li><code>max_iter</code> — the budget backstop; always present, never the only criterion.</li>
+</ul>
+<p>Bonus point: absolute tolerances are scale-dependent — for production, use relative (\(|f'| &lt; \text{tol} \cdot (1 + |f|)\)).</p>
+
+<h4>c) "What if a &lt; 0?" — detect and refuse</h4>
+<p>\(f\) is a downward parabola: no minimum exists and GD runs to \(-\infty\). Guard at entry (<code>raise ValueError</code>) — or, if you can't inspect \(a\) (black-box \(f\)), detect it dynamically: the loss <em>increasing</em> monotonically while the gradient magnitude grows is the signature. Never silently return the last iterate.</p>
+
+<h4>d) "What happens as I change the learning rate?" — the regimes</h4>
+<p>Deviation from the vertex obeys \(d_{t+1} = (1 - 2a\eta)\,d_t\) (derivation on <a href="math.html#optimization">Math §1</a>, with \(L = 2a\)):</p>
+<div style="overflow-x:auto"><table>
+<thead><tr><th>lr range</th><th>multiplier \(1-2a\eta\)</th><th>behavior</th></tr></thead>
+<tbody>
+<tr><td>\(0 &lt; \eta &lt; \tfrac{1}{2a}\)</td><td>\((0, 1)\)</td><td>monotone convergence</td></tr>
+<tr><td>\(\eta = \tfrac{1}{2a}\)</td><td>\(0\)</td><td>one-step exact (Newton step for a quadratic)</td></tr>
+<tr><td>\(\tfrac{1}{2a} &lt; \eta &lt; \tfrac{1}{a}\)</td><td>\((-1, 0)\)</td><td>oscillating convergence</td></tr>
+<tr><td>\(\eta = \tfrac{1}{a}\)</td><td>\(-1\)</td><td>permanent oscillation, never converges</td></tr>
+<tr><td>\(\eta &gt; \tfrac{1}{a}\)</td><td>\(&lt; -1\)</td><td><strong>divergence</strong></td></tr>
+</tbody>
+</table></div>
+
+<h4>e) "Add momentum."</h4>
+<pre class="code-block"><code>def minimize_momentum(a, b, lr=0.1, x0=0.0, beta=0.9, tol=1e-8, max_iter=10_000):
+    x, v = x0, 0.0
+    for it in range(max_iter):
+        grad = 2*a*x + b
+        if abs(grad) &lt; tol:
+            return x, it
+        v = beta * v - lr * grad     # heavy ball: velocity accumulates
+        x += v
+    return x, max_iter</code></pre>
+
+<h4>f) "How do you know your answer is right?" — closed form</h4>
+<p>\(f'(x^*) = 2ax^* + b = 0 \Rightarrow x^* = -\dfrac{b}{2a}\), with \(f(x^*) = c - \dfrac{b^2}{4a}\). Assert against it in a test: <code>assert abs(x_hat - (-b/(2*a))) &lt; 1e-6</code>. Saying "of course a quadratic has a closed form — GD is the point of the exercise, so I'll use the closed form as the test oracle" is exactly the right framing.</p>
+</section>
+
+<!-- ============ 2. INTERACTIVE VISUALIZER ============ -->
+<section class="concept" id="visualizer">
+<h2>2 · The Simulator</h2>
+<p>Everything below runs the <em>actual</em> update <code>x -= lr * (2*a*x + b)</code> (plus <code>v = 0.9*v - lr*grad; x += v</code> for the momentum overlay). The red marker on the lr slider is the divergence threshold \(\eta_c = 1/a\) — cross it and watch.</p>
+
+<figure class="viz">
+  <svg id="gd-svg" viewBox="0 0 720 420" role="img" aria-label="Interactive gradient descent on a parabola"></svg>
+  <div class="legend" id="gd-legend"></div>
+  <div class="viz-controls" id="gd-controls">
+    <label>a <input type="range" id="gd-a" min="0.2" max="4" step="0.05" value="2"> <span class="readout" id="gd-a-val">2.00</span></label>
+    <label>b <input type="range" id="gd-b" min="-6" max="6" step="0.25" value="0"> <span class="readout" id="gd-b-val">0.00</span></label>
+    <label>x₀ <input type="range" id="gd-x0" min="-6" max="6" step="0.25" value="5"> <span class="readout" id="gd-x0-val">5.00</span></label>
+    <div>
+      <label style="display:block">lr (η) <input type="range" id="gd-lr" min="0.01" max="1.2" step="0.005" value="0.12"> <span class="readout" id="gd-lr-val">0.120</span></label>
+      <div id="gd-lr-scale" style="position:relative;height:20px;font-size:11px;">
+        <span id="gd-thresh-marker" style="position:absolute;transform:translateX(-50%);color:var(--s6);white-space:nowrap;">▲ η<sub>c</sub>=1/a</span>
+      </div>
+    </div>
+    <label><input type="checkbox" id="gd-mom"> momentum overlay (β = 0.9)</label>
+  </div>
+  <div class="viz-controls">
+    <button id="gd-step" type="button">Step</button>
+    <button id="gd-run" type="button">Run ▸</button>
+    <button id="gd-pause" type="button" disabled>Pause</button>
+    <button id="gd-reset" type="button">Reset</button>
+    <span id="gd-badge" style="padding:2px 10px;border-radius:999px;font-weight:600;font-size:12px;"></span>
+  </div>
+  <div style="overflow-x:auto"><table>
+    <thead><tr><th></th><th>iter t</th><th>x_t</th><th>f(x_t)</th><th>∇f(x_t)</th></tr></thead>
+    <tbody>
+      <tr><th style="color:var(--s1)">plain GD</th><td class="readout" id="gd-ro-it">0</td><td class="readout" id="gd-ro-x">·</td><td class="readout" id="gd-ro-f">·</td><td class="readout" id="gd-ro-g">·</td></tr>
+      <tr id="gd-mom-row" hidden><th style="color:var(--s2)">momentum</th><td class="readout" id="gd-ro-itm">0</td><td class="readout" id="gd-ro-xm">·</td><td class="readout" id="gd-ro-fm">·</td><td class="readout" id="gd-ro-gm">·</td></tr>
+    </tbody>
+  </table></div>
+  <figcaption>f(x) = ax² + bx. Dots are iterates with a fading trail; the vertical dashed line marks the closed-form minimum x* = −b/(2a). The frame rescales automatically to keep the trajectory in view — if the dots run away faster than the frame can grow, you are diverging.</figcaption>
+</figure>
+
+<div class="callout"><strong>Cross-check the theory live:</strong> set a=2, b=0, x₀=5. Threshold η<sub>c</sub> = 1/a = 0.5. At lr=0.45 it hops across the valley but shrinks (multiplier −0.8); at exactly 0.5 it bounces between ±5 forever (multiplier −1); at 0.6 every hop grows 1.4× — divergence. Now flip on momentum at lr=0.6: heavy ball is stable up to η &lt; (1+β)/a = 0.95, so the aqua run spirals in while the blue one explodes.</div>
+</section>
+
+<!-- ============ 3. FOLLOW-UP FLIGHT SIMULATOR ============ -->
+<section class="concept" id="flightsim">
+<h2>3 · Follow-up Flight Simulator</h2>
+<p>Each preset configures the simulator into a state an interviewer steers you toward. Click, run, and rehearse the one-line diagnosis.</p>
+<div class="viz-controls" id="gd-presets">
+  <button type="button" data-preset="below">lr just below threshold</button>
+  <button type="button" data-preset="at">lr exactly at threshold</button>
+  <button type="button" data-preset="above">lr above threshold</button>
+  <button type="button" data-preset="far">far x₀, tiny lr</button>
+  <button type="button" data-preset="rescue">momentum rescues divergence</button>
+</div>
+<ul>
+<li><strong>lr just below threshold</strong> (a=2, lr=0.45): probing whether you know oscillation can still converge — "multiplier is −0.8, so it's stable but wasteful; I'd halve the lr."</li>
+<li><strong>lr exactly at threshold</strong> (lr=0.50 = 1/a): probing the boundary case — "multiplier is exactly −1: permanent oscillation between ±x₀, gradient never shrinks, the |grad|&lt;tol check never fires. This is why max_iter must exist."</li>
+<li><strong>lr above threshold</strong> (lr=0.60): probing divergence detection — "each step multiplies the error by 1.4; I'd detect f increasing across iterations and raise/decay the lr."</li>
+<li><strong>far x₀, tiny lr</strong> (a=0.3, lr=0.03, x₀=−6): probing the other failure — "converging, but the multiplier is 0.98; it needs ~500 steps. Slow convergence looks like a bug if your budget is 100 iterations."</li>
+<li><strong>momentum rescues</strong> (a=2, lr=0.6, momentum on): probing whether momentum is just "faster" to you — "heavy ball extends the stability range to (1+β)/a = 0.95, so a step size that diverges for plain GD spirals in with momentum. It's not only acceleration; it changes the stable region."</li>
+</ul>
+</section>
+
+<!-- ============ 4. PURE-PYTHON IDIOMS ============ -->
+<section class="concept" id="idioms">
+<h2>4 · Pure-Python Idioms Under Pressure</h2>
+<p>Five patterns that keep whiteboard Python clean when your hands are shaking.</p>
+
+<h4>Early-return loops — no flag variables</h4>
+<pre class="code-block"><code># yes: return communicates "converged" structurally
+for it in range(max_iter):
+    if abs(grad) &lt; tol:
+        return x, it
+    ...
+return x, max_iter          # falls through = budget exhausted
+
+# no: done = False ... while not done — extra state to get wrong</code></pre>
+
+<h4>f-strings for instant debug traces</h4>
+<pre class="code-block"><code>if verbose and it % 100 == 0:
+    print(f"it={it:5d}  x={x:+.6f}  f={a*x*x + b*x:+.6f}  grad={grad:+.3e}")
+# {:+.3e} keeps sign and magnitude visible — divergence is obvious in 3 lines</code></pre>
+
+<h4>List-comprehension traces — history without ceremony</h4>
+<pre class="code-block"><code>xs = [x0]
+for _ in range(n):
+    xs.append(xs[-1] - lr * (2*a*xs[-1] + b))
+ratios = [abs(x2/x1) for x1, x2 in zip(xs, xs[1:]) if x1]  # ≈ |1-2a·lr| each step</code></pre>
+
+<h4>Closures for objectives — pass functions, not globals</h4>
+<pre class="code-block"><code>def make_quadratic(a, b, c=0.0):
+    f = lambda x: a*x*x + b*x + c
+    df = lambda x: 2*a*x + b
+    return f, df                 # gd(f, df, ...) now works for ANY objective
+
+# generalizes the solution beyond quadratics in one sentence</code></pre>
+
+<h4>Defensive asserts — encode the invariants</h4>
+<pre class="code-block"><code>assert a &gt; 0, "no minimum for a &lt;= 0"
+assert lr &gt; 0 and tol &gt; 0
+x_hat, its = minimize_quadratic(a, b, lr=0.1)
+assert abs(x_hat - (-b / (2*a))) &lt; 1e-6   # oracle: closed form</code></pre>
+</section>
+
+<!-- ============ 5. TERMS + QUIZ ============ -->
+<section class="concept" id="terms">
+<h2>5 · Memorize These</h2>
+<div class="term-box">
+<h4>Terms</h4>
+<p><span class="term">gradient descent</span><span class="term">learning rate (η)</span><span class="term">curvature / L-smoothness (L = 2a)</span><span class="term">convergence criterion</span><span class="term">momentum / heavy ball</span><span class="term">divergence (η &gt; 1/a)</span><span class="term">central difference O(h²)</span><span class="term">closed form x* = −b/(2a)</span></p>
+<p class="related">Related: <a href="math.html#optimization">Math §1</a> derives the threshold; <a href="playbook.html">Playbook</a> for how to narrate while coding.</p>
+</div>
+
+<div class="quiz">
+<h4>Quiz</h4>
+<details><summary>Q1. For f(x) = 3x² − 6x, what lr makes GD converge in exactly one step, and to where?</summary><p>The multiplier is 1−2aη = 1−6η; it is 0 at η = 1/6. One step from any x₀ lands on x* = −b/(2a) = 1. (For a quadratic, η = 1/(2a) <em>is</em> the Newton step: 1/f''.)</p></details>
+<details><summary>Q2. Your GD "converges" to x = 4.999 with a=1, b=−10, tol=1e-8, but the interviewer says the check never fired. What happened?</summary><p>x* = 5, and the loop hit max_iter first: near the optimum the multiplier shrinks the error geometrically but |grad| = |2x−10| ≈ 0.002 may still exceed tol if the budget is small. Distinguish "converged" from "budget exhausted" in the return value.</p></details>
+<details><summary>Q3. Why is the central difference O(h²) but the forward difference only O(h)?</summary><p>Taylor: f(x±h) = f ± hf′ + h²f″/2 ± h³f‴/6. In (f(x+h) − f(x−h))/2h the even-order terms cancel, leaving h²f‴/6 leading error; forward difference keeps the hf″/2 term.</p></details>
+<details><summary>Q4. With β = 0.9, how much larger a learning rate can heavy-ball momentum tolerate than plain GD on a quadratic?</summary><p>Plain: η &lt; 2/L. Heavy ball: η &lt; 2(1+β)/L — a factor of (1+β) = 1.9× larger. The "momentum rescues" preset shows it at lr = 0.6 with a = 2.</p></details>
+<details><summary>Q5. Detect a &lt; 0 without seeing a (black-box f).</summary><p>Track f across iterates: if f increases monotonically while |grad| grows, you are on a concave objective (or lr way past threshold — distinguish by retrying with a much smaller lr: concave still diverges).</p></details>
+</div>
+</section>
+
+<script>
+(function () {
+  "use strict";
+  var css = function (name) { return "var(" + name + ")"; };
+  var $ = function (id) { return document.getElementById(id); };
+
+  /* KaTeX fallback if app.js doesn't auto-render */
+  window.addEventListener("load", function () {
+    setTimeout(function () {
+      if (!document.querySelector(".katex") && window.renderMathInElement) {
+        window.renderMathInElement(document.body, {
+          delimiters: [
+            { left: "$$", right: "$$", display: true },
+            { left: "\\(", right: "\\)", display: false }
+          ],
+          throwOnError: false
+        });
+      }
+    }, 250);
+  });
+
+  function svgEl(tag, attrs, parent) {
+    var el = document.createElementNS("http://www.w3.org/2000/svg", tag);
+    for (var k in attrs) el.setAttribute(k, attrs[k]);
+    if (parent) parent.appendChild(el);
+    return el;
+  }
+
+  var svg = $("gd-svg");
+  var controls = {
+    a: $("gd-a"), b: $("gd-b"), x0: $("gd-x0"), lr: $("gd-lr"), mom: $("gd-mom"),
+    aVal: $("gd-a-val"), bVal: $("gd-b-val"), x0Val: $("gd-x0-val"), lrVal: $("gd-lr-val"),
+    step: $("gd-step"), run: $("gd-run"), pause: $("gd-pause"), reset: $("gd-reset"),
+    badge: $("gd-badge"), marker: $("gd-thresh-marker"), legend: $("gd-legend"),
+    momRow: $("gd-mom-row"),
+    roIt: $("gd-ro-it"), roX: $("gd-ro-x"), roF: $("gd-ro-f"), roG: $("gd-ro-g"),
+    roItm: $("gd-ro-itm"), roXm: $("gd-ro-xm"), roFm: $("gd-ro-fm"), roGm: $("gd-ro-gm"),
+    presets: $("gd-presets")
+  };
+  for (var key in controls) { if (!controls[key]) return; } /* bail if any DOM node missing */
+
+  var W = 720, H = 420, m = { l: 52, r: 16, t: 16, b: 40 };
+  var BETA = 0.9, TRAIL = 36, MAX_ABS = 1e8;
+
+  var state = null, timer = null;
+
+  function params() {
+    return {
+      a: parseFloat(controls.a.value), b: parseFloat(controls.b.value),
+      lr: parseFloat(controls.lr.value), x0: parseFloat(controls.x0.value),
+      mom: controls.mom.checked
+    };
+  }
+  function f(p, x) { return p.a * x * x + p.b * x; }
+  function grad(p, x) { return 2 * p.a * x + p.b; }
+  function vertex(p) { return -p.b / (2 * p.a); }
+
+  function freshState() {
+    var p = params();
+    return {
+      p: p,
+      x: p.x0, it: 0, diverged: false,
+      xm: p.x0, vm: 0, itm: 0, divergedM: false,
+      hist: [p.x0], histM: [p.x0]
+    };
+  }
+
+  /* one honest GD step (and momentum twin if enabled) */
+  function stepOnce() {
+    var s = state, p = s.p;
+    if (!s.diverged) {
+      s.x = s.x - p.lr * grad(p, s.x);            /* x -= lr * (2ax + b) */
+      s.it++;
+      s.hist.push(s.x);
+      if (!isFinite(s.x) || Math.abs(s.x - vertex(p)) > MAX_ABS) s.diverged = true;
+    }
+    if (p.mom && !s.divergedM) {
+      s.vm = BETA * s.vm - p.lr * grad(p, s.xm);  /* heavy ball */
+      s.xm = s.xm + s.vm;
+      s.itm++;
+      s.histM.push(s.xm);
+      if (!isFinite(s.xm) || Math.abs(s.xm - vertex(p)) > MAX_ABS) s.divergedM = true;
+    }
+    if (s.hist.length > 400) s.hist.splice(0, s.hist.length - 400);
+    if (s.histM.length > 400) s.histM.splice(0, s.histM.length - 400);
+  }
+
+  /* ------- regime badge: multiplier 1 - 2a·lr ------- */
+  function updateBadge() {
+    var p = params();
+    var mult = 1 - 2 * p.a * p.lr;
+    var el = controls.badge, label, color;
+    if (state && (state.diverged || (p.mom && state.divergedM && state.diverged))) {
+      label = "DIVERGED (|x| > 10⁸)"; color = "--critical";
+    } else if (Math.abs(mult) >= 1) {
+      label = Math.abs(mult) === 1 ? "MARGINAL — oscillates forever (η = 1/a)" : "DIVERGING · |1−2aη| = " + Math.abs(mult).toFixed(2);
+      color = "--critical";
+    } else if (mult < 0) {
+      label = "oscillating (converges) · mult " + mult.toFixed(2); color = "--warn";
+    } else {
+      label = "converging · mult " + mult.toFixed(2); color = "--good";
+    }
+    el.textContent = label;
+    el.style.background = css(color);
+    el.style.color = "#fff";
+  }
+
+  /* ------- lr slider threshold marker at η_c = 1/a ------- */
+  function updateMarker() {
+    var p = params();
+    var etaC = 1 / p.a;
+    var lo = parseFloat(controls.lr.min), hi = parseFloat(controls.lr.max);
+    if (etaC > hi) {
+      controls.marker.style.display = "none";
+    } else {
+      controls.marker.style.display = "";
+      var pct = (etaC - lo) / (hi - lo) * 100;
+      controls.marker.style.left = pct.toFixed(2) + "%";
+      controls.marker.innerHTML = "▲ η<sub>c</sub> = 1/a = " + etaC.toFixed(3);
+    }
+  }
+
+  function fmt(v) {
+    if (!isFinite(v)) return "∞";
+    var av = Math.abs(v);
+    if (av !== 0 && (av >= 1e5 || av < 1e-4)) return v.toExponential(2);
+    return v.toFixed(4);
+  }
+
+  function updateReadouts() {
+    var s = state, p = s.p;
+    controls.roIt.textContent = s.it;
+    controls.roX.textContent = fmt(s.x);
+    controls.roF.textContent = fmt(f(p, s.x));
+    controls.roG.textContent = fmt(grad(p, s.x));
+    controls.momRow.hidden = !p.mom;
+    if (p.mom) {
+      controls.roItm.textContent = s.itm;
+      controls.roXm.textContent = fmt(s.xm);
+      controls.roFm.textContent = fmt(f(p, s.xm));
+      controls.roGm.textContent = fmt(grad(p, s.xm));
+    }
+  }
+
+  /* ------- drawing (dynamic reframe) ------- */
+  function niceStep(raw) {
+    var pow = Math.pow(10, Math.floor(Math.log10(raw)));
+    var frac = raw / pow;
+    return (frac <= 1 ? 1 : frac <= 2 ? 2 : frac <= 5 ? 5 : 10) * pow;
+  }
+
+  function draw() {
+    var s = state, p = s.p;
+    while (svg.firstChild) svg.removeChild(svg.firstChild);
+
+    /* frame: vertex ± enough to hold recent trajectory (clamped) */
+    var xv = vertex(p);
+    var span = Math.max(Math.abs(p.x0 - xv) * 1.25, 2);
+    var recent = s.hist.slice(-TRAIL).concat(p.mom ? s.histM.slice(-TRAIL) : []);
+    recent.forEach(function (x) {
+      if (isFinite(x)) span = Math.max(span, Math.min(Math.abs(x - xv) * 1.15, 5e4));
+    });
+    var xMin = xv - span, xMax = xv + span;
+    var yLo = f(p, xv), yHi = Math.max(f(p, xMin), f(p, xMax));
+    var yPad = (yHi - yLo) * 0.08 + 1e-9;
+    var yMin = yLo - yPad, yMax = yHi + yPad;
+    function sx(x) { return m.l + (x - xMin) / (xMax - xMin) * (W - m.l - m.r); }
+    function sy(y) { return H - m.b - (y - yMin) / (yMax - yMin) * (H - m.t - m.b); }
+
+    /* hairline grid with nice ticks */
+    var stepX = niceStep((xMax - xMin) / 8), stepY = niceStep((yMax - yMin) / 6), t;
+    for (t = Math.ceil(xMin / stepX) * stepX; t <= xMax; t += stepX) {
+      svgEl("line", { x1: sx(t), y1: sy(yMin), x2: sx(t), y2: sy(yMax), stroke: css("--grid"), "stroke-width": 1 }, svg);
+      svgEl("text", { x: sx(t), y: H - m.b + 16, fill: css("--muted"), "font-size": 11, "text-anchor": "middle" }, svg).textContent = +t.toPrecision(3);
+    }
+    for (t = Math.ceil(yMin / stepY) * stepY; t <= yMax; t += stepY) {
+      svgEl("line", { x1: sx(xMin), y1: sy(t), x2: sx(xMax), y2: sy(t), stroke: css("--grid"), "stroke-width": 1 }, svg);
+      svgEl("text", { x: m.l - 6, y: sy(t) + 4, fill: css("--muted"), "font-size": 11, "text-anchor": "end" }, svg).textContent = +t.toPrecision(3);
+    }
+    svgEl("line", { x1: sx(xMin), y1: sy(yMin), x2: sx(xMax), y2: sy(yMin), stroke: css("--axis"), "stroke-width": 1.5 }, svg);
+    svgEl("line", { x1: sx(xMin), y1: sy(yMin), x2: sx(xMin), y2: sy(yMax), stroke: css("--axis"), "stroke-width": 1.5 }, svg);
+
+    /* closed-form minimum marker */
+    svgEl("line", { x1: sx(xv), y1: sy(yMin), x2: sx(xv), y2: sy(yMax), stroke: css("--warn"), "stroke-width": 1.5, "stroke-dasharray": "5 4" }, svg);
+    svgEl("text", { x: sx(xv) + 6, y: m.t + 14, fill: css("--warn"), "font-size": 12 }, svg).textContent = "x* = −b/2a = " + xv.toFixed(2);
+
+    /* parabola */
+    var d = "", i, N = 120;
+    for (i = 0; i <= N; i++) {
+      var px = xMin + (xMax - xMin) * i / N;
+      d += (d ? " L" : "M") + sx(px).toFixed(1) + " " + sy(f(p, px)).toFixed(1);
+    }
+    svgEl("path", { d: d, fill: "none", stroke: css("--muted"), "stroke-width": 2 }, svg);
+
+    /* trails: fading dots + connecting hops */
+    function drawTrail(hist, color) {
+      var tail = hist.slice(-TRAIL);
+      var pd = "";
+      tail.forEach(function (x) {
+        if (!isFinite(x)) return;
+        var cx = Math.max(xMin, Math.min(xMax, x));
+        pd += (pd ? " L" : "M") + sx(cx).toFixed(1) + " " + sy(Math.min(f(p, x), yMax)).toFixed(1);
+      });
+      if (pd) svgEl("path", { d: pd, fill: "none", stroke: color, "stroke-width": 1.5, opacity: 0.45, "stroke-dasharray": "2 3" }, svg);
+      tail.forEach(function (x, k) {
+        if (!isFinite(x) || x < xMin || x > xMax || f(p, x) > yMax) return;
+        var isLast = k === tail.length - 1;
+        svgEl("circle", {
+          cx: sx(x), cy: sy(f(p, x)), r: isLast ? 6 : 4,
+          fill: color, opacity: (0.15 + 0.85 * (k + 1) / tail.length).toFixed(2)
+        }, svg);
+      });
+    }
+    drawTrail(s.hist, css("--s1"));
+    if (p.mom) drawTrail(s.histM, css("--s2"));
+  }
+
+  function updateLegend() {
+    controls.legend.innerHTML = "";
+    function item(color, label) {
+      var sp = document.createElement("span");
+      sp.style.cssText = "display:inline-flex;align-items:center;gap:6px;margin-right:14px";
+      var dot = document.createElement("span");
+      dot.style.cssText = "width:10px;height:10px;border-radius:50%;display:inline-block;background:" + color;
+      sp.appendChild(dot); sp.appendChild(document.createTextNode(label));
+      controls.legend.appendChild(sp);
+    }
+    item(css("--s1"), "plain GD  x ← x − η(2ax+b)");
+    if (controls.mom.checked) item(css("--s2"), "heavy ball  v ← βv − η∇f,  x ← x+v");
+    item(css("--warn"), "x* (closed form)");
+  }
+
+  function refreshAll() {
+    controls.aVal.textContent = parseFloat(controls.a.value).toFixed(2);
+    controls.bVal.textContent = parseFloat(controls.b.value).toFixed(2);
+    controls.x0Val.textContent = parseFloat(controls.x0.value).toFixed(2);
+    controls.lrVal.textContent = parseFloat(controls.lr.value).toFixed(3);
+    updateMarker(); updateBadge(); updateLegend(); updateReadouts(); draw();
+  }
+
+  function resetSim() {
+    stopRun();
+    state = freshState();
+    refreshAll();
+  }
+  function doStep() {
+    stepOnce();
+    updateBadge(); updateReadouts(); draw();
+    if (state.diverged && (!state.p.mom || state.divergedM)) stopRun();
+  }
+  function startRun() {
+    if (timer) return;
+    controls.run.disabled = true; controls.pause.disabled = false;
+    timer = setInterval(doStep, 110);
+  }
+  function stopRun() {
+    if (timer) { clearInterval(timer); timer = null; }
+    controls.run.disabled = false; controls.pause.disabled = true;
+  }
+
+  controls.step.addEventListener("click", function () { stopRun(); doStep(); });
+  controls.run.addEventListener("click", startRun);
+  controls.pause.addEventListener("click", stopRun);
+  controls.reset.addEventListener("click", resetSim);
+  [controls.a, controls.b, controls.x0, controls.lr].forEach(function (el) {
+    el.addEventListener("input", resetSim); /* changing the problem restarts the run */
+  });
+  controls.mom.addEventListener("change", resetSim);
+
+  /* presets */
+  var PRESETS = {
+    below: { a: 2, b: 0, x0: 5, lr: 0.45, mom: false },
+    at: { a: 2, b: 0, x0: 5, lr: 0.5, mom: false },
+    above: { a: 2, b: 0, x0: 5, lr: 0.6, mom: false },
+    far: { a: 0.3, b: 0, x0: -6, lr: 0.03, mom: false },
+    rescue: { a: 2, b: 0, x0: 5, lr: 0.6, mom: true }
+  };
+  controls.presets.addEventListener("click", function (ev) {
+    var btn = ev.target.closest ? ev.target.closest("button[data-preset]") : null;
+    if (!btn) return;
+    var cfg = PRESETS[btn.getAttribute("data-preset")];
+    if (!cfg) return;
+    controls.a.value = cfg.a; controls.b.value = cfg.b;
+    controls.x0.value = cfg.x0; controls.lr.value = cfg.lr;
+    controls.mom.checked = cfg.mom;
+    resetSim();
+    startRun();
+  });
+
+  resetSim();
+})();
+</script>
+</main>
+</body>
+</html>

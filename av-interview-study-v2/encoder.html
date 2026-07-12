@@ -1,0 +1,967 @@
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>Encoder — AV Study v2</title><link rel="stylesheet" href="assets/style.css"><link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/katex.min.css"><script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/katex.min.js"></script><script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/contrib/auto-render.min.js"></script><script defer src="assets/app.js"></script></head><body><nav class="topnav"><a href="index.html">Home</a><a href="classification.html">Classification</a><a href="inference.html">Data→Inference</a><a href="encoder.html">Encoder</a><a href="playbook.html">Playbook</a><a href="math.html">Math</a><a href="gd-lab.html">GD Lab</a><a href="glossary.html">Glossary</a></nav><main class="page">
+
+<h1>Designing a Multimodal Perception Encoder</h1>
+<p>This is the deep page for the known interview question: <em>“design a multimodal perception encoder for an autonomous vehicle.”</em> Work top to bottom — each section is one layer of the answer, and the clickable diagram in <a href="#pipeline">Section 2</a> is the picture you should be able to draw and narrate from memory. The <a href="playbook.html">Playbook</a> page covers how to pace this in a 45-minute round.</p>
+
+<!-- ============================================================ -->
+<section id="modalities">
+<h2>1. The three sensors and what each one actually sees</h2>
+
+<figure class="viz">
+  <svg viewBox="0 0 840 260" role="img" aria-label="Triptych: the same street scene as seen by camera, LiDAR, and radar">
+    <!-- panel frames -->
+    <g font-size="13" fill="var(--ink)" font-weight="600">
+      <text x="130" y="20" text-anchor="middle">Camera</text>
+      <text x="420" y="20" text-anchor="middle">LiDAR</text>
+      <text x="710" y="20" text-anchor="middle">Radar</text>
+    </g>
+    <g font-size="11" fill="var(--muted)">
+      <text x="130" y="252" text-anchor="middle">dense pixels, rich texture, no depth</text>
+      <text x="420" y="252" text-anchor="middle">sparse 3D points, metric depth</text>
+      <text x="710" y="252" text-anchor="middle">few detections, direct velocity</text>
+    </g>
+    <rect x="20" y="30" width="220" height="205" fill="none" stroke="var(--grid)" rx="6"/>
+    <rect x="310" y="30" width="220" height="205" fill="none" stroke="var(--grid)" rx="6"/>
+    <rect x="600" y="30" width="220" height="205" fill="none" stroke="var(--grid)" rx="6"/>
+
+    <!-- CAMERA panel: dense perspective scene, blue family -->
+    <g>
+      <!-- sky / background band -->
+      <rect x="24" y="34" width="212" height="70" fill="var(--s1)" opacity="0.12"/>
+      <!-- road as perspective trapezoid -->
+      <polygon points="90,231 170,231 145,104 115,104" fill="var(--s1)" opacity="0.30"/>
+      <!-- lane line -->
+      <line x1="130" y1="228" x2="130" y2="108" stroke="var(--s1)" stroke-width="2" stroke-dasharray="8 6" opacity="0.8"/>
+      <!-- buildings: dense blocks -->
+      <rect x="28" y="60" width="34" height="130" fill="var(--s1)" opacity="0.55"/>
+      <rect x="66" y="80" width="24" height="110" fill="var(--s1)" opacity="0.40"/>
+      <rect x="176" y="70" width="28" height="120" fill="var(--s1)" opacity="0.50"/>
+      <rect x="208" y="90" width="26" height="100" fill="var(--s1)" opacity="0.35"/>
+      <!-- car -->
+      <rect x="112" y="150" width="36" height="24" rx="4" fill="var(--s1)"/>
+      <rect x="118" y="143" width="24" height="10" rx="3" fill="var(--s1)" opacity="0.75"/>
+      <!-- pedestrian -->
+      <circle cx="170" cy="140" r="4" fill="var(--s1)" opacity="0.9"/>
+      <rect x="167" y="144" width="6" height="14" rx="2" fill="var(--s1)" opacity="0.9"/>
+      <!-- "no depth" cue: question mark on the depth axis -->
+      <text x="152" y="200" font-size="12" fill="var(--muted)">z = ?</text>
+    </g>
+
+    <!-- LIDAR panel: top-down sparse points, aqua -->
+    <g>
+      <!-- range rings -->
+      <circle cx="420" cy="215" r="40" fill="none" stroke="var(--grid)" stroke-dasharray="3 4"/>
+      <circle cx="420" cy="215" r="85" fill="none" stroke="var(--grid)" stroke-dasharray="3 4"/>
+      <circle cx="420" cy="215" r="130" fill="none" stroke="var(--grid)" stroke-dasharray="3 4"/>
+      <!-- ego marker -->
+      <polygon points="420,207 414,222 426,222 " fill="var(--ink-2)"/>
+      <!-- ground return arcs (sparse dotted sweeps) -->
+      <g fill="var(--s2)">
+        <circle cx="360" cy="200" r="2.5"/><circle cx="376" cy="192" r="2.5"/><circle cx="394" cy="187" r="2.5"/><circle cx="412" cy="184" r="2.5"/><circle cx="432" cy="185" r="2.5"/><circle cx="452" cy="189" r="2.5"/><circle cx="470" cy="196" r="2.5"/>
+        <circle cx="340" cy="168" r="2.5"/><circle cx="362" cy="156" r="2.5"/><circle cx="386" cy="148" r="2.5"/><circle cx="412" cy="144" r="2.5"/><circle cx="440" cy="145" r="2.5"/><circle cx="466" cy="151" r="2.5"/><circle cx="490" cy="162" r="2.5"/>
+        <circle cx="330" cy="120" r="2.5"/><circle cx="358" cy="106" r="2.5"/><circle cx="390" cy="97" r="2.5"/><circle cx="424" cy="94" r="2.5"/><circle cx="458" cy="98" r="2.5"/><circle cx="488" cy="108" r="2.5"/>
+      </g>
+      <!-- car cluster: dense L-shape of points -->
+      <g fill="var(--s2)">
+        <circle cx="450" cy="122" r="3"/><circle cx="457" cy="124" r="3"/><circle cx="464" cy="126" r="3"/><circle cx="471" cy="128" r="3"/>
+        <circle cx="450" cy="129" r="3"/><circle cx="450" cy="136" r="3"/><circle cx="450" cy="143" r="3"/>
+      </g>
+      <text x="478" y="140" font-size="11" fill="var(--muted)">car @ 18.4 m</text>
+      <!-- pedestrian: 3 points -->
+      <g fill="var(--s2)"><circle cx="372" cy="70" r="3"/><circle cx="377" cy="66" r="3"/><circle cx="374" cy="75" r="3"/></g>
+      <text x="384" y="66" font-size="11" fill="var(--muted)">ped, 4 pts</text>
+    </g>
+
+    <!-- RADAR panel: very few blobs with velocity arrows, yellow -->
+    <g>
+      <!-- ego -->
+      <polygon points="710,225 704,238 716,238" fill="var(--ink-2)"/>
+      <!-- blob 1: oncoming car, big arrow toward ego -->
+      <ellipse cx="700" cy="90" rx="16" ry="10" fill="var(--s3)" opacity="0.85"/>
+      <line x1="700" y1="102" x2="700" y2="142" stroke="var(--s3)" stroke-width="2"/>
+      <polygon points="700,150 694,138 706,138" fill="var(--s3)"/>
+      <text x="722" y="94" font-size="11" fill="var(--muted)">v = −12 m/s</text>
+      <!-- blob 2: crossing car -->
+      <ellipse cx="640" cy="170" rx="14" ry="9" fill="var(--s3)" opacity="0.85"/>
+      <line x1="656" y1="170" x2="690" y2="170" stroke="var(--s3)" stroke-width="2"/>
+      <polygon points="698,170 686,164 686,176" fill="var(--s3)"/>
+      <text x="626" y="152" font-size="11" fill="var(--muted)">v = +8 m/s</text>
+      <!-- blob 3: static clutter -->
+      <ellipse cx="775" cy="130" rx="10" ry="7" fill="var(--s3)" opacity="0.5"/>
+      <text x="762" y="114" font-size="11" fill="var(--muted)">static</text>
+    </g>
+  </svg>
+  <figcaption>The same street, three sensors. Camera sees everything but knows no distances; LiDAR measures distances but returns a few points per object; radar barely resolves shape but hands you radial velocity for free. The encoder's whole job is to merge these complementary failure modes.</figcaption>
+  <div class="legend"><span><i style="background:var(--s1)"></i> camera</span><span><i style="background:var(--s2)"></i> LiDAR</span><span><i style="background:var(--s3)"></i> radar</span></div>
+</figure>
+
+<div class="concept">
+<p>Every sensor answer in the interview reduces to this table. Camera is the semantic sensor: dense, cheap, reads text and traffic lights, but depth must be <em>inferred</em>, and it dies in glare, darkness, and rain on the lens. LiDAR is the geometric sensor: direct metric depth via time-of-flight, but sparse (a pedestrian at 60&nbsp;m may be 4 points), expensive, and degraded by rain/fog/snow scattering. Radar is the physics oddball: it measures radial velocity directly through Doppler shift, punches through weather, and is dirt cheap — but its angular resolution is so coarse that shape and class are nearly unreadable.</p>
+</div>
+
+<div class="viz">
+<table>
+<thead><tr><th>Property</th><th>Camera</th><th>LiDAR</th><th>Radar</th></tr></thead>
+<tbody>
+<tr><td>Spatial resolution</td><td>Very high (MP)</td><td>Medium (10⁵–10⁶ pts/frame)</td><td>Very low</td></tr>
+<tr><td>Depth</td><td>None (inferred)</td><td>Direct, ±2 cm</td><td>Direct, coarse</td></tr>
+<tr><td>Velocity</td><td>None (inferred from frames)</td><td>None (inferred)</td><td><strong>Direct (Doppler)</strong></td></tr>
+<tr><td>Semantics / texture</td><td><strong>Rich</strong></td><td>Weak (intensity only)</td><td>None</td></tr>
+<tr><td>Bad weather / night</td><td>Poor</td><td>Degraded (scattering)</td><td><strong>Robust</strong></td></tr>
+<tr><td>Cost</td><td>$</td><td>$$$ (falling)</td><td>$</td></tr>
+</tbody>
+</table>
+</div>
+
+<div class="callout"><strong>Interview framing.</strong> Don't recite the table — state the design consequence: <em>“No sensor is sufficient; their failure modes are complementary, so the encoder must be built so any single modality can drop out without the output collapsing.”</em> That sentence sets up fusion, dropout training, and the failure-modes step all at once.</div>
+
+<div class="term-box">
+<h4>Memorize these terms</h4>
+<p><span class="term">time-of-flight</span> <span class="term">Doppler velocity</span> <span class="term">angular resolution</span> <span class="term">point sparsity</span> <span class="term">complementary failure modes</span> <span class="term">sensor suite</span></p>
+<p class="related">Related: <a href="glossary.html">glossary</a> · degradation, extrinsics (Section 8)</p>
+</div>
+
+<details class="quiz"><summary>Quiz: Which sensor gives you velocity without differentiating positions over time, and why does that matter for a merging-vehicle scenario?</summary>
+<p>Radar, via Doppler shift on the returned wave. It matters because velocity from cameras/LiDAR requires two or more frames plus association (adding latency and association errors), while radar reports it in a single measurement — so a fast merger is flagged as fast <em>immediately</em>, even before the tracker has converged.</p></details>
+<details class="quiz"><summary>Quiz: A pedestrian at 60 m — what does each sensor give you?</summary>
+<p>Camera: a small but recognizable patch of pixels (good class evidence, no range). LiDAR: a handful of points (good range, weak class evidence). Radar: possibly nothing, or one low-RCS detection with velocity if they're moving. This is why classification tends to be camera-led and localization LiDAR-led.</p></details>
+</section>
+
+<!-- ============================================================ -->
+<section id="pipeline">
+<h2>2. The whole pipeline — the diagram you draw on the whiteboard</h2>
+
+<figure class="viz">
+  <svg id="pipe-svg" viewBox="0 0 900 380" role="img" aria-label="Clickable block diagram of the multimodal encoder: three sensor branches into tokens, fusion, BEV, and task heads">
+    <defs>
+      <marker id="arr" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path d="M0,0 L10,5 L0,10 z" fill="var(--axis)"/></marker>
+    </defs>
+    <!-- arrows -->
+    <g stroke="var(--axis)" stroke-width="2" fill="none" marker-end="url(#arr)">
+      <line x1="130" y1="70" x2="185" y2="70"/>
+      <line x1="130" y1="180" x2="185" y2="180"/>
+      <line x1="130" y1="290" x2="185" y2="290"/>
+      <line x1="330" y1="70" x2="395" y2="150"/>
+      <line x1="330" y1="180" x2="395" y2="180"/>
+      <line x1="330" y1="290" x2="395" y2="210"/>
+      <line x1="520" y1="180" x2="570" y2="180"/>
+      <line x1="700" y1="180" x2="742" y2="180"/>
+    </g>
+    <!-- sensor blocks -->
+    <g class="pipe-block" data-block="camera" tabindex="0" role="button" aria-label="Camera input">
+      <rect x="20" y="45" width="110" height="50" rx="8" fill="var(--s1)" opacity="0.18" stroke="var(--s1)" stroke-width="2"/>
+      <text x="75" y="66" text-anchor="middle" font-size="13" font-weight="600" fill="var(--ink)">6× Camera</text>
+      <text x="75" y="84" text-anchor="middle" font-size="11" fill="var(--muted)">H×W×3 images</text>
+    </g>
+    <g class="pipe-block" data-block="lidar" tabindex="0" role="button" aria-label="LiDAR input">
+      <rect x="20" y="155" width="110" height="50" rx="8" fill="var(--s2)" opacity="0.18" stroke="var(--s2)" stroke-width="2"/>
+      <text x="75" y="176" text-anchor="middle" font-size="13" font-weight="600" fill="var(--ink)">LiDAR</text>
+      <text x="75" y="194" text-anchor="middle" font-size="11" fill="var(--muted)">N×(x,y,z,i) points</text>
+    </g>
+    <g class="pipe-block" data-block="radar" tabindex="0" role="button" aria-label="Radar input">
+      <rect x="20" y="265" width="110" height="50" rx="8" fill="var(--s3)" opacity="0.18" stroke="var(--s3)" stroke-width="2"/>
+      <text x="75" y="286" text-anchor="middle" font-size="13" font-weight="600" fill="var(--ink)">Radar</text>
+      <text x="75" y="304" text-anchor="middle" font-size="11" fill="var(--muted)">M×(x,y,v,rcs)</text>
+    </g>
+    <!-- encoder blocks -->
+    <g class="pipe-block" data-block="img-enc" tabindex="0" role="button" aria-label="Image encoder">
+      <rect x="190" y="45" width="140" height="50" rx="8" fill="var(--s1)" opacity="0.35" stroke="var(--s1)" stroke-width="2"/>
+      <text x="260" y="66" text-anchor="middle" font-size="13" font-weight="600" fill="var(--ink)">Image encoder</text>
+      <text x="260" y="84" text-anchor="middle" font-size="11" fill="var(--muted)">ViT / CNN backbone</text>
+    </g>
+    <g class="pipe-block" data-block="pt-enc" tabindex="0" role="button" aria-label="Point encoder">
+      <rect x="190" y="155" width="140" height="50" rx="8" fill="var(--s2)" opacity="0.35" stroke="var(--s2)" stroke-width="2"/>
+      <text x="260" y="176" text-anchor="middle" font-size="13" font-weight="600" fill="var(--ink)">Point encoder</text>
+      <text x="260" y="194" text-anchor="middle" font-size="11" fill="var(--muted)">PointPillars / voxel</text>
+    </g>
+    <g class="pipe-block" data-block="radar-enc" tabindex="0" role="button" aria-label="Radar encoder">
+      <rect x="190" y="265" width="140" height="50" rx="8" fill="var(--s3)" opacity="0.35" stroke="var(--s3)" stroke-width="2"/>
+      <text x="260" y="286" text-anchor="middle" font-size="13" font-weight="600" fill="var(--ink)">Radar encoder</text>
+      <text x="260" y="304" text-anchor="middle" font-size="11" fill="var(--muted)">MLP on detections</text>
+    </g>
+    <!-- tokens -->
+    <g class="pipe-block" data-block="tokens" tabindex="0" role="button" aria-label="Modality tokens">
+      <rect x="400" y="130" width="120" height="100" rx="8" fill="var(--s5)" opacity="0.18" stroke="var(--s5)" stroke-width="2"/>
+      <text x="460" y="158" text-anchor="middle" font-size="13" font-weight="600" fill="var(--ink)">Tokens</text>
+      <text x="460" y="176" text-anchor="middle" font-size="11" fill="var(--muted)">shared d-dim</text>
+      <text x="460" y="192" text-anchor="middle" font-size="11" fill="var(--muted)">+ modality embed</text>
+      <text x="460" y="208" text-anchor="middle" font-size="11" fill="var(--muted)">+ position embed</text>
+    </g>
+    <!-- fusion -->
+    <g class="pipe-block" data-block="fusion" tabindex="0" role="button" aria-label="Fusion transformer">
+      <rect x="575" y="130" width="125" height="100" rx="8" fill="var(--s5)" opacity="0.35" stroke="var(--s5)" stroke-width="2"/>
+      <text x="637" y="164" text-anchor="middle" font-size="13" font-weight="600" fill="var(--ink)">Fusion</text>
+      <text x="637" y="182" text-anchor="middle" font-size="11" fill="var(--muted)">cross-attention</text>
+      <text x="637" y="198" text-anchor="middle" font-size="11" fill="var(--muted)">BEV queries</text>
+    </g>
+    <!-- BEV -->
+    <g class="pipe-block" data-block="bev" tabindex="0" role="button" aria-label="BEV feature grid">
+      <rect x="747" y="130" width="133" height="100" rx="8" fill="var(--s5)" opacity="0.5" stroke="var(--s5)" stroke-width="2"/>
+      <text x="813" y="160" text-anchor="middle" font-size="13" font-weight="600" fill="var(--ink)">BEV grid</text>
+      <text x="813" y="178" text-anchor="middle" font-size="11" fill="var(--muted)">200×200×C</text>
+      <text x="813" y="194" text-anchor="middle" font-size="11" fill="var(--muted)">ego-centric, metric</text>
+    </g>
+    <!-- heads -->
+    <g stroke="var(--axis)" stroke-width="2" fill="none" marker-end="url(#arr)">
+      <line x1="813" y1="230" x2="700" y2="300"/>
+      <line x1="813" y1="230" x2="813" y2="295"/>
+      <line x1="813" y1="230" x2="880" y2="298" transform="translate(-40,0)"/>
+    </g>
+    <g class="pipe-block" data-block="heads" tabindex="0" role="button" aria-label="Task heads">
+      <rect x="620" y="300" width="110" height="40" rx="8" fill="var(--s5)" opacity="0.14" stroke="var(--s5)" stroke-width="2" stroke-dasharray="5 4"/>
+      <text x="675" y="324" text-anchor="middle" font-size="12" fill="var(--ink)">3D detection</text>
+      <rect x="758" y="300" width="110" height="40" rx="8" fill="var(--s5)" opacity="0.14" stroke="var(--s5)" stroke-width="2" stroke-dasharray="5 4"/>
+      <text x="813" y="324" text-anchor="middle" font-size="12" fill="var(--ink)">Map / occupancy</text>
+      <rect x="482" y="300" width="110" height="40" rx="8" fill="var(--s5)" opacity="0.14" stroke="var(--s5)" stroke-width="2" stroke-dasharray="5 4"/>
+      <text x="537" y="324" text-anchor="middle" font-size="12" fill="var(--ink)">Motion forecast</text>
+    </g>
+    <line x1="813" y1="230" x2="537" y2="298" stroke="var(--axis)" stroke-width="2" marker-end="url(#arr)"/>
+  </svg>
+  <figcaption><strong>This is the diagram to draw in the interview</strong> — three modality branches, per-modality encoders, projection into a shared token space, attention-based fusion, one BEV feature grid, and task heads hanging off it. Click any block for what to say about it.</figcaption>
+</figure>
+
+<div class="viz" id="pipe-detail" aria-live="polite">
+  <h3 id="pipe-detail-title">Click a block ↑</h3>
+  <ul id="pipe-detail-bullets"><li>Every block in the diagram is clickable (or focus it and press Enter). The detail panel gives the 3–5 sentences you would say while pointing at it.</li></ul>
+  <p id="pipe-detail-terms" class="related"></p>
+</div>
+
+<div class="term-box">
+<h4>Memorize these terms</h4>
+<p><span class="term">modality branch</span> <span class="term">shared token space</span> <span class="term">modality embedding</span> <span class="term">BEV (bird's-eye view)</span> <span class="term">task head</span> <span class="term">backbone vs neck vs head</span></p>
+<p class="related">Related: fusion strategies (Section 6), narration order in the <a href="playbook.html#whiteboard">Playbook whiteboard</a></p>
+</div>
+
+<details class="quiz"><summary>Quiz: Why project all modalities into a shared token space before fusing, instead of fusing raw features?</summary>
+<p>Attention needs its inputs in one vector space of one dimension to compute meaningful dot products. Projecting each modality to a shared d and adding a learned modality embedding lets one fusion transformer treat heterogeneous sensors uniformly — and makes adding or dropping a sensor a change to the token set, not the architecture.</p></details>
+<details class="quiz"><summary>Quiz: Why do task heads hang off the BEV grid rather than off each modality branch?</summary>
+<p>So every downstream task consumes one fused, metric, ego-centric representation — the heads share computation and stay geometrically consistent with each other (a detection and the occupancy map can't disagree about where things are), and planning can consume BEV outputs directly.</p></details>
+</section>
+
+<!-- ============================================================ -->
+<section id="per-modality">
+<h2>3. Per-modality encoders</h2>
+
+<h3>3a. Images: patch embedding, written out</h3>
+<div class="concept">
+<p>A ViT does not see pixels; it sees <em>patch tokens</em>. Take an image \(x \in \mathbb{R}^{H\times W\times 3}\), cut it into non-overlapping \(P\times P\) patches, flatten each into a vector, and multiply by a learned projection:</p>
+</div>
+
+<div class="math-block">
+$$N = \frac{H}{P}\cdot\frac{W}{P}, \qquad x_p^{(i)} \in \mathbb{R}^{P^2\cdot 3}, \qquad z_i = W_e\, x_p^{(i)} + e_i^{\text{pos}}, \quad W_e \in \mathbb{R}^{d \times P^2\cdot 3}$$
+<p>Example: a 224×224 image with P = 16 → N = 14 × 14 = <strong>196 tokens</strong>; each patch flattens to 16·16·3 = 768 numbers before projection to d.</p>
+</div>
+
+<figure class="viz">
+  <svg viewBox="0 0 720 200" role="img" aria-label="An image is gridded into numbered patches which become a row of tokens">
+    <!-- image with 4x4 grid -->
+    <rect x="30" y="30" width="140" height="140" fill="var(--s1)" opacity="0.15" stroke="var(--s1)" stroke-width="2"/>
+    <g stroke="var(--grid)"><line x1="65" y1="30" x2="65" y2="170"/><line x1="100" y1="30" x2="100" y2="170"/><line x1="135" y1="30" x2="135" y2="170"/><line x1="30" y1="65" x2="170" y2="65"/><line x1="30" y1="100" x2="170" y2="100"/><line x1="30" y1="135" x2="170" y2="135"/></g>
+    <g font-size="11" fill="var(--ink-2)" text-anchor="middle">
+      <text x="47" y="51">1</text><text x="82" y="51">2</text><text x="117" y="51">3</text><text x="152" y="51">4</text>
+      <text x="47" y="86">5</text><text x="82" y="86">6</text><text x="117" y="86">7</text><text x="152" y="86">8</text>
+      <text x="47" y="121">9</text><text x="82" y="121">10</text><text x="117" y="121">11</text><text x="152" y="121">12</text>
+      <text x="47" y="156">13</text><text x="82" y="156">14</text><text x="117" y="156">15</text><text x="152" y="156">16</text>
+    </g>
+    <text x="100" y="190" text-anchor="middle" font-size="11" fill="var(--muted)">H×W image → 16 patches (P×P each)</text>
+    <!-- arrow -->
+    <line x1="185" y1="100" x2="245" y2="100" stroke="var(--axis)" stroke-width="2" marker-end="url(#arr2)"/>
+    <defs><marker id="arr2" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path d="M0,0 L10,5 L0,10 z" fill="var(--axis)"/></marker></defs>
+    <text x="215" y="88" text-anchor="middle" font-size="11" fill="var(--muted)">flatten + Wₑ</text>
+    <!-- token row -->
+    <g>
+      <g font-size="10" fill="var(--ink-2)" text-anchor="middle">
+        <rect x="255" y="82" width="24" height="36" rx="4" fill="var(--s5)" opacity="0.45" stroke="var(--s5)"/><text x="267" y="104">z₁</text>
+        <rect x="283" y="82" width="24" height="36" rx="4" fill="var(--s5)" opacity="0.45" stroke="var(--s5)"/><text x="295" y="104">z₂</text>
+        <rect x="311" y="82" width="24" height="36" rx="4" fill="var(--s5)" opacity="0.45" stroke="var(--s5)"/><text x="323" y="104">z₃</text>
+        <rect x="339" y="82" width="24" height="36" rx="4" fill="var(--s5)" opacity="0.45" stroke="var(--s5)"/><text x="351" y="104">…</text>
+        <rect x="367" y="82" width="24" height="36" rx="4" fill="var(--s5)" opacity="0.45" stroke="var(--s5)"/><text x="379" y="104">z₁₆</text>
+      </g>
+      <text x="323" y="140" text-anchor="middle" font-size="11" fill="var(--muted)">N tokens, each ∈ ℝᵈ (+ position embedding)</text>
+    </g>
+    <!-- transformer box -->
+    <line x1="405" y1="100" x2="455" y2="100" stroke="var(--axis)" stroke-width="2" marker-end="url(#arr2)"/>
+    <rect x="460" y="60" width="230" height="80" rx="8" fill="var(--s5)" opacity="0.18" stroke="var(--s5)" stroke-width="2"/>
+    <text x="575" y="92" text-anchor="middle" font-size="13" font-weight="600" fill="var(--ink)">Transformer encoder</text>
+    <text x="575" y="112" text-anchor="middle" font-size="11" fill="var(--muted)">self-attention over all N tokens</text>
+  </svg>
+  <figcaption>Patch embedding: the image becomes an unordered set of vectors; the position embedding is the <em>only</em> thing telling the transformer where each patch was.</figcaption>
+</figure>
+
+<div class="viz">
+<table>
+<thead><tr><th></th><th>CNN backbone</th><th>ViT backbone</th></tr></thead>
+<tbody>
+<tr><td>Inductive bias</td><td>Locality + translation equivariance built in</td><td>Almost none — learned from data</td></tr>
+<tr><td>Receptive field</td><td>Grows layer by layer</td><td>Global from layer 1 (self-attention)</td></tr>
+<tr><td>Data appetite</td><td>Works on small data</td><td>Needs big data or big pretraining (MAE/CLIP)</td></tr>
+<tr><td>Compute scaling</td><td>O(pixels)</td><td>O(N²) in tokens — resolution is expensive</td></tr>
+<tr><td>Fusion-friendliness</td><td>Feature maps, awkward as tokens</td><td><strong>Native tokens — plugs into cross-attention</strong></td></tr>
+<tr><td>Edge deployment</td><td>Mature (quantization, sparsity)</td><td>Improving; attention kernels now well optimized</td></tr>
+</tbody>
+</table>
+</div>
+
+<h3>3b. Point clouds: PointNet's trick, then pillars</h3>
+<div class="concept">
+<p>A point cloud is an <em>unordered set</em> — feed the same points in a different order and the answer must not change. PointNet achieves this with a symmetric function: embed each point independently with a shared MLP, then max-pool across points:</p>
+</div>
+<div class="math-block">
+$$f(\{x_1,\dots,x_N\}) = \gamma\!\Big(\max_{i=1\dots N} h(x_i)\Big)$$
+<p>Max is permutation-invariant, so \(f\) is too. The pooled vector is a global shape signature; per-point features come from concatenating it back to each \(h(x_i)\).</p>
+</div>
+
+<figure class="viz">
+  <svg viewBox="0 0 720 170" role="img" aria-label="PointNet: points through a shared MLP then max-pool to a global feature">
+    <g fill="var(--s2)"><circle cx="50" cy="50" r="5"/><circle cx="70" cy="90" r="5"/><circle cx="45" cy="120" r="5"/><circle cx="85" cy="65" r="5"/><circle cx="65" cy="140" r="5"/></g>
+    <text x="65" y="30" text-anchor="middle" font-size="11" fill="var(--muted)">N points (any order)</text>
+    <g stroke="var(--axis)" stroke-width="2" marker-end="url(#arr3)"><line x1="100" y1="55" x2="165" y2="70"/><line x1="100" y1="90" x2="165" y2="90"/><line x1="100" y1="125" x2="165" y2="110"/></g>
+    <defs><marker id="arr3" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path d="M0,0 L10,5 L0,10 z" fill="var(--axis)"/></marker></defs>
+    <rect x="170" y="55" width="130" height="70" rx="8" fill="var(--s2)" opacity="0.25" stroke="var(--s2)" stroke-width="2"/>
+    <text x="235" y="85" text-anchor="middle" font-size="12" font-weight="600" fill="var(--ink)">shared MLP h(·)</text>
+    <text x="235" y="103" text-anchor="middle" font-size="11" fill="var(--muted)">same weights ∀ points</text>
+    <line x1="305" y1="90" x2="360" y2="90" stroke="var(--axis)" stroke-width="2" marker-end="url(#arr3)"/>
+    <rect x="365" y="55" width="110" height="70" rx="8" fill="var(--s2)" opacity="0.45" stroke="var(--s2)" stroke-width="2"/>
+    <text x="420" y="85" text-anchor="middle" font-size="12" font-weight="600" fill="var(--ink)">max-pool</text>
+    <text x="420" y="103" text-anchor="middle" font-size="11" fill="var(--muted)">order-invariant</text>
+    <line x1="480" y1="90" x2="535" y2="90" stroke="var(--axis)" stroke-width="2" marker-end="url(#arr3)"/>
+    <rect x="540" y="62" width="150" height="56" rx="8" fill="var(--s5)" opacity="0.3" stroke="var(--s5)" stroke-width="2"/>
+    <text x="615" y="87" text-anchor="middle" font-size="12" font-weight="600" fill="var(--ink)">global feature</text>
+    <text x="615" y="104" text-anchor="middle" font-size="11" fill="var(--muted)">one vector per set</text>
+  </svg>
+  <figcaption>PointNet in one line: per-point MLP, then a symmetric max — swap the points, the max doesn't care.</figcaption>
+</figure>
+
+<div class="concept">
+<p><strong>Voxels vs pillars.</strong> Dense 3D voxelization gives you a regular grid but wastes compute on empty space (a street scene is &gt;90% air), and 3D convolutions are slow. <strong>PointPillars</strong> collapses the vertical axis: bin points into 2D ground-plane <em>pillars</em>, run a tiny PointNet inside each pillar, and scatter the results into a 2D pseudo-image — after which everything is cheap 2D convolution. That single move (3D problem → 2D backbone) is why pillars won for real-time AV stacks: same family of accuracy, an order of magnitude faster, and it lands natively in BEV, exactly where fusion happens. Sparse 3D convolutions (VoxelNet lineage) close the speed gap when fine vertical structure matters.</p>
+<p><strong>Radar encoders.</strong> Two regimes: (1) <em>point-level</em> — treat the detection list (x, y, v<sub>radial</sub>, RCS) like a tiny point cloud and run a PointNet-style MLP; simple and standard. (2) <em>tensor-level</em> — take the pre-CFAR range–azimuth–Doppler cube and run a CNN over it; richer (keeps detections a thresholding step would discard) but heavier and vendor-locked. Say: point-level to ship, tensor-level as the research upgrade.</p>
+</div>
+
+<div class="term-box">
+<h4>Memorize these terms</h4>
+<p><span class="term">patch embedding</span> <span class="term">position embedding</span> <span class="term">inductive bias</span> <span class="term">permutation invariance</span> <span class="term">symmetric function</span> <span class="term">voxelization</span> <span class="term">PointPillars</span> <span class="term">pseudo-image</span> <span class="term">range–azimuth–Doppler tensor</span> <span class="term">RCS (radar cross-section)</span></p>
+<p class="related">Related: BEV lifting (Section 4) — pillars land in BEV for free</p>
+</div>
+
+<details class="quiz"><summary>Quiz: Why max-pool and not sum or mean in PointNet?</summary>
+<p>All three are permutation-invariant, so any would satisfy the set requirement — but max selects the strongest activation per feature dimension, making the global feature a union of critical points (it provably depends on a small subset of points that outline the shape). Sum/mean dilute with point density, which varies wildly with distance in LiDAR.</p></details>
+<details class="quiz"><summary>Quiz: Give the two reasons PointPillars beat dense voxel nets for production AV perception.</summary>
+<p>(1) It eliminates 3D convolutions — per-pillar PointNet then 2D convs on a pseudo-image, so it runs at real-time rates on automotive compute. (2) Its output is already a BEV feature map, which is the representation the rest of the stack (fusion, detection heads, planning) wants anyway.</p></details>
+<details class="quiz"><summary>Quiz: What information does the radar tensor have that the detection list doesn't?</summary>
+<p>Everything below the CFAR detection threshold — weak returns, extended-object structure, and micro-Doppler signatures (e.g., pedestrian leg motion) that the point list has already discarded by thresholding.</p></details>
+</section>
+
+<!-- ============================================================ -->
+<section id="bev">
+<h2>4. BEV: lifting perspective into the plan view</h2>
+
+<div class="concept">
+<p>Bird's-eye view is the <em>lingua franca</em> of AV perception: a metric, ego-centric, top-down grid (say 200×200 cells at 0.5 m) where LiDAR lives natively, maps are drawn, planning operates, and object scale doesn't change with distance. Cameras are the odd one out — a pixel column is a <em>ray</em> of unknown depth — so the core problem is <strong>lifting</strong>: moving image features from perspective view into BEV. Two dominant answers:</p>
+</div>
+
+<figure class="viz">
+  <svg viewBox="0 0 860 300" role="img" aria-label="Two panels: LSS pushes image features along rays with a depth distribution; BEVFormer pulls features with BEV queries via deformable attention">
+    <g font-size="13" font-weight="600" fill="var(--ink)">
+      <text x="215" y="24" text-anchor="middle">LSS — “push”: predict depth, splat features</text>
+      <text x="645" y="24" text-anchor="middle">BEVFormer — “pull”: BEV queries attend back</text>
+    </g>
+    <!-- LSS panel -->
+    <g>
+      <!-- image plane -->
+      <rect x="40" y="50" width="90" height="120" fill="var(--s1)" opacity="0.2" stroke="var(--s1)" stroke-width="2"/>
+      <line x1="85" y1="50" x2="85" y2="170" stroke="var(--s1)" stroke-width="2"/>
+      <text x="85" y="188" text-anchor="middle" font-size="11" fill="var(--muted)">image column</text>
+      <!-- ray with depth distribution: dots of varying size along ray -->
+      <line x1="130" y1="110" x2="380" y2="80" stroke="var(--s1)" stroke-width="2" stroke-dasharray="6 5"/>
+      <g fill="var(--s1)">
+        <circle cx="175" cy="104" r="4" opacity="0.35"/>
+        <circle cx="225" cy="98" r="8" opacity="0.95"/>
+        <circle cx="275" cy="92" r="5" opacity="0.55"/>
+        <circle cx="325" cy="86" r="3.5" opacity="0.3"/>
+      </g>
+      <text x="228" y="126" text-anchor="middle" font-size="11" fill="var(--muted)">categorical depth p(d) per pixel</text>
+      <!-- BEV grid receiving -->
+      <g transform="translate(160,190)">
+        <rect x="0" y="0" width="160" height="80" fill="none" stroke="var(--grid)"/>
+        <line x1="40" y1="0" x2="40" y2="80" stroke="var(--grid)"/><line x1="80" y1="0" x2="80" y2="80" stroke="var(--grid)"/><line x1="120" y1="0" x2="120" y2="80" stroke="var(--grid)"/>
+        <line x1="0" y1="40" x2="160" y2="40" stroke="var(--grid)"/>
+        <rect x="40" y="0" width="40" height="40" fill="var(--s5)" opacity="0.7"/>
+        <rect x="80" y="0" width="40" height="40" fill="var(--s5)" opacity="0.35"/>
+        <text x="80" y="98" text-anchor="middle" font-size="11" fill="var(--muted)">features splat into BEV cells, weighted by p(d)</text>
+      </g>
+      <line x1="240" y1="105" x2="230" y2="185" stroke="var(--axis)" stroke-width="2" marker-end="url(#arr4)"/>
+      <defs><marker id="arr4" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path d="M0,0 L10,5 L0,10 z" fill="var(--axis)"/></marker></defs>
+    </g>
+    <!-- divider -->
+    <line x1="430" y1="40" x2="430" y2="285" stroke="var(--grid)"/>
+    <!-- BEVFormer panel -->
+    <g>
+      <!-- BEV grid with query -->
+      <g transform="translate(470,60)">
+        <rect x="0" y="0" width="120" height="120" fill="none" stroke="var(--grid)"/>
+        <line x1="40" y1="0" x2="40" y2="120" stroke="var(--grid)"/><line x1="80" y1="0" x2="80" y2="120" stroke="var(--grid)"/>
+        <line x1="0" y1="40" x2="120" y2="40" stroke="var(--grid)"/><line x1="0" y1="80" x2="120" y2="80" stroke="var(--grid)"/>
+        <circle cx="60" cy="60" r="9" fill="var(--s5)"/>
+        <text x="60" y="140" text-anchor="middle" font-size="11" fill="var(--muted)">BEV query owns cell (x,y)</text>
+      </g>
+      <!-- image plane it samples from -->
+      <rect x="700" y="60" width="110" height="120" fill="var(--s1)" opacity="0.2" stroke="var(--s1)" stroke-width="2"/>
+      <text x="755" y="196" text-anchor="middle" font-size="11" fill="var(--muted)">camera feature map</text>
+      <!-- projection + sparse sample points -->
+      <line x1="539" y1="120" x2="740" y2="105" stroke="var(--s5)" stroke-width="2" marker-end="url(#arr4)"/>
+      <text x="640" y="98" text-anchor="middle" font-size="11" fill="var(--muted)">project (x,y,z) via calibration</text>
+      <g fill="var(--s5)"><circle cx="745" cy="110" r="4"/><circle cx="758" cy="122" r="4"/><circle cx="738" cy="130" r="4"/><circle cx="762" cy="100" r="4"/></g>
+      <text x="755" y="220" text-anchor="middle" font-size="11" fill="var(--muted)">deformable attention: sample a few learned offsets, not all pixels</text>
+      <text x="640" y="262" text-anchor="middle" font-size="11" fill="var(--muted)">+ temporal self-attention to the previous BEV (motion-aligned)</text>
+    </g>
+  </svg>
+  <figcaption>Two ways across the same gap. LSS <em>pushes</em>: predict a depth distribution per pixel, splat features along the ray into BEV. BEVFormer <em>pulls</em>: each BEV cell is a learned query that projects itself into the images and gathers features with deformable attention.</figcaption>
+</figure>
+
+<div class="concept">
+<p>Trade-off in one breath: LSS is simple and parallel but bets everything on the predicted depth distribution (garbage depth → features land in the wrong cells); BEVFormer avoids explicit depth but leans on accurate calibration for the projection and costs attention compute. Both converge on the same interface — a BEV feature grid — which is the point: <strong>choose BEV as the fusion arena, and the camera-lifting method becomes a swappable module</strong>.</p>
+</div>
+
+<div class="callout"><strong>Say this sentence:</strong> “I fuse in BEV because it's metric and ego-centric — LiDAR and radar are already there, planning consumes it directly, and distance-invariant object scale makes detection heads simpler.”</div>
+
+<div class="term-box">
+<h4>Memorize these terms</h4>
+<p><span class="term">view transformation / lifting</span> <span class="term">LSS (Lift-Splat-Shoot)</span> <span class="term">categorical depth distribution</span> <span class="term">BEVFormer</span> <span class="term">deformable attention</span> <span class="term">BEV query</span> <span class="term">ego-centric frame</span> <span class="term">ill-posed inverse projection</span></p>
+<p class="related">Related: cross-attention mechanics (Section 5), temporal fusion (Section 8)</p>
+</div>
+
+<details class="quiz"><summary>Quiz: Why is camera-to-BEV fundamentally harder than LiDAR-to-BEV?</summary>
+<p>LiDAR points carry (x, y, z), so mapping to BEV is a lossless coordinate transform. A camera pixel constrains only a ray — inverting projection needs depth, which is unobserved, so any lifting method must either predict depth (LSS) or learn where along the ray to look (query-based attention). It's an ill-posed inverse problem either way.</p></details>
+<details class="quiz"><summary>Quiz: LSS vs BEVFormer — name each one's single point of failure.</summary>
+<p>LSS: the per-pixel depth distribution — if it's wrong, features are splatted into the wrong BEV cells and nothing downstream can recover. BEVFormer: calibration — the query's projection into the image uses extrinsics/intrinsics, so a miscalibrated camera makes queries sample the wrong pixels (see Section 8 on drift).</p></details>
+</section>
+
+<!-- ============================================================ -->
+<section id="xattn">
+<h2>5. Cross-attention, with real numbers</h2>
+
+<div class="concept">
+<p>Fusion by cross-attention is a <em>lookup</em>: the BEV query asks “who out there is relevant to my cell?”, the sensor tokens answer via dot-product similarity. The single most-tested detail:</p>
+</div>
+
+<div class="math-block">
+$$\text{Attn}(Q,K,V) = \operatorname{softmax}\!\Big(\frac{QK^\top}{\sqrt{d_k}}\Big)V,\qquad
+\underbrace{Q}_{\text{BEV queries}} \in \mathbb{R}^{n_q\times d},\quad
+\underbrace{K,V}_{\text{LiDAR tokens}} \in \mathbb{R}^{n_k\times d}$$
+<p><strong>Q comes from the side doing the asking (BEV grid); K and V come from the side being consulted (sensor tokens).</strong> The √d divisor keeps dot products from saturating softmax as dimension grows.</p>
+</div>
+
+<figure class="viz">
+  <div class="viz-controls" id="xattn-controls">
+    <span>Pick a BEV query:</span>
+    <button type="button" data-q="0" class="active">Q1 — road cell ahead</button>
+    <button type="button" data-q="1">Q2 — cell near the car</button>
+    <button type="button" data-q="2">Q3 — curbside cell</button>
+    <button type="button" data-q="3">Q4 — empty cell</button>
+  </div>
+  <svg id="xattn-svg" viewBox="0 0 760 210" role="img" aria-label="Attention weights of the selected BEV query over six LiDAR tokens">
+    <text x="20" y="28" font-size="12" fill="var(--ink-2)">softmax(q·kᵀ/√d) over 6 LiDAR tokens (d = 4):</text>
+    <!-- 6 heat cells; fills set by JS via --seq classes -->
+    <g id="xattn-cells" font-size="12" text-anchor="middle">
+      <rect x="30"  y="45" width="105" height="56" rx="6" stroke="var(--grid)"/><text x="82"  y="120" fill="var(--muted)">k₁ ground</text><text x="82"  y="78" class="xw" fill="var(--ink)"></text>
+      <rect x="149" y="45" width="105" height="56" rx="6" stroke="var(--grid)"/><text x="201" y="120" fill="var(--muted)">k₂ ground</text><text x="201" y="78" class="xw" fill="var(--ink)"></text>
+      <rect x="268" y="45" width="105" height="56" rx="6" stroke="var(--grid)"/><text x="320" y="120" fill="var(--muted)">k₃ car side</text><text x="320" y="78" class="xw" fill="var(--ink)"></text>
+      <rect x="387" y="45" width="105" height="56" rx="6" stroke="var(--grid)"/><text x="439" y="120" fill="var(--muted)">k₄ car rear</text><text x="439" y="78" class="xw" fill="var(--ink)"></text>
+      <rect x="506" y="45" width="105" height="56" rx="6" stroke="var(--grid)"/><text x="558" y="120" fill="var(--muted)">k₅ curb</text><text x="558" y="78" class="xw" fill="var(--ink)"></text>
+      <rect x="625" y="45" width="105" height="56" rx="6" stroke="var(--grid)"/><text x="677" y="120" fill="var(--muted)">k₆ pole</text><text x="677" y="78" class="xw" fill="var(--ink)"></text>
+    </g>
+    <text x="20" y="160" font-size="12" fill="var(--ink-2)" id="xattn-note"></text>
+    <text x="20" y="182" font-size="11" fill="var(--muted)">Weights sum to 1.000 — this row IS the softmax output, computed live from the q·k dot products below.</text>
+  </svg>
+  <div class="readout code-block" id="xattn-readout" aria-live="polite"></div>
+  <figcaption><strong>“Who is Q and who is K/V?” is the interview question.</strong> Here Q = a BEV cell's query vector, K/V = six LiDAR tokens. Every weight shown is a real softmax over real dot products of the hardcoded 4-d vectors printed in the readout — no faked numbers.</figcaption>
+</figure>
+
+<div class="concept">
+<p>Reading the demo: Q2 (a cell on top of the parked car) concentrates its mass on the two car tokens — its query vector points the same way their keys do. Q4 (empty road far from everything) comes out nearly uniform: no key matches, softmax spreads. That flatness is not a bug; it's what “nothing relevant here” looks like, and it's why attention entropy is a usable diagnostic for dead queries.</p>
+</div>
+
+<div class="term-box">
+<h4>Memorize these terms</h4>
+<p><span class="term">query / key / value</span> <span class="term">cross-attention vs self-attention</span> <span class="term">scaled dot product (√d)</span> <span class="term">attention weights (row-stochastic)</span> <span class="term">attention entropy</span> <span class="term">multi-head attention</span></p>
+<p class="related">Related: <a href="math.html">Math page</a> for softmax mechanics; fusion strategies next section</p>
+</div>
+
+<details class="quiz"><summary>Quiz: In camera-LiDAR fusion where BEV queries attend to LiDAR, what exactly are Q, K, V — and what changes if you swap direction?</summary>
+<p>Q = projected BEV query vectors (n_q × d); K and V = projections of the LiDAR tokens (n_k × d). Output has the <em>query</em> side's shape: one fused vector per BEV cell. Swapping direction (LiDAR tokens as Q attending to BEV) would instead update the LiDAR tokens — the side you want enriched must own Q.</p></details>
+<details class="quiz"><summary>Quiz: Why divide by √d before softmax?</summary>
+<p>For d independent zero-mean unit-variance components, q·k has variance d, so raw logits grow like √d. Large logits push softmax into its saturated regime — near one-hot outputs with vanishing gradients everywhere else. Dividing by √d keeps logit variance ≈ 1 regardless of dimension.</p></details>
+<details class="quiz"><summary>Quiz: A BEV query's attention row is nearly uniform. Two interpretations?</summary>
+<p>Benign: nothing in the key set is relevant to that cell (empty space) — uniform is the honest answer. Pathological: the query has collapsed or the keys are undertrained, so <em>every</em> row is uniform. Distinguish by checking whether entropy varies across queries; uniform-everywhere means the head is dead.</p></details>
+</section>
+
+<!-- ============================================================ -->
+<section id="fusion">
+<h2>6. Fusion strategies: early, mid, late</h2>
+
+<figure class="viz">
+  <svg viewBox="0 0 880 300" role="img" aria-label="Three lanes showing early, mid, and late fusion with the fusion point marked in each">
+    <defs><marker id="arr5" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path d="M0,0 L10,5 L0,10 z" fill="var(--axis)"/></marker></defs>
+    <g font-size="13" font-weight="600" fill="var(--ink)">
+      <text x="30" y="46">Early</text><text x="30" y="146">Mid</text><text x="30" y="246">Late</text>
+    </g>
+    <!-- lane template: sensors -> enc -> feat -> head -->
+    <!-- EARLY: fuse raw -->
+    <g>
+      <rect x="100" y="20" width="70" height="24" rx="5" fill="var(--s1)" opacity="0.35" stroke="var(--s1)" stroke-width="2"/><text x="135" y="36" text-anchor="middle" font-size="11" fill="var(--ink)">cam raw</text>
+      <rect x="100" y="52" width="70" height="24" rx="5" fill="var(--s2)" opacity="0.35" stroke="var(--s2)" stroke-width="2"/><text x="135" y="68" text-anchor="middle" font-size="11" fill="var(--ink)">lidar raw</text>
+      <line x1="172" y1="32" x2="215" y2="44" stroke="var(--axis)" stroke-width="2" marker-end="url(#arr5)"/>
+      <line x1="172" y1="64" x2="215" y2="52" stroke="var(--axis)" stroke-width="2" marker-end="url(#arr5)"/>
+      <circle cx="232" cy="48" r="12" fill="var(--s5)"/><text x="232" y="52" text-anchor="middle" font-size="12" fill="var(--surface, #fff)" font-weight="700">⊕</text>
+      <text x="232" y="82" text-anchor="middle" font-size="10" fill="var(--muted)">fuse here (raw)</text>
+      <line x1="246" y1="48" x2="300" y2="48" stroke="var(--axis)" stroke-width="2" marker-end="url(#arr5)"/>
+      <rect x="305" y="34" width="130" height="28" rx="5" fill="var(--s5)" opacity="0.3" stroke="var(--s5)" stroke-width="2"/><text x="370" y="52" text-anchor="middle" font-size="11" fill="var(--ink)">one joint encoder</text>
+      <line x1="437" y1="48" x2="490" y2="48" stroke="var(--axis)" stroke-width="2" marker-end="url(#arr5)"/>
+      <rect x="495" y="34" width="80" height="28" rx="5" fill="var(--s5)" opacity="0.14" stroke="var(--s5)" stroke-dasharray="4 3" stroke-width="2"/><text x="535" y="52" text-anchor="middle" font-size="11" fill="var(--ink)">head</text>
+      <text x="640" y="42" font-size="11" fill="var(--muted)">e.g. paint LiDAR points with pixel colors</text>
+      <text x="640" y="58" font-size="11" fill="var(--muted)">(PointPainting)</text>
+    </g>
+    <line x1="30" y1="100" x2="850" y2="100" stroke="var(--grid)"/>
+    <!-- MID: fuse features -->
+    <g>
+      <rect x="100" y="120" width="70" height="24" rx="5" fill="var(--s1)" opacity="0.35" stroke="var(--s1)" stroke-width="2"/><text x="135" y="136" text-anchor="middle" font-size="11" fill="var(--ink)">cam raw</text>
+      <rect x="100" y="152" width="70" height="24" rx="5" fill="var(--s2)" opacity="0.35" stroke="var(--s2)" stroke-width="2"/><text x="135" y="168" text-anchor="middle" font-size="11" fill="var(--ink)">lidar raw</text>
+      <line x1="172" y1="132" x2="215" y2="132" stroke="var(--axis)" stroke-width="2" marker-end="url(#arr5)"/>
+      <line x1="172" y1="164" x2="215" y2="164" stroke="var(--axis)" stroke-width="2" marker-end="url(#arr5)"/>
+      <rect x="220" y="120" width="80" height="24" rx="5" fill="var(--s1)" opacity="0.5" stroke="var(--s1)" stroke-width="2"/><text x="260" y="136" text-anchor="middle" font-size="11" fill="var(--ink)">img enc</text>
+      <rect x="220" y="152" width="80" height="24" rx="5" fill="var(--s2)" opacity="0.5" stroke="var(--s2)" stroke-width="2"/><text x="260" y="168" text-anchor="middle" font-size="11" fill="var(--ink)">pt enc</text>
+      <line x1="302" y1="132" x2="345" y2="144" stroke="var(--axis)" stroke-width="2" marker-end="url(#arr5)"/>
+      <line x1="302" y1="164" x2="345" y2="152" stroke="var(--axis)" stroke-width="2" marker-end="url(#arr5)"/>
+      <circle cx="362" cy="148" r="12" fill="var(--s5)"/><text x="362" y="152" text-anchor="middle" font-size="12" fill="var(--surface, #fff)" font-weight="700">⊕</text>
+      <text x="362" y="182" text-anchor="middle" font-size="10" fill="var(--muted)">fuse here (features/tokens)</text>
+      <line x1="376" y1="148" x2="425" y2="148" stroke="var(--axis)" stroke-width="2" marker-end="url(#arr5)"/>
+      <rect x="430" y="134" width="145" height="28" rx="5" fill="var(--s5)" opacity="0.3" stroke="var(--s5)" stroke-width="2"/><text x="502" y="152" text-anchor="middle" font-size="11" fill="var(--ink)">fusion transformer</text>
+      <line x1="577" y1="148" x2="620" y2="148" stroke="var(--axis)" stroke-width="2" marker-end="url(#arr5)"/>
+      <rect x="625" y="134" width="80" height="28" rx="5" fill="var(--s5)" opacity="0.14" stroke="var(--s5)" stroke-dasharray="4 3" stroke-width="2"/><text x="665" y="152" text-anchor="middle" font-size="11" fill="var(--ink)">head</text>
+      <text x="775" y="142" font-size="11" fill="var(--muted)">the modern default</text>
+      <text x="775" y="158" font-size="11" fill="var(--muted)">(BEVFusion, ours)</text>
+    </g>
+    <line x1="30" y1="200" x2="850" y2="200" stroke="var(--grid)"/>
+    <!-- LATE: fuse outputs -->
+    <g>
+      <rect x="100" y="220" width="70" height="24" rx="5" fill="var(--s1)" opacity="0.35" stroke="var(--s1)" stroke-width="2"/><text x="135" y="236" text-anchor="middle" font-size="11" fill="var(--ink)">cam raw</text>
+      <rect x="100" y="252" width="70" height="24" rx="5" fill="var(--s2)" opacity="0.35" stroke="var(--s2)" stroke-width="2"/><text x="135" y="268" text-anchor="middle" font-size="11" fill="var(--ink)">lidar raw</text>
+      <line x1="172" y1="232" x2="215" y2="232" stroke="var(--axis)" stroke-width="2" marker-end="url(#arr5)"/>
+      <line x1="172" y1="264" x2="215" y2="264" stroke="var(--axis)" stroke-width="2" marker-end="url(#arr5)"/>
+      <rect x="220" y="220" width="150" height="24" rx="5" fill="var(--s1)" opacity="0.5" stroke="var(--s1)" stroke-width="2"/><text x="295" y="236" text-anchor="middle" font-size="11" fill="var(--ink)">full cam detector → boxes</text>
+      <rect x="220" y="252" width="150" height="24" rx="5" fill="var(--s2)" opacity="0.5" stroke="var(--s2)" stroke-width="2"/><text x="295" y="268" text-anchor="middle" font-size="11" fill="var(--ink)">full lidar detector → boxes</text>
+      <line x1="372" y1="232" x2="418" y2="244" stroke="var(--axis)" stroke-width="2" marker-end="url(#arr5)"/>
+      <line x1="372" y1="264" x2="418" y2="252" stroke="var(--axis)" stroke-width="2" marker-end="url(#arr5)"/>
+      <circle cx="435" cy="248" r="12" fill="var(--s5)"/><text x="435" y="252" text-anchor="middle" font-size="12" fill="var(--surface, #fff)" font-weight="700">⊕</text>
+      <text x="435" y="282" text-anchor="middle" font-size="10" fill="var(--muted)">fuse here (detections)</text>
+      <line x1="449" y1="248" x2="495" y2="248" stroke="var(--axis)" stroke-width="2" marker-end="url(#arr5)"/>
+      <rect x="500" y="234" width="180" height="28" rx="5" fill="var(--s5)" opacity="0.3" stroke="var(--s5)" stroke-width="2"/><text x="590" y="252" text-anchor="middle" font-size="11" fill="var(--ink)">match / vote / Kalman track</text>
+      <text x="775" y="242" font-size="11" fill="var(--muted)">safety layers,</text>
+      <text x="775" y="258" font-size="11" fill="var(--muted)">V2X, redundancy</text>
+    </g>
+  </svg>
+  <figcaption>Same lanes, different fusion point. Early = one encoder sees combined raw data; mid = per-modality encoders, fuse features; late = independent full detectors, fuse outputs. The ⊕ marks where information first mixes.</figcaption>
+</figure>
+
+<div class="viz">
+<table>
+<thead><tr><th></th><th>Early</th><th>Mid (feature/token)</th><th>Late (decision)</th></tr></thead>
+<tbody>
+<tr><td>Learned cross-modal interactions</td><td>Maximal (pixel↔point)</td><td><strong>Rich</strong> (feature-level)</td><td>None — only box arithmetic</td></tr>
+<tr><td>Failure isolation</td><td>Worst: one bad sensor poisons the joint input</td><td>Good with dropout training (Section 8)</td><td><strong>Best</strong>: branches fully independent</td></tr>
+<tr><td>Bandwidth / compute coupling</td><td>Must sync raw streams — tight timing</td><td>Tokens are compact; moderate coupling</td><td>Tiny (boxes only)</td></tr>
+<tr><td>Calibration sensitivity</td><td>Extreme (raw alignment)</td><td>Moderate (projection in attention)</td><td>Low (associate in world frame)</td></tr>
+<tr><td>Verdict</td><td>Niche (PointPainting-style decoration)</td><td><strong>Default answer</strong></td><td>Keep as redundant safety path</td></tr>
+</tbody>
+</table>
+</div>
+
+<div class="concept">
+<p>Within mid fusion, the mechanism menu: <strong>token concatenation</strong> (throw all modality tokens into one self-attention pot — simplest, O((n₁+n₂)²) cost, no explicit geometry); <strong>cross-attention</strong> (Section 5 — directional, geometry-aware via query projection, the BEVFormer/TransFusion pattern); <strong>BEV-space concat/sum</strong> (rasterize every modality to the same BEV grid and concatenate channels, then convolve — the BEVFusion pattern; cheapest and remarkably strong because alignment is handled by geometry, not learned). A strong answer names all three and picks BEV-concat as the pragmatic backbone with cross-attention where camera detail must be queried.</p>
+</div>
+
+<div class="term-box">
+<h4>Memorize these terms</h4>
+<p><span class="term">early / mid / late fusion</span> <span class="term">feature-level fusion</span> <span class="term">decision-level fusion</span> <span class="term">token concatenation</span> <span class="term">PointPainting</span> <span class="term">BEVFusion</span> <span class="term">failure isolation</span> <span class="term">redundant safety path</span></p>
+<p class="related">Related: sensor dropout (Section 8), the "lose LiDAR?" probe in the <a href="playbook.html#probes">Playbook</a></p>
+</div>
+
+<details class="quiz"><summary>Quiz: The interviewer asks "why not late fusion everywhere — it's the most robust?"</summary>
+<p>Late fusion can only combine what each detector already found: a camera-invisible (night) pedestrian that LiDAR half-sees at 3 points gets rejected by <em>both</em> single-modality detectors, and no box-level vote can resurrect it. Mid fusion lets weak evidence from two sensors reinforce below the detection threshold. Answer: mid fusion for performance, and a late-fused lightweight path retained as the independent safety fallback.</p></details>
+<details class="quiz"><summary>Quiz: Why is BEV-space concatenation such a strong baseline despite being "dumb"?</summary>
+<p>Because the hard part of fusion is spatial alignment, and rasterizing both modalities into the same metric BEV grid solves alignment with calibrated geometry instead of asking attention to learn it. What remains — mixing aligned channels — is easy for plain convolutions.</p></details>
+</section>
+
+<!-- ============================================================ -->
+<section id="training">
+<h2>7. Training the encoder</h2>
+
+<div class="concept">
+<p>Order your answer as: supervised heads (the baseline), then self-supervised pretraining (MAE for pixels, contrastive for cross-modal alignment), then distillation, then the multi-task balancing problem. That order is a maturity ladder — labels are expensive at AV scale, so everything after "supervised" is about squeezing the ocean of unlabeled fleet data.</p>
+</div>
+
+<h3>7a. MAE: masked autoencoding</h3>
+<figure class="viz">
+  <svg viewBox="0 0 700 190" role="img" aria-label="MAE: most patches masked, encoder sees only visible ones, decoder reconstructs">
+    <!-- masked grid -->
+    <g transform="translate(30,25)">
+      <g stroke="var(--grid)">
+        <!-- 4x4 grid of 30px cells; masked = muted fill, visible = s1 -->
+        <rect x="0" y="0" width="30" height="30" fill="var(--muted)" opacity="0.25"/><rect x="30" y="0" width="30" height="30" fill="var(--s1)" opacity="0.8"/><rect x="60" y="0" width="30" height="30" fill="var(--muted)" opacity="0.25"/><rect x="90" y="0" width="30" height="30" fill="var(--muted)" opacity="0.25"/>
+        <rect x="0" y="30" width="30" height="30" fill="var(--muted)" opacity="0.25"/><rect x="30" y="30" width="30" height="30" fill="var(--muted)" opacity="0.25"/><rect x="60" y="30" width="30" height="30" fill="var(--muted)" opacity="0.25"/><rect x="90" y="30" width="30" height="30" fill="var(--s1)" opacity="0.8"/>
+        <rect x="0" y="60" width="30" height="30" fill="var(--s1)" opacity="0.8"/><rect x="30" y="60" width="30" height="30" fill="var(--muted)" opacity="0.25"/><rect x="60" y="60" width="30" height="30" fill="var(--muted)" opacity="0.25"/><rect x="90" y="60" width="30" height="30" fill="var(--muted)" opacity="0.25"/>
+        <rect x="0" y="90" width="30" height="30" fill="var(--muted)" opacity="0.25"/><rect x="30" y="90" width="30" height="30" fill="var(--muted)" opacity="0.25"/><rect x="60" y="90" width="30" height="30" fill="var(--s1)" opacity="0.8"/><rect x="90" y="90" width="30" height="30" fill="var(--muted)" opacity="0.25"/>
+      </g>
+      <text x="60" y="145" text-anchor="middle" font-size="11" fill="var(--muted)">75% masked, 4 visible</text>
+    </g>
+    <line x1="165" y1="90" x2="215" y2="90" stroke="var(--axis)" stroke-width="2" marker-end="url(#arr6)"/>
+    <defs><marker id="arr6" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path d="M0,0 L10,5 L0,10 z" fill="var(--axis)"/></marker></defs>
+    <rect x="220" y="60" width="140" height="60" rx="8" fill="var(--s1)" opacity="0.3" stroke="var(--s1)" stroke-width="2"/>
+    <text x="290" y="86" text-anchor="middle" font-size="12" font-weight="600" fill="var(--ink)">encoder</text>
+    <text x="290" y="104" text-anchor="middle" font-size="11" fill="var(--muted)">sees ONLY visible → 4× cheaper</text>
+    <line x1="362" y1="90" x2="410" y2="90" stroke="var(--axis)" stroke-width="2" marker-end="url(#arr6)"/>
+    <rect x="415" y="60" width="120" height="60" rx="8" fill="var(--s5)" opacity="0.2" stroke="var(--s5)" stroke-width="2" stroke-dasharray="5 4"/>
+    <text x="475" y="86" text-anchor="middle" font-size="12" font-weight="600" fill="var(--ink)">light decoder</text>
+    <text x="475" y="104" text-anchor="middle" font-size="11" fill="var(--muted)">discarded after pretrain</text>
+    <line x1="537" y1="90" x2="585" y2="90" stroke="var(--axis)" stroke-width="2" marker-end="url(#arr6)"/>
+    <rect x="590" y="60" width="90" height="60" rx="8" fill="none" stroke="var(--s6)" stroke-width="2"/>
+    <text x="635" y="86" text-anchor="middle" font-size="12" font-weight="600" fill="var(--s6)">MSE loss</text>
+    <text x="635" y="104" text-anchor="middle" font-size="11" fill="var(--muted)">on masked pixels</text>
+  </svg>
+  <figcaption>MAE: hide 75% of patches, reconstruct them. The encoder never sees mask tokens — that asymmetry is what makes pretraining cheap on fleet-scale unlabeled data. Same recipe applies to LiDAR (masked voxels: Voxel-MAE / Occupancy-MAE).</figcaption>
+</figure>
+
+<h3>7b. Contrastive alignment (CLIP-style / InfoNCE)</h3>
+<div class="math-block">
+$$\mathcal{L}_{\text{InfoNCE}} = -\frac{1}{B}\sum_{i=1}^{B} \log \frac{\exp(\text{sim}(u_i, w_i)/\tau)}{\sum_{j=1}^{B} \exp(\text{sim}(u_i, w_j)/\tau)}$$
+<p>u = one modality's embedding, w = the other's, sim = cosine similarity, τ = temperature. Matched pairs (same scene region from camera and LiDAR, or image↔caption) are pulled together; the rest of the batch serves as negatives.</p>
+</div>
+
+<figure class="viz">
+  <svg viewBox="0 0 420 260" role="img" aria-label="Six-by-six similarity matrix with a bright diagonal">
+    <g transform="translate(90,40)">
+      <!-- 6x6 heatmap, seq blues: diagonal brightest -->
+      <g>
+        <!-- row-major; diag = seq-7, near = seq-3/2, far = seq-1 -->
+        <rect x="0" y="0" width="36" height="36" fill="var(--seq-7)"/><rect x="36" y="0" width="36" height="36" fill="var(--seq-2)"/><rect x="72" y="0" width="36" height="36" fill="var(--seq-1)"/><rect x="108" y="0" width="36" height="36" fill="var(--seq-2)"/><rect x="144" y="0" width="36" height="36" fill="var(--seq-1)"/><rect x="180" y="0" width="36" height="36" fill="var(--seq-1)"/>
+        <rect x="0" y="36" width="36" height="36" fill="var(--seq-1)"/><rect x="36" y="36" width="36" height="36" fill="var(--seq-7)"/><rect x="72" y="36" width="36" height="36" fill="var(--seq-2)"/><rect x="108" y="36" width="36" height="36" fill="var(--seq-1)"/><rect x="144" y="36" width="36" height="36" fill="var(--seq-3)"/><rect x="180" y="36" width="36" height="36" fill="var(--seq-1)"/>
+        <rect x="0" y="72" width="36" height="36" fill="var(--seq-2)"/><rect x="36" y="72" width="36" height="36" fill="var(--seq-1)"/><rect x="72" y="72" width="36" height="36" fill="var(--seq-7)"/><rect x="108" y="72" width="36" height="36" fill="var(--seq-2)"/><rect x="144" y="72" width="36" height="36" fill="var(--seq-1)"/><rect x="180" y="72" width="36" height="36" fill="var(--seq-2)"/>
+        <rect x="0" y="108" width="36" height="36" fill="var(--seq-1)"/><rect x="36" y="108" width="36" height="36" fill="var(--seq-2)"/><rect x="72" y="108" width="36" height="36" fill="var(--seq-1)"/><rect x="108" y="108" width="36" height="36" fill="var(--seq-7)"/><rect x="144" y="108" width="36" height="36" fill="var(--seq-2)"/><rect x="180" y="108" width="36" height="36" fill="var(--seq-1)"/>
+        <rect x="0" y="144" width="36" height="36" fill="var(--seq-3)"/><rect x="36" y="144" width="36" height="36" fill="var(--seq-1)"/><rect x="72" y="144" width="36" height="36" fill="var(--seq-2)"/><rect x="108" y="144" width="36" height="36" fill="var(--seq-1)"/><rect x="144" y="144" width="36" height="36" fill="var(--seq-7)"/><rect x="180" y="144" width="36" height="36" fill="var(--seq-2)"/>
+        <rect x="0" y="180" width="36" height="36" fill="var(--seq-1)"/><rect x="36" y="180" width="36" height="36" fill="var(--seq-2)"/><rect x="72" y="180" width="36" height="36" fill="var(--seq-1)"/><rect x="108" y="180" width="36" height="36" fill="var(--seq-3)"/><rect x="144" y="180" width="36" height="36" fill="var(--seq-1)"/><rect x="180" y="180" width="36" height="36" fill="var(--seq-7)"/>
+        <!-- 2px gaps via grid strokes -->
+        <g stroke="var(--surface, #fff)" stroke-width="2">
+          <line x1="36" y1="0" x2="36" y2="216"/><line x1="72" y1="0" x2="72" y2="216"/><line x1="108" y1="0" x2="108" y2="216"/><line x1="144" y1="0" x2="144" y2="216"/><line x1="180" y1="0" x2="180" y2="216"/>
+          <line x1="0" y1="36" x2="216" y2="36"/><line x1="0" y1="72" x2="216" y2="72"/><line x1="0" y1="108" x2="216" y2="108"/><line x1="0" y1="144" x2="216" y2="144"/><line x1="0" y1="180" x2="216" y2="180"/>
+        </g>
+      </g>
+      <text x="108" y="-14" text-anchor="middle" font-size="12" fill="var(--ink-2)">LiDAR embeddings w₁…w₆</text>
+      <text x="-14" y="108" text-anchor="middle" font-size="12" fill="var(--ink-2)" transform="rotate(-90,-14,108)">camera embeddings u₁…u₆</text>
+      <text x="250" y="30" font-size="11" fill="var(--muted)">bright diagonal =</text>
+      <text x="250" y="46" font-size="11" fill="var(--muted)">matched pairs</text>
+      <text x="250" y="70" font-size="11" fill="var(--muted)">off-diagonal =</text>
+      <text x="250" y="86" font-size="11" fill="var(--muted)">in-batch negatives</text>
+    </g>
+  </svg>
+  <figcaption>What a trained contrastive model's batch similarity matrix looks like: hot diagonal, cold elsewhere. InfoNCE is literally cross-entropy on each row (and column) of this matrix.</figcaption>
+</figure>
+
+<div class="concept">
+<p><strong>Distillation</strong>: run a huge teacher (or a LiDAR-privileged model) offboard, train the onboard encoder to match its features or logits — the standard way to buy accuracy under the latency budget, and the bridge to your quantization story. <strong>Multi-task balancing</strong>: with detection + occupancy + forecasting heads on one BEV trunk, naive loss summing lets one task's gradient scale dominate. Name the tools: per-task loss weights \( \mathcal{L}=\sum_i \lambda_i \mathcal{L}_i \), uncertainty weighting (learn λ as homoscedastic noise), gradient normalization (GradNorm), or simply decoupled head learning rates. And say the honest thing: in practice teams tune λ on the metric that matters and monitor per-task validation curves for one task regressing while the total loss improves.</p>
+</div>
+
+<div class="term-box">
+<h4>Memorize these terms</h4>
+<p><span class="term">MAE (masked autoencoder)</span> <span class="term">masking ratio (75%)</span> <span class="term">InfoNCE / contrastive loss</span> <span class="term">temperature τ</span> <span class="term">in-batch negatives</span> <span class="term">knowledge distillation</span> <span class="term">privileged teacher</span> <span class="term">multi-task balancing</span> <span class="term">uncertainty weighting</span> <span class="term">negative transfer</span></p>
+<p class="related">Related: <a href="math.html">Math page</a> for cross-entropy/softmax; latency budget (Section 8) motivates distillation</p>
+</div>
+
+<details class="quiz"><summary>Quiz: Why does MAE mask 75% of patches, when BERT masks 15% of words?</summary>
+<p>Images are spatially redundant — with 15% masked, reconstruction succeeds by local interpolation and the model learns nothing semantic. Masking 75% forces reconstruction from scene-level understanding. Bonus: the encoder only processes the 25% visible tokens, making pretraining ~3–4× cheaper per image.</p></details>
+<details class="quiz"><summary>Quiz: What does the temperature τ do in InfoNCE, and what happens at the extremes?</summary>
+<p>τ scales the logits before softmax, controlling how hard the loss focuses on hard negatives. τ→0: near-argmax — gradients concentrate entirely on the single hardest negative, training gets unstable. τ large: softmax flattens, all negatives count equally, gradients weaken. CLIP learns τ; it settles around 0.01–0.07.</p></details>
+<details class="quiz"><summary>Quiz: Detection mAP improves while occupancy IoU quietly regresses over a training run. What's happening and what do you check?</summary>
+<p>Negative transfer / task imbalance: the shared BEV trunk is being pulled toward detection-favorable features (total loss still falls, so it's invisible in aggregate). Check per-task gradient norms on the trunk and per-task validation curves; fix with loss re-weighting, GradNorm/uncertainty weighting, or partially decoupling the trunks.</p></details>
+</section>
+
+<!-- ============================================================ -->
+<section id="production">
+<h2>8. Robustness and production reality</h2>
+
+<h3>8a. Sensor dropout: train for the failure you will have</h3>
+<figure class="viz">
+  <svg viewBox="0 0 860 220" role="img" aria-label="Pipeline with LiDAR branch dropped out; output degrades gracefully instead of collapsing">
+    <defs><marker id="arr7" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path d="M0,0 L10,5 L0,10 z" fill="var(--axis)"/></marker></defs>
+    <!-- camera lane, healthy -->
+    <rect x="30" y="30" width="100" height="40" rx="7" fill="var(--s1)" opacity="0.35" stroke="var(--s1)" stroke-width="2"/><text x="80" y="54" text-anchor="middle" font-size="12" fill="var(--ink)">camera ✓</text>
+    <!-- lidar lane, dropped -->
+    <rect x="30" y="90" width="100" height="40" rx="7" fill="none" stroke="var(--muted)" stroke-width="2" stroke-dasharray="6 5"/><text x="80" y="114" text-anchor="middle" font-size="12" fill="var(--muted)">LiDAR ✗</text>
+    <!-- radar lane healthy -->
+    <rect x="30" y="150" width="100" height="40" rx="7" fill="var(--s3)" opacity="0.35" stroke="var(--s3)" stroke-width="2"/><text x="80" y="174" text-anchor="middle" font-size="12" fill="var(--ink)">radar ✓</text>
+    <g stroke="var(--axis)" stroke-width="2" marker-end="url(#arr7)"><line x1="132" y1="50" x2="240" y2="95"/><line x1="132" y1="170" x2="240" y2="125"/></g>
+    <line x1="132" y1="110" x2="240" y2="110" stroke="var(--muted)" stroke-width="2" stroke-dasharray="4 5"/>
+    <text x="186" y="102" text-anchor="middle" font-size="10" fill="var(--muted)">masked tokens</text>
+    <rect x="245" y="80" width="150" height="60" rx="8" fill="var(--s5)" opacity="0.3" stroke="var(--s5)" stroke-width="2"/>
+    <text x="320" y="106" text-anchor="middle" font-size="12" font-weight="600" fill="var(--ink)">fusion</text>
+    <text x="320" y="124" text-anchor="middle" font-size="11" fill="var(--muted)">attends over what's left</text>
+    <line x1="397" y1="110" x2="450" y2="110" stroke="var(--axis)" stroke-width="2" marker-end="url(#arr7)"/>
+    <!-- output comparison -->
+    <g transform="translate(455,40)">
+      <text x="90" y="10" font-size="12" fill="var(--ink-2)" text-anchor="middle">output: degraded, not dead</text>
+      <rect x="0" y="20" width="180" height="120" fill="none" stroke="var(--grid)"/>
+      <!-- confident boxes from camera+radar -->
+      <rect x="20" y="40" width="44" height="26" fill="none" stroke="var(--s5)" stroke-width="2"/><text x="42" y="34" text-anchor="middle" font-size="10" fill="var(--muted)">car 0.87</text>
+      <rect x="100" y="80" width="30" height="20" fill="none" stroke="var(--s5)" stroke-width="2" stroke-dasharray="4 3"/><text x="115" y="74" text-anchor="middle" font-size="10" fill="var(--muted)">ped 0.42 ↓</text>
+      <text x="90" y="156" font-size="11" fill="var(--muted)" text-anchor="middle">ranges widen, confidences drop — honestly</text>
+    </g>
+    <text x="320" y="205" text-anchor="middle" font-size="11" fill="var(--muted)">Training: randomly zero/mask a whole modality's tokens (p ≈ 0.1–0.3 per branch) so the network never learns a hard dependency on any one sensor.</text>
+  </svg>
+  <figcaption>Sensor-dropout training. Because whole modalities were masked at random during training, losing LiDAR at runtime shifts the attention mass to camera+radar tokens and the output degrades gracefully — wider uncertainty, lower confidence — instead of collapsing.</figcaption>
+</figure>
+
+<div class="concept">
+<p><strong>Calibration and extrinsics drift.</strong> Every geometric fusion op (BEV projection, query sampling, point painting) routes through the camera intrinsics K and sensor-to-vehicle extrinsics [R|t]. Mounts flex with temperature, bumps, and time — a 0.5° extrinsic yaw error displaces a projection by ~0.9 m at 100 m range, silently corrupting long-range fusion while nearby objects look fine. Production answers: online self-calibration (estimate drift from ego-motion + feature consistency), calibration-jitter augmentation at training time so the net tolerates small errors, and monitoring cross-modal residuals (do LiDAR edges land on image edges?) as a health signal.</p>
+<p><strong>Temporal fusion.</strong> Single frames can't disambiguate parked-vs-stopped or see through momentary occlusion. Standard pattern: keep a sliding window of past BEV features, <em>warp each into the current ego frame</em> using ego-motion (this compensation is the crucial detail — otherwise the world smears when you move), then fuse by concatenation or recurrent/temporal attention. This is also where the encoder starts overlapping with world models: predict-the-next-BEV is both a pretraining objective and a forecasting head.</p>
+</div>
+
+<figure class="viz">
+  <svg viewBox="0 0 700 130" role="img" aria-label="Sliding window of past BEV frames warped into current frame and fused">
+    <defs><marker id="arr8" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path d="M0,0 L10,5 L0,10 z" fill="var(--axis)"/></marker></defs>
+    <g>
+      <rect x="30" y="30" width="70" height="55" rx="6" fill="var(--s5)" opacity="0.15" stroke="var(--s5)" stroke-width="2"/><text x="65" y="62" text-anchor="middle" font-size="12" fill="var(--ink)">BEV t−2</text>
+      <rect x="130" y="30" width="70" height="55" rx="6" fill="var(--s5)" opacity="0.28" stroke="var(--s5)" stroke-width="2"/><text x="165" y="62" text-anchor="middle" font-size="12" fill="var(--ink)">BEV t−1</text>
+      <rect x="230" y="30" width="70" height="55" rx="6" fill="var(--s5)" opacity="0.45" stroke="var(--s5)" stroke-width="2"/><text x="265" y="62" text-anchor="middle" font-size="12" fill="var(--ink)">BEV t</text>
+      <g stroke="var(--axis)" stroke-width="2" marker-end="url(#arr8)"><line x1="102" y1="57" x2="126" y2="57"/><line x1="202" y1="57" x2="226" y2="57"/><line x1="302" y1="57" x2="380" y2="57"/></g>
+      <text x="165" y="108" text-anchor="middle" font-size="11" fill="var(--muted)">each warped by ego-motion into frame t</text>
+      <rect x="385" y="30" width="130" height="55" rx="6" fill="var(--s5)" opacity="0.35" stroke="var(--s5)" stroke-width="2"/><text x="450" y="55" text-anchor="middle" font-size="12" font-weight="600" fill="var(--ink)">temporal fuse</text><text x="450" y="72" text-anchor="middle" font-size="11" fill="var(--muted)">concat / attention</text>
+      <line x1="517" y1="57" x2="565" y2="57" stroke="var(--axis)" stroke-width="2" marker-end="url(#arr8)"/>
+      <rect x="570" y="30" width="100" height="55" rx="6" fill="var(--s5)" opacity="0.5" stroke="var(--s5)" stroke-width="2"/><text x="620" y="55" text-anchor="middle" font-size="12" fill="var(--ink)">velocity,</text><text x="620" y="72" text-anchor="middle" font-size="12" fill="var(--ink)">occlusion fill</text>
+    </g>
+  </svg>
+  <figcaption>Temporal fusion: a short window of ego-motion-aligned BEV features. Alignment first, fusion second.</figcaption>
+</figure>
+
+<h3>8b. The latency budget</h3>
+<div class="viz">
+<table>
+<thead><tr><th>Stage</th><th>Budget (of ~100 ms @ 10 Hz)</th><th>Levers</th></tr></thead>
+<tbody>
+<tr><td>Sensor readout + sync</td><td>~10 ms</td><td>hardware triggering, rolling-shutter comp</td></tr>
+<tr><td>Image backbone (×6 cams)</td><td>~30 ms</td><td>resolution, quantization (INT8/FP8), shared trunk, TensorRT</td></tr>
+<tr><td>Point/radar encoders</td><td>~10 ms</td><td>pillar size, sparse convs</td></tr>
+<tr><td>Lifting + fusion</td><td>~20 ms</td><td>query count, deformable (sparse) attention, BEV resolution</td></tr>
+<tr><td>Heads + postprocess</td><td>~15 ms</td><td>NMS-free decoding, head pruning</td></tr>
+<tr><td>Margin / jitter reserve</td><td>~15 ms</td><td>never spend the reserve — p99 matters, not mean</td></tr>
+</tbody>
+</table>
+</div>
+<div class="callout"><strong>Anchor with your own work:</strong> this row of the table is where quantization experience lands — e.g. an AWQ-int4 world-model pass going from streamed-offload to resident-weights at 0.302 s/step is exactly the "same silicon, 18× faster, near-BF16 quality" story an interviewer wants attached to the inference-budget step. State budgets as p99, not mean.</div>
+
+<div class="concept">
+<p><strong>Uncertainty heads.</strong> Detection confidence is not calibrated probability. Production encoders add explicit uncertainty: per-box variance heads (learned via Gaussian NLL — the loss \( \frac{\|y-\hat y\|^2}{2\sigma^2} + \frac{1}{2}\log\sigma^2 \) lets the net "pay" to admit ignorance), ensemble or MC-dropout disagreement for epistemic uncertainty, and post-hoc temperature scaling for classification calibration. Downstream planning treats a low-confidence pedestrian differently from a confident one — uncertainty is an output, not a debugging artifact.</p>
+</div>
+
+<div class="term-box">
+<h4>Memorize these terms</h4>
+<p><span class="term">sensor dropout / modality masking</span> <span class="term">graceful degradation</span> <span class="term">intrinsics / extrinsics</span> <span class="term">online self-calibration</span> <span class="term">ego-motion compensation</span> <span class="term">temporal BEV window</span> <span class="term">latency budget (p99)</span> <span class="term">aleatoric vs epistemic uncertainty</span> <span class="term">temperature scaling</span> <span class="term">Gaussian NLL head</span></p>
+<p class="related">Related: probes "lose LiDAR?", "halve latency?", "calibration drifts?" in the <a href="playbook.html#probes">Playbook probe trainer</a></p>
+</div>
+
+<details class="quiz"><summary>Quiz: Why does sensor-dropout training work, mechanistically, in an attention-based fusion module?</summary>
+<p>Attention renormalizes over whatever keys are present. If training sometimes removes all LiDAR tokens, the model is forced to learn camera- and radar-conditional pathways that produce sane outputs; softmax then redistributes attention mass over remaining tokens at runtime. Without such training, the fused features at inference are out-of-distribution the moment a branch dies, and outputs are garbage rather than degraded.</p></details>
+<details class="quiz"><summary>Quiz: 0.5° of extrinsic yaw error — why does long-range fusion fail first?</summary>
+<p>Angular error converts to lateral displacement linearly with range: at 10 m it's ~9 cm (sub-cell, invisible); at 100 m it's ~0.9 m — several BEV cells, so camera features get fused into the wrong cells exactly where LiDAR is sparsest and camera evidence matters most. Detection quality degrades from the far field inward, which is also the diagnostic signature to look for.</p></details>
+<details class="quiz"><summary>Quiz: What breaks if you fuse past BEV frames without ego-motion compensation?</summary>
+<p>Static world structure smears along the ego trajectory — a parked car appears at a different grid cell each frame, so temporal aggregation blurs it instead of sharpening it, and the net learns to distrust history. Warp past features into the current ego frame first; then static things stack and moving things leave interpretable motion traces.</p></details>
+</section>
+
+<!-- ============================================================ -->
+<section id="beyond">
+<h2>9. Where this encoder feeds VLMs, VLAs, and world models</h2>
+
+<div class="concept">
+<p>The BEV-token encoder is not the end of the road; it's the perception front-end for three bigger systems, and closing with this shows you see the field's direction:</p>
+<ul>
+<li><strong>VLM copilots / foundation models:</strong> the same tokens that feed detection heads can be projected into a language model's embedding space (a learned adapter, exactly like a vision encoder feeding an LLM). Then the AV stack can answer "why did you brake?" and do open-vocabulary detection of classes never labeled — the long-tail escape hatch.</li>
+<li><strong>VLA-style end-to-end driving:</strong> instead of handing boxes to a planner, hand encoder tokens to a policy head that outputs trajectories — the same encoder-tokens-to-actions pattern as VLA policies on robot arms. The encoder's quality bounds the policy; interfaces (tokens, not boxes) preserve information the hand-designed box abstraction throws away.</li>
+<li><strong>World models:</strong> predict future BEV / occupancy / latent states from past ones. This gives you (a) a pretraining objective on unlabeled fleet logs, (b) a forecasting head, and (c) a neural simulator for closed-loop evaluation and synthetic data — which loops back to training long-tail scenarios you can't collect safely.</li>
+</ul>
+<p>One closing sentence for the interview: <em>“Design the encoder so its tokens are a good interface — detection heads today, language adapters and policy/world-model heads tomorrow, without retraining the trunk.”</em></p>
+</div>
+
+<div class="term-box">
+<h4>Memorize these terms</h4>
+<p><span class="term">vision-language model (VLM)</span> <span class="term">vision-language-action (VLA)</span> <span class="term">open-vocabulary detection</span> <span class="term">adapter / projection layer</span> <span class="term">world model</span> <span class="term">occupancy forecasting</span> <span class="term">closed-loop evaluation</span> <span class="term">tokens as interface</span></p>
+<p class="related">Related: use your own VLA-deployment and world-model-quantization work as the evidence here — see <a href="playbook.html#experience">Playbook Section 5</a></p>
+</div>
+
+<details class="quiz"><summary>Quiz: Why do end-to-end driving stacks pass tokens rather than detected boxes to the planner/policy?</summary>
+<p>Boxes are a lossy hand-designed bottleneck: they discard shape detail, uncertainty structure, appearance, and everything about the scene that isn't a discrete object. Tokens keep the information and let the policy learn which of it matters — the same reason VLA policies consume vision-encoder tokens rather than a detector's output. The cost is interpretability, which is why hybrid stacks keep supervised heads as auxiliary outputs.</p></details>
+</section>
+
+<script>
+(function () {
+  "use strict";
+  function ready(fn){ if(document.readyState !== "loading") fn(); else document.addEventListener("DOMContentLoaded", fn); }
+  ready(function () {
+
+    /* ---------- Section 2: clickable pipeline ---------- */
+    var DETAILS = {
+      camera: { t: "Camera array (6×, surround)", b: [
+        "Six cameras give 360° coverage; each outputs an H×W×3 image at 10–30 Hz.",
+        "Richest semantics of any sensor: class identity, traffic lights, text, lane paint.",
+        "No depth — a pixel constrains only a ray; depth must be inferred or borrowed from LiDAR.",
+        "Fails in glare, darkness, rain on lens — plan for its absence."
+      ], k: "rolling shutter, intrinsics, surround coverage" },
+      lidar: { t: "LiDAR", b: [
+        "Time-of-flight gives direct metric depth, ±2 cm, as N×(x,y,z,intensity) points.",
+        "Sparse and range-decaying: a distant pedestrian is a handful of points.",
+        "Already in 3D metric space — no lifting needed, anchors the BEV geometry.",
+        "Degrades in rain/fog/snow (scattering); expensive but prices are falling."
+      ], k: "point cloud, time-of-flight, sparsity" },
+      radar: { t: "Radar", b: [
+        "Emits RF; returns M detections with position, radial velocity (Doppler), and RCS.",
+        "The only sensor measuring velocity directly, in a single frame.",
+        "Very coarse angular resolution — shape and class are nearly unreadable.",
+        "All-weather and cheap: the sensor still working when the other two aren't."
+      ], k: "Doppler, RCS, CFAR threshold" },
+      "img-enc": { t: "Image encoder (per camera)", b: [
+        "ViT or CNN backbone turning each image into a grid of feature tokens (Section 3a).",
+        "Usually shared weights across all 6 cameras — one backbone, six passes.",
+        "Pretrained self-supervised (MAE) or contrastively (CLIP) before AV fine-tuning.",
+        "The dominant compute item — the first target for quantization and resolution cuts."
+      ], k: "patch embedding, backbone, pretraining" },
+      "pt-enc": { t: "Point encoder", b: [
+        "PointPillars by default: bin points into ground-plane pillars, tiny PointNet per pillar, scatter to a 2D pseudo-image (Section 3b).",
+        "Permutation-invariant by construction — max-pool inside each pillar.",
+        "Output is already a BEV feature map: geometry handled, fusion-ready.",
+        "Sparse 3D convs are the alternative when vertical structure matters."
+      ], k: "PointPillars, permutation invariance, pseudo-image" },
+      "radar-enc": { t: "Radar encoder", b: [
+        "Point-level: MLP over the detection list, PointNet-style — simple, standard.",
+        "Tensor-level upgrade: CNN on the range–azimuth–Doppler cube keeps sub-threshold returns.",
+        "Velocity features here are what make fused tracks velocity-aware instantly.",
+        "Cheapest branch by far — never the latency bottleneck."
+      ], k: "detection list, RAD tensor, micro-Doppler" },
+      tokens: { t: "Shared token space", b: [
+        "Each branch is linearly projected to the same dimension d.",
+        "Add a learned modality embedding (which sensor?) and a position embedding (where?).",
+        "Heterogeneous sensors become one homogeneous token set — the key abstraction.",
+        "Adding/removing a sensor changes the token set, not the architecture."
+      ], k: "modality embedding, position embedding, projection" },
+      fusion: { t: "Fusion (cross-attention)", b: [
+        "BEV queries (Q) attend over sensor tokens (K,V): softmax(QKᵀ/√d)V — Section 5.",
+        "Geometry-aware: each query knows its (x,y) cell and projects into the images for sampling.",
+        "Deformable attention keeps it sparse: a few sampled points, not all pixels.",
+        "Trained with sensor dropout so attention renormalizes when a branch dies (Section 8)."
+      ], k: "Q/K/V, deformable attention, BEV query" },
+      bev: { t: "BEV feature grid", b: [
+        "A 200×200×C ego-centric metric grid (e.g. 0.5 m cells, ±50 m).",
+        "The lingua franca: LiDAR is native here, maps live here, planning consumes it.",
+        "Object scale is distance-invariant in BEV — simpler detection heads.",
+        "Temporal window of past BEVs (ego-motion aligned) adds velocity and occlusion memory."
+      ], k: "ego-centric, metric grid, temporal window" },
+      heads: { t: "Task heads", b: [
+        "Lightweight per-task decoders sharing the BEV trunk: 3D detection, map/occupancy, motion forecasting.",
+        "Shared trunk = shared cost and geometric consistency between tasks.",
+        "Multi-task balancing is the training risk — watch per-task validation, not total loss (Section 7).",
+        "Tomorrow's heads: language adapters (VLM), policy heads (VLA), world-model prediction (Section 9)."
+      ], k: "multi-task, trunk/head split, negative transfer" }
+    };
+    var svg = document.getElementById("pipe-svg");
+    var titleEl = document.getElementById("pipe-detail-title");
+    var bulletsEl = document.getElementById("pipe-detail-bullets");
+    var termsEl = document.getElementById("pipe-detail-terms");
+    if (svg && titleEl && bulletsEl && termsEl) {
+      var blocks = svg.querySelectorAll(".pipe-block");
+      function show(key, el) {
+        var d = DETAILS[key]; if (!d) return;
+        titleEl.textContent = d.t;
+        bulletsEl.innerHTML = "";
+        d.b.forEach(function (line) { var li = document.createElement("li"); li.textContent = line; bulletsEl.appendChild(li); });
+        termsEl.textContent = "Key terms: " + d.k;
+        blocks.forEach(function (b) { b.style.opacity = (b === el) ? "1" : "0.55"; });
+      }
+      blocks.forEach(function (b) {
+        b.style.cursor = "pointer";
+        b.addEventListener("click", function () { show(b.getAttribute("data-block"), b); });
+        b.addEventListener("keydown", function (e) { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); show(b.getAttribute("data-block"), b); } });
+      });
+    }
+
+    /* ---------- Section 5: honest cross-attention demo ---------- */
+    // 4 BEV queries × 6 LiDAR keys, d = 4. Hardcoded but real math below.
+    var Q = [
+      [ 2.0,  0.1,  0.0,  0.4],   // Q1 road cell ahead: ground-ish
+      [-0.3,  2.2,  1.4,  0.0],   // Q2 near the car: car-ish
+      [ 0.1, -0.4,  0.3,  2.2],   // Q3 curbside
+      [ 0.2,  0.1,  0.1,  0.1]    // Q4 empty: weak everywhere
+    ];
+    var K = [
+      [ 1.3,  0.0,  0.1,  0.2],   // k1 ground
+      [ 1.1,  0.2, -0.1,  0.4],   // k2 ground
+      [-0.1,  1.3,  0.8,  0.1],   // k3 car side
+      [ 0.0,  1.5,  1.0, -0.2],   // k4 car rear
+      [ 0.3, -0.2,  0.1,  1.4],   // k5 curb
+      [ 0.4,  0.3,  0.5,  0.6]    // k6 pole
+    ];
+    var NOTES = [
+      "Q1 sits on open road: mass goes to the two ground tokens k₁, k₂.",
+      "Q2 sits on the parked car: k₃ and k₄ (car tokens) take almost everything.",
+      "Q3 is curbside: k₅ dominates, with a little leakage to the pole.",
+      "Q4 matches nothing strongly → a nearly uniform row. This is what “nothing relevant here” looks like."
+    ];
+    function dot(a, b) { var s = 0; for (var i = 0; i < a.length; i++) s += a[i] * b[i]; return s; }
+    function softmax(xs) {
+      var m = Math.max.apply(null, xs);
+      var es = xs.map(function (x) { return Math.exp(x - m); });
+      var Z = es.reduce(function (a, b) { return a + b; }, 0);
+      return es.map(function (e) { return e / Z; });
+    }
+    var xsvg = document.getElementById("xattn-svg");
+    var xctrl = document.getElementById("xattn-controls");
+    var xread = document.getElementById("xattn-readout");
+    if (xsvg && xctrl && xread) {
+      var cells = xsvg.querySelectorAll("#xattn-cells rect");
+      var wlabels = xsvg.querySelectorAll("#xattn-cells .xw");
+      var noteEl = xsvg.querySelector("#xattn-note");
+      var SEQ = ["var(--seq-1)","var(--seq-2)","var(--seq-3)","var(--seq-4)","var(--seq-5)","var(--seq-6)","var(--seq-7)"];
+      function seqColor(w) { // map weight in [0,1] to sequential step; softmax rows here peak ~0.5
+        var idx = Math.min(6, Math.floor(w * 10)); // 0-0.1 -> seq1 ... 0.6+ -> seq7
+        return SEQ[idx];
+      }
+      function render(qi) {
+        var d = Q[qi].length;
+        var logits = K.map(function (k) { return dot(Q[qi], k) / Math.sqrt(d); });
+        var w = softmax(logits);
+        for (var i = 0; i < cells.length; i++) {
+          cells[i].setAttribute("fill", seqColor(w[i]));
+          if (wlabels[i]) wlabels[i].textContent = w[i].toFixed(3);
+        }
+        if (noteEl) noteEl.textContent = NOTES[qi];
+        var lines = ["q = [" + Q[qi].join(", ") + "]   (d = " + d + ", scale = 1/√" + d + " = " + (1/Math.sqrt(d)).toFixed(3) + ")"];
+        for (var j = 0; j < K.length; j++) {
+          lines.push("k" + (j+1) + " = [" + K[j].join(", ") + "]   q·k = " + dot(Q[qi], K[j]).toFixed(2) +
+                     "   logit = " + logits[j].toFixed(3) + "   softmax → " + w[j].toFixed(3));
+        }
+        lines.push("Σ weights = " + w.reduce(function(a,b){return a+b;},0).toFixed(3));
+        xread.textContent = lines.join("\n");
+      }
+      var btns = xctrl.querySelectorAll("button");
+      btns.forEach(function (b) {
+        b.addEventListener("click", function () {
+          btns.forEach(function (x) { x.classList.remove("active"); });
+          b.classList.add("active");
+          render(parseInt(b.getAttribute("data-q"), 10));
+        });
+      });
+      render(0);
+    }
+
+    /* optional shared tooltip helper */
+    if (typeof window.vizTooltip === "function") { /* pages with hover layers can opt in */ }
+  });
+})();
+</script>
+
+</main></body></html>

@@ -1,0 +1,651 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Math — AV Study v2</title>
+<link rel="stylesheet" href="assets/style.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/katex.min.css">
+<script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/katex.min.js"></script>
+<script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/contrib/auto-render.min.js"></script>
+<script defer src="assets/app.js"></script>
+</head>
+<body>
+<nav class="topnav"><a href="index.html">Home</a><a href="classification.html">Classification</a><a href="inference.html">Data→Inference</a><a href="encoder.html">Encoder</a><a href="playbook.html">Playbook</a><a href="math.html">Math</a><a href="gd-lab.html">GD Lab</a><a href="glossary.html">Glossary</a></nav>
+<main class="page">
+
+<h1>The Math You'll Be Asked to Reproduce</h1>
+<p>Six clusters cover ~90% of the math surface in a foundation-model interview loop: optimization, backprop, attention, losses, conv/tensor arithmetic, and probability. Everything below is <em>derived</em>, not asserted — the derivations are short and they are exactly what an interviewer wants to hear out loud.</p>
+
+<!-- ============ 1. GRADIENTS & OPTIMIZATION ============ -->
+<section class="concept" id="optimization">
+<h2>1 · Gradients &amp; Optimization</h2>
+
+<p>Gradient descent is the whole game. The update rule for parameters \(\theta\) with loss \(f\):</p>
+<div class="math-block">$$\theta_{t+1} = \theta_t - \eta \,\nabla f(\theta_t)$$</div>
+<p>The gradient \(\nabla f\) points in the direction of <em>steepest increase</em>, so we step against it, scaled by the learning rate \(\eta\).</p>
+
+<h3>Deriving the convergence condition (do this on a whiteboard)</h3>
+<p>Take the simplest curved function, \(f(x) = \tfrac{1}{2} L x^2\), whose gradient is \(f'(x) = Lx\). \(L\) is the <strong>curvature</strong> (second derivative). Substitute into the update:</p>
+<div class="math-block">$$x_{t+1} = x_t - \eta L x_t = (1 - \eta L)\, x_t$$</div>
+<p>This is a geometric recurrence: after \(t\) steps, \(x_t = (1-\eta L)^t x_0\). It shrinks to the minimum at 0 <em>iff</em> the multiplier has magnitude below one:</p>
+<div class="math-block">$$|1 - \eta L| &lt; 1 \quad\Longleftrightarrow\quad 0 &lt; \eta &lt; \frac{2}{L}$$</div>
+<p>Three regimes fall out of the sign and magnitude of \((1-\eta L)\):</p>
+<ul>
+<li>\(0 &lt; \eta &lt; \tfrac{1}{L}\): multiplier in \((0,1)\) — <strong>monotone convergence</strong> (slides down one side).</li>
+<li>\(\tfrac{1}{L} &lt; \eta &lt; \tfrac{2}{L}\): multiplier in \((-1,0)\) — <strong>oscillating convergence</strong> (hops across the valley, shrinking).</li>
+<li>\(\eta &gt; \tfrac{2}{L}\): multiplier below \(-1\) — <strong>divergence</strong> (each hop overshoots farther).</li>
+</ul>
+
+<figure class="viz">
+  <svg id="regimes-svg" viewBox="0 0 660 380" role="img" aria-label="Three gradient descent trajectories on one parabola: converging, oscillating, diverging"></svg>
+  <div class="legend" id="regimes-legend"></div>
+  <figcaption>All three regimes on \(f(x)=\tfrac12 x^2\) (\(L=1\), threshold \(\eta=2\)), starting at \(x_0=5\). Every dot is an honestly computed iterate \(x_{t+1}=(1-\eta)x_t\). The diverging run leaves the frame by design.</figcaption>
+</figure>
+
+<h3>Momentum (heavy ball)</h3>
+<div class="math-block">$$v_{t+1} = \beta v_t - \eta \nabla f(\theta_t), \qquad \theta_{t+1} = \theta_t + v_{t+1}$$</div>
+<p>Intuition per term: \(\beta v_t\) (typically \(\beta=0.9\)) is inertia — an exponential moving average of past gradients. Along a consistent downhill direction the velocity accumulates up to \(\tfrac{1}{1-\beta} = 10\times\) the bare step; across a narrow valley the alternating gradients <em>cancel</em> in the average, damping oscillation. On quadratics, heavy ball also enlarges the stable range to \(\eta &lt; \tfrac{2(1+\beta)}{L}\) — you'll see that live in the <a href="gd-lab.html">GD Lab</a>.</p>
+
+<h3>Adam / AdamW — every term explained</h3>
+<div class="math-block">$$\begin{aligned}
+m_t &amp;= \beta_1 m_{t-1} + (1-\beta_1)\, g_t &amp;&amp; \text{1st moment: EMA of gradients (momentum)}\\
+v_t &amp;= \beta_2 v_{t-1} + (1-\beta_2)\, g_t^{2} &amp;&amp; \text{2nd moment: EMA of squared gradients}\\
+\hat m_t &amp;= \frac{m_t}{1-\beta_1^{\,t}}, \quad \hat v_t = \frac{v_t}{1-\beta_2^{\,t}} &amp;&amp; \text{bias correction}\\
+\theta_{t+1} &amp;= \theta_t - \eta\, \frac{\hat m_t}{\sqrt{\hat v_t} + \epsilon} &amp;&amp; \text{per-parameter adaptive step}
+\end{aligned}$$</div>
+<p><strong>Why bias correction:</strong> \(m_0 = v_0 = 0\), so early EMAs are biased toward zero. Unrolling, \(\mathbb{E}[m_t] \approx (1-\beta_1^t)\,\mathbb{E}[g]\) — dividing by \((1-\beta_1^t)\) removes exactly that factor. With \(\beta_2 = 0.999\), \(v_t\) is only ~1% "warmed up" after 10 steps; without correction the effective step would be ~10× too large early on. <strong>Why \(\sqrt{\hat v_t}\):</strong> dividing by the RMS gradient makes the step size roughly \(\pm\eta\) per parameter regardless of gradient scale — a per-coordinate trust region. Defaults: \(\beta_1{=}0.9,\ \beta_2{=}0.999,\ \epsilon{=}10^{-8}\).</p>
+<p><strong>AdamW</strong> decouples weight decay from the adaptive machinery:</p>
+<div class="math-block">$$\theta_{t+1} = \theta_t - \eta\left(\frac{\hat m_t}{\sqrt{\hat v_t}+\epsilon} + \lambda\, \theta_t\right)$$</div>
+<p>In plain Adam, adding \(\lambda\theta\) to the gradient lets it get divided by \(\sqrt{\hat v}\) — parameters with large gradients get <em>less</em> regularization. AdamW applies decay directly to weights, restoring the L2 behavior. It is the default for transformers.</p>
+
+<div class="callout"><strong>Convexity note.</strong> A quadratic is the canonical convex function: one global minimum, and the \(2/L\) analysis is exact. Deep nets are wildly non-convex, yet SGD works — the modern picture is that in high dimensions most critical points are saddles (easy to escape with noise), local minima found by SGD tend to be nearly as good as global ones, and overparameterization connects minima into low-loss basins. Say "the quadratic analysis still governs local behavior — \(L\) becomes the largest Hessian eigenvalue" and you sound exactly as sophisticated as you need to.</div>
+
+<div class="term-box">
+<h4>Memorize these</h4>
+<p><span class="term">learning rate (η)</span><span class="term">curvature / L-smoothness</span><span class="term">2/L stability threshold</span><span class="term">momentum (β)</span><span class="term">first / second moment</span><span class="term">bias correction</span><span class="term">AdamW / decoupled weight decay</span><span class="term">convexity</span><span class="term">saddle point</span></p>
+<p class="related">Related: <a href="gd-lab.html">GD Lab</a> makes the three regimes interactive; [[condition number]] extends 2/L to multiple dimensions.</p>
+</div>
+
+<div class="quiz">
+<h4>Quiz</h4>
+<details><summary>Q1. For \(f(x)=3x^2\), what is the largest stable learning rate?</summary><p>\(f''=6=L\), so \(\eta &lt; 2/L = 1/3\). (Watch the factor of 2: \(f=ax^2 \Rightarrow L=2a\).)</p></details>
+<details><summary>Q2. Why does Adam divide by \(1-\beta_2^t\)?</summary><p>Because \(v_0=0\) biases the EMA toward zero early in training; the correction rescales \(v_t\) to be an unbiased estimate of \(\mathbb{E}[g^2]\), preventing huge early steps.</p></details>
+<details><summary>Q3. What's the difference between L2 regularization in Adam vs AdamW?</summary><p>In Adam, the decay term goes through the \(\sqrt{\hat v}\) division so its strength varies per-parameter; AdamW applies \(-\eta\lambda\theta\) directly to weights, decoupled from the adaptive scaling.</p></details>
+</div>
+</section>
+
+<!-- ============ 2. BACKPROP STEPPER ============ -->
+<section class="concept" id="backprop">
+<h2>2 · Backprop, One Node at a Time</h2>
+<p>Backprop is just the chain rule organized as a graph walk: <strong>each node multiplies the gradient flowing in from above ("upstream") by its own local derivative</strong>. Step through a real 2-layer network below — every number is computed live in JS, nothing is hardcoded.</p>
+<p>Network: \(x \to w_1 x \to +b_1 \to \mathrm{ReLU} \to w_2 h \to +b_2 \to y\), loss \(\mathcal{L} = \tfrac12 (y-t)^2\). Constants: \(x{=}2,\ w_1{=}0.5,\ b_1{=}1,\ w_2{=}{-1},\ b_2{=}0.5,\ t{=}1\).</p>
+
+<figure class="viz">
+  <svg id="bp-svg" viewBox="0 0 660 190" role="img" aria-label="Computational graph of a two-layer network with ReLU"></svg>
+  <div class="viz-controls">
+    <button id="bp-fwd" type="button">Forward step ▸</button>
+    <button id="bp-bwd" type="button" disabled>◂ Backward step</button>
+    <button id="bp-reset" type="button">Reset</button>
+    <span class="readout" id="bp-status">Ready — press "Forward step".</span>
+  </div>
+  <div class="math-block" id="bp-math" aria-live="polite"></div>
+  <div style="overflow-x:auto"><table id="bp-table">
+    <thead><tr><th>node</th><th>z₁ = w₁x</th><th>a₁ = z₁+b₁</th><th>h = ReLU(a₁)</th><th>z₂ = w₂h</th><th>y = z₂+b₂</th><th>ℒ = ½(y−t)²</th></tr></thead>
+    <tbody>
+      <tr id="bp-row-fwd"><th>forward value</th><td>·</td><td>·</td><td>·</td><td>·</td><td>·</td><td>·</td></tr>
+      <tr id="bp-row-bwd"><th>∂ℒ/∂(node)</th><td>·</td><td>·</td><td>·</td><td>·</td><td>·</td><td>·</td></tr>
+      <tr id="bp-row-par"><th>param grads</th><td>·</td><td>·</td><td>—</td><td>·</td><td>·</td><td>—</td></tr>
+    </tbody>
+  </table></div>
+  <figcaption>Forward values fill in blue, gradients in red. Each backward step shows the local-derivative × upstream-gradient product for the active node. Note how ∂ℒ/∂w₁ = 5 has the largest magnitude — early weights feel amplified gradients when downstream weights exceed 1.</figcaption>
+</figure>
+
+<div class="callout"><strong>The three local rules that cover 95% of graphs:</strong> an <em>add</em> node copies the upstream gradient to both inputs; a <em>multiply</em> node swaps its inputs (\(\partial(wx)/\partial w = x\)); ReLU is a gate — passes the gradient where the input was positive, kills it where it wasn't.</div>
+
+<div class="term-box">
+<h4>Memorize these</h4>
+<p><span class="term">chain rule</span><span class="term">computational graph</span><span class="term">upstream gradient</span><span class="term">local derivative</span><span class="term">ReLU gate</span><span class="term">gradient of a multiply = swapped input</span><span class="term">dead ReLU</span></p>
+<p class="related">Related: this is what <code>loss.backward()</code> does; [[vanishing gradient]] is this multiplication chain shrinking layer over layer.</p>
+</div>
+
+<div class="quiz">
+<h4>Quiz</h4>
+<details><summary>Q1. In the example, why is ∂ℒ/∂w₂ negative (−5) while ∂ℒ/∂h is positive (+2.5)?</summary><p>∂ℒ/∂w₂ = h · ∂ℒ/∂z₂ = 2 × (−2.5) = −5, but ∂ℒ/∂h = w₂ · ∂ℒ/∂z₂ = (−1) × (−2.5) = +2.5. The multiply node routes each input's gradient through the <em>other</em> input, and w₂'s sign flips one of them.</p></details>
+<details><summary>Q2. What would happen to ∂ℒ/∂w₁ if a₁ had been negative?</summary><p>ReLU's local derivative would be 0, so the entire upstream chain is multiplied by 0: ∂ℒ/∂w₁ = ∂ℒ/∂b₁ = 0. That neuron learns nothing this step — the "dead ReLU" failure mode when it happens for all inputs.</p></details>
+</div>
+</section>
+
+<!-- ============ 3. ATTENTION MATH ============ -->
+<section class="concept" id="attention">
+<h2>3 · Attention Math</h2>
+<div class="math-block">$$\mathrm{Attention}(Q,K,V) = \mathrm{softmax}\!\left(\frac{QK^{\top}}{\sqrt{d_k}}\right)V$$</div>
+
+<h3>Why divide by \(\sqrt{d_k}\)? (the variance argument)</h3>
+<p>If the components of \(q, k \in \mathbb{R}^{d_k}\) are independent with mean 0 and variance 1, then the dot product \(q\cdot k = \sum_{i=1}^{d_k} q_i k_i\) is a sum of \(d_k\) terms each with variance 1, so:</p>
+<div class="math-block">$$\mathrm{Var}(q \cdot k) = d_k \quad\Rightarrow\quad \mathrm{std} = \sqrt{d_k}$$</div>
+<p>With \(d_k = 64\), raw scores have std 8. Softmax of logits that large saturates to near one-hot, and the gradient of softmax (\(\propto p(1-p)\)) vanishes. Dividing by \(\sqrt{d_k}\) restores unit variance and keeps softmax in its usable, trainable range. Same idea as temperature — see <a href="classification.html">Classification</a>.</p>
+
+<h3>Shape walk (n = 10 tokens, d = 64)</h3>
+<ul>
+<li>Input \(X\): \((10, 64)\). Projections \(W_Q, W_K, W_V\): each \((64, 64)\) → \(Q, K, V\): \((10, 64)\).</li>
+<li>Scores \(QK^\top\): \((10, 64) \times (64, 10) = (10, 10)\) — one similarity per token pair.</li>
+<li>Softmax row-wise → attention matrix \(A\): \((10,10)\), each row sums to 1.</li>
+<li>Output \(AV\): \((10,10)\times(10,64) = (10, 64)\) — each token becomes a convex mix of value vectors.</li>
+</ul>
+<p><strong>Multi-head</strong> splits \(d{=}64\) into e.g. 8 heads of \(d_k{=}8\): each head attends in its own low-rank subspace (one can track spatial neighbors, another lane markings, another temporal order), then outputs are concatenated and mixed by \(W_O\). Cost: scores are \(n \times n\) per head → <strong>\(O(n^2 d)\)</strong> time and \(O(n^2)\) memory — the reason long-context and dense-video attention are hard, and why AV stacks use windowed/sparse variants for LiDAR and multi-camera tokens.</p>
+
+<figure class="viz">
+  <svg id="attn-svg" viewBox="0 0 480 400" role="img" aria-label="Causal attention weight heatmap, 8 by 8"></svg>
+  <div class="legend" id="attn-legend"></div>
+  <figcaption>An 8×8 causal attention matrix: scores are hardcoded (recency + a "return to token 0" head pattern), the softmax over each unmasked row is computed honestly in JS. Row = query, column = key; upper triangle is masked to −∞ so each row still sums to 1.</figcaption>
+</figure>
+
+<pre class="code-block"><code>import numpy as np
+
+def attention(Q, K, V, causal=False):
+    """Q,K: (n, d_k); V: (n, d_v). Returns (n, d_v)."""
+    d_k = Q.shape[-1]
+    scores = Q @ K.T / np.sqrt(d_k)          # (n, n)
+    if causal:
+        n = scores.shape[0]
+        scores[np.triu_indices(n, k=1)] = -np.inf
+    scores -= scores.max(-1, keepdims=True)  # numerical stability
+    A = np.exp(scores)
+    A /= A.sum(-1, keepdims=True)            # rows sum to 1
+    return A @ V                             # convex mix of values</code></pre>
+
+<div class="term-box">
+<h4>Memorize these</h4>
+<p><span class="term">scaled dot-product</span><span class="term">√d_k scaling</span><span class="term">query / key / value</span><span class="term">attention matrix (n×n)</span><span class="term">multi-head = subspaces</span><span class="term">causal mask</span><span class="term">O(n²d)</span><span class="term">softmax saturation</span></p>
+<p class="related">Related: <a href="encoder.html">Encoder</a> for the full transformer block; temperature bars on <a href="classification.html">Classification</a>.</p>
+</div>
+
+<div class="quiz">
+<h4>Quiz</h4>
+<details><summary>Q1. Derive the variance of \(q\cdot k\) for unit-variance components.</summary><p>Each product \(q_ik_i\) has variance 1 (product of independent unit-variance, zero-mean variables); the sum of \(d_k\) independent terms has variance \(d_k\). Hence std \(\sqrt{d_k}\), hence the scaling.</p></details>
+<details><summary>Q2. You double the token count n of a camera feed. What happens to attention compute?</summary><p>Score matrix is \(n\times n\), so compute and memory grow 4× — \(O(n^2 d)\). This is why perception stacks downsample/tokenize aggressively or use windowed attention.</p></details>
+<details><summary>Q3. Parameter count of one self-attention layer at d=512?</summary><p>\(W_Q, W_K, W_V, W_O\) each \(d\times d\): \(4d^2 \approx 1.05\)M (ignoring biases).</p></details>
+</div>
+</section>
+
+<!-- ============ 4. LOSS ZOO ============ -->
+<section class="concept" id="losses">
+<h2>4 · Loss Zoo</h2>
+<p>Interviewers probe whether you know a loss's <em>gradient character</em> — that determines what the model actually does with outliers and hard examples.</p>
+
+<div style="overflow-x:auto"><table>
+<thead><tr><th>Loss</th><th>Formula</th><th>Gradient character</th><th>When</th></tr></thead>
+<tbody>
+<tr><td><strong>MSE / L2</strong></td><td>\(\tfrac12(y-\hat y)^2\)</td><td>∝ residual — outliers dominate quadratically</td><td>Regression with clean targets (pose, depth)</td></tr>
+<tr><td><strong>L1 / MAE</strong></td><td>\(|y-\hat y|\)</td><td>constant ±1 — robust, but no "slow down" near 0 (non-smooth)</td><td>Robust regression; box coords historically</td></tr>
+<tr><td><strong>Huber</strong></td><td>quadratic if \(|r|\le\delta\), else \(\delta(|r|-\tfrac{\delta}{2})\)</td><td>∝ r near 0, clipped at ±δ far away — best of both</td><td>Regression with outliers (default answer for noisy AV labels)</td></tr>
+<tr><td><strong>Cross-entropy</strong></td><td>\(-\sum_c y_c \log p_c\)</td><td>on logits: \(p - y\) — clean, never saturates while wrong</td><td>Classification (with softmax)</td></tr>
+<tr><td><strong>BCE</strong></td><td>\(-[y\log p + (1{-}y)\log(1{-}p)]\)</td><td>on logit: \(p - y\)</td><td>Multi-label / per-anchor objectness</td></tr>
+<tr><td><strong>Focal</strong></td><td>\(-(1-p_t)^\gamma \log p_t\)</td><td>CE × down-weighting of easy examples (\(\gamma{\approx}2\))</td><td>Extreme class imbalance — dense detection (RetinaNet)</td></tr>
+<tr><td><strong>InfoNCE</strong></td><td>\(-\log \dfrac{e^{s^{+}/\tau}}{\sum_j e^{s_j/\tau}}\)</td><td>CE over similarities — pulls positive pair, pushes negatives</td><td>Contrastive pretraining (CLIP-style image–text)</td></tr>
+</tbody>
+</table></div>
+
+<figure class="viz">
+  <svg id="loss-svg" viewBox="0 0 660 380" role="img" aria-label="MSE, L1 and Huber loss curves with their gradients"></svg>
+  <div class="legend" id="loss-legend"></div>
+  <figcaption>Loss value (solid) and gradient (dashed) vs residual \(r\). MSE's gradient grows without bound; L1's is a constant ±1 with a jump at 0; Huber (δ=1) follows MSE inside the labeled kink at |r|=δ and clips to ±δ outside — a built-in gradient clip.</figcaption>
+</figure>
+
+<div class="callout"><strong>One-liner worth memorizing:</strong> "Cross-entropy's gradient on the logits is just \(p - y\) — prediction minus target. That's why softmax+CE is the default: the composite gradient is linear and never saturates while the model is wrong."</div>
+
+<div class="term-box">
+<h4>Memorize these</h4>
+<p><span class="term">gradient character</span><span class="term">Huber δ (kink)</span><span class="term">p − y</span><span class="term">focal γ</span><span class="term">InfoNCE / temperature τ</span><span class="term">outlier robustness</span><span class="term">class imbalance</span></p>
+<p class="related">Related: softmax + temperature in §6; calibration on <a href="classification.html">Classification</a>.</p>
+</div>
+
+<div class="quiz">
+<h4>Quiz</h4>
+<details><summary>Q1. A few LiDAR range labels are corrupted 10× out of range. MSE or Huber, and why?</summary><p>Huber: MSE's gradient is proportional to the residual, so a 10× outlier contributes a 10× gradient and drags the fit; Huber clips its gradient at ±δ, bounding any single example's influence.</p></details>
+<details><summary>Q2. Why focal loss for dense detection?</summary><p>With ~10⁵ anchors, easy negatives outnumber positives ~1000:1; their summed CE swamps the signal. \((1-p_t)^\gamma\) multiplies well-classified examples toward 0, refocusing on hard ones.</p></details>
+<details><summary>Q3. What plays the role of "classes" in InfoNCE?</summary><p>The other samples in the batch: each positive pair competes against in-batch negatives via a softmax over similarities — classification where the label is "which candidate matches."</p></details>
+</div>
+</section>
+
+<!-- ============ 5. CONV / TENSOR ARITHMETIC ============ -->
+<section class="concept" id="conv">
+<h2>5 · Conv &amp; Tensor Arithmetic</h2>
+<p>The formula that answers every "what's the output size" question — with padding \(P\), dilation \(D\), kernel \(K\), stride \(S\) on input size \(I\):</p>
+<div class="math-block">$$O = \left\lfloor \frac{I + 2P - D(K-1) - 1}{S} \right\rfloor + 1$$</div>
+<p>Sanity anchors: "same" conv is \(K{=}3, P{=}1, S{=}1\) (output = input); stride 2 halves; \(D(K-1)+1\) is the <em>effective</em> kernel size under dilation.</p>
+
+<figure class="viz">
+  <svg id="conv-svg" viewBox="0 0 660 330" role="img" aria-label="A 3 by 3 kernel sliding over a padded 7 by 7 input, with the corresponding output cell highlighted"></svg>
+  <div class="viz-controls">
+    <label>kernel position <input type="range" id="conv-pos" min="0" max="48" value="0" step="1"></label>
+    <span class="readout" id="conv-readout"></span>
+  </div>
+  <div class="legend" id="conv-legend"></div>
+  <figcaption>3×3 kernel (blue window) sliding over a 7×7 input with P=1 zero-padding (hatched ring), stride 1. The output cell it produces is highlighted in the 7×7 output grid: (7 + 2·1 − 2 − 1)/1 + 1 = 7 — "same" convolution.</figcaption>
+</figure>
+
+<h3>Worked examples</h3>
+<div style="overflow-x:auto"><table>
+<thead><tr><th>Input</th><th>K</th><th>P</th><th>S</th><th>D</th><th>Computation</th><th>Output</th></tr></thead>
+<tbody>
+<tr><td>7</td><td>3</td><td>1</td><td>1</td><td>1</td><td>⌊(7+2−2−1)/1⌋+1 = 6+1</td><td><strong>7</strong> (same)</td></tr>
+<tr><td>224</td><td>7</td><td>3</td><td>2</td><td>1</td><td>⌊(224+6−6−1)/2⌋+1 = ⌊111.5⌋+1</td><td><strong>112</strong> (ResNet stem)</td></tr>
+<tr><td>32</td><td>3</td><td>0</td><td>1</td><td>2</td><td>⌊(32+0−4−1)/1⌋+1 = 27+1</td><td><strong>28</strong> (dilated: effective K=5)</td></tr>
+</tbody>
+</table></div>
+
+<h3>Parameter counting</h3>
+<ul>
+<li><strong>Conv:</strong> \(K \times K \times C_{in} \times C_{out} + C_{out}\). E.g. 3×3, 64→128: \(9{\cdot}64{\cdot}128 + 128 = 73{,}856\). Note: independent of spatial size — that's weight sharing.</li>
+<li><strong>Linear:</strong> \(n_{in} \times n_{out} + n_{out}\).</li>
+<li><strong>Transformer block at width d:</strong> attention \(\approx 4d^2\) (\(W_{Q,K,V,O}\)) + MLP \(\approx 8d^2\) (expand 4d, contract) ⇒ \(\approx 12d^2\) per block. GPT-2-small: \(12 \times 12 \times 768^2 \approx 85\)M — plus embeddings gets you to ~117M. Being able to do this estimate out loud is a strong signal.</li>
+</ul>
+
+<h3>Receptive field</h3>
+<p>Each layer grows the receptive field by \((K-1) \times j\) where \(j\) is the accumulated stride ("jump"). Stacked 3×3 stride-1 convs: RF = 3, 5, 7, … (two 3×3 see 5×5 with fewer params: \(2{\cdot}9 &lt; 25\) per channel — the VGG argument). Strides multiply the jump, which is why a handful of stride-2 stages give a 224-px receptive field cheaply, and why detection heads for big vehicles read from deeper, coarser feature maps.</p>
+
+<div class="term-box">
+<h4>Memorize these</h4>
+<p><span class="term">output-size formula</span><span class="term">same convolution</span><span class="term">effective kernel (dilation)</span><span class="term">weight sharing</span><span class="term">12d² per block</span><span class="term">receptive field</span><span class="term">jump / accumulated stride</span></p>
+<p class="related">Related: <a href="encoder.html">Encoder</a> for where conv stems meet transformer blocks.</p>
+</div>
+
+<div class="quiz">
+<h4>Quiz</h4>
+<details><summary>Q1. Output of a 5×5 conv, stride 2, padding 2, on 64×64?</summary><p>⌊(64+4−4−1)/2⌋+1 = ⌊63/2⌋+1 = 31+1 = <strong>32</strong>. Stride 2 with "same-style" padding halves.</p></details>
+<details><summary>Q2. Params of a 1×1 conv from 256→64 channels?</summary><p>1·1·256·64 + 64 = 16,448. This is a per-pixel linear layer — the standard channel-reduction trick.</p></details>
+<details><summary>Q3. Approximate params of a 24-block transformer at d=1024?</summary><p>24 × 12 × 1024² ≈ 302M (plus embeddings).</p></details>
+</div>
+</section>
+
+<!-- ============ 6. PROBABILITY ESSENTIALS ============ -->
+<section class="concept" id="probability">
+<h2>6 · Probability Essentials</h2>
+
+<h3>Softmax is a Boltzmann distribution</h3>
+<div class="math-block">$$p_i = \frac{e^{z_i/T}}{\sum_j e^{z_j/T}}$$</div>
+<p>Logits play the role of (negative) energies and \(T\) is literally temperature: \(T \to 0\) collapses to argmax (one-hot), \(T \to \infty\) flattens to uniform. The \(\sqrt{d_k}\) in attention and the \(\tau\) in InfoNCE are both this same knob. Interactive temperature bars live on the <a href="classification.html">Classification</a> page — same equation, rendered.</p>
+
+<h3>MLE vs MAP — and why weight decay is a Gaussian prior</h3>
+<p>MLE maximizes \(\log p(\mathcal{D}\mid\theta)\); MAP adds a prior: \(\log p(\mathcal{D}\mid\theta) + \log p(\theta)\). Put a Gaussian prior \(\theta \sim \mathcal{N}(0, \sigma^2 I)\) on the weights:</p>
+<div class="math-block">$$\log p(\theta) = -\frac{\lVert\theta\rVert^2}{2\sigma^2} + \text{const} \quad\Rightarrow\quad \hat\theta_{MAP} = \arg\min_\theta \Big[\mathcal{L}_{data}(\theta) + \frac{1}{2\sigma^2}\lVert\theta\rVert^2\Big]$$</div>
+<p>That penalty <em>is</em> L2 regularization with \(\lambda = 1/\sigma^2\): weight decay = "I believe weights are small, Gaussian-distributed around zero." Similarly, minimizing MSE is exactly MLE under Gaussian observation noise, and CE is MLE under a categorical likelihood — most losses are negative log-likelihoods in disguise.</p>
+
+<h3>Calibration (pointer)</h3>
+<p>Softmax confidence ≠ probability of being correct: modern nets are systematically overconfident. Expected Calibration Error, reliability diagrams, and temperature scaling (fit one \(T\) on a validation set post-hoc) are covered with the confidence widgets on <a href="classification.html">Classification</a> — for AV, a miscalibrated 0.99 on "clear road" is a safety argument, not a statistics footnote.</p>
+
+<div class="term-box">
+<h4>Memorize these</h4>
+<p><span class="term">Boltzmann / temperature</span><span class="term">MLE</span><span class="term">MAP</span><span class="term">Gaussian prior ⇒ L2</span><span class="term">MSE = Gaussian NLL</span><span class="term">CE = categorical NLL</span><span class="term">calibration / ECE</span><span class="term">temperature scaling</span></p>
+<p class="related">Related: <a href="classification.html">Classification</a> (temperature bars, calibration); loss zoo above for the NLL view of each loss.</p>
+</div>
+
+<div class="quiz">
+<h4>Quiz</h4>
+<details><summary>Q1. Derive why weight decay corresponds to a Gaussian prior.</summary><p>MAP = arg max log-likelihood + log-prior. For \(\theta\sim\mathcal N(0,\sigma^2 I)\), \(\log p(\theta) = -\lVert\theta\rVert^2/2\sigma^2 + c\); negating for minimization gives an added \(\frac{1}{2\sigma^2}\lVert\theta\rVert^2\) — L2 with \(\lambda = 1/\sigma^2\). Tighter prior (small σ) = stronger decay.</p></details>
+<details><summary>Q2. What does T→0 do to softmax, and where else does this knob appear?</summary><p>Collapses toward one-hot argmax (T→∞ gives uniform). The same knob is \(\sqrt{d_k}\) scaling in attention and τ in InfoNCE — all control the entropy of a Boltzmann distribution.</p></details>
+</div>
+</section>
+
+<script>
+(function () {
+  "use strict";
+  var css = function (name) { return "var(" + name + ")"; };
+
+  /* KaTeX fallback: if app.js didn't auto-render by load time, do it ourselves. */
+  window.addEventListener("load", function () {
+    setTimeout(function () {
+      if (!document.querySelector(".katex") && window.renderMathInElement) {
+        window.renderMathInElement(document.body, {
+          delimiters: [
+            { left: "$$", right: "$$", display: true },
+            { left: "\\(", right: "\\)", display: false }
+          ],
+          throwOnError: false
+        });
+      }
+    }, 250);
+  });
+
+  function svgEl(tag, attrs, parent) {
+    var el = document.createElementNS("http://www.w3.org/2000/svg", tag);
+    for (var k in attrs) el.setAttribute(k, attrs[k]);
+    if (parent) parent.appendChild(el);
+    return el;
+  }
+  function legendItem(container, color, label, dashed) {
+    var item = document.createElement("span");
+    item.style.cssText = "display:inline-flex;align-items:center;gap:6px;margin-right:14px";
+    var sw = document.createElementNS("http://www.w3.org/2000/svg", "svg");
+    sw.setAttribute("width", "22"); sw.setAttribute("height", "10");
+    var ln = svgEl("line", { x1: 1, y1: 5, x2: 21, y2: 5, stroke: color, "stroke-width": 2.5 }, sw);
+    if (dashed) ln.setAttribute("stroke-dasharray", "4 3");
+    item.appendChild(sw);
+    item.appendChild(document.createTextNode(label));
+    container.appendChild(item);
+  }
+
+  /* ---------- 1. Three-regimes SVG ---------- */
+  (function regimes() {
+    var svg = document.getElementById("regimes-svg");
+    var legend = document.getElementById("regimes-legend");
+    if (!svg || !legend) return;
+    var W = 660, H = 380, m = { l: 46, r: 12, t: 12, b: 34 };
+    var xMin = -8, xMax = 8, yMin = 0, yMax = 20;
+    function sx(x) { return m.l + (x - xMin) / (xMax - xMin) * (W - m.l - m.r); }
+    function sy(y) { return H - m.b - (y - yMin) / (yMax - yMin) * (H - m.t - m.b); }
+    function f(x) { return 0.5 * x * x; } /* L = 1 */
+
+    var gx;
+    for (gx = -8; gx <= 8; gx += 2)
+      svgEl("line", { x1: sx(gx), y1: sy(yMin), x2: sx(gx), y2: sy(yMax), stroke: css("--grid"), "stroke-width": 1 }, svg);
+    for (gx = 0; gx <= 20; gx += 5)
+      svgEl("line", { x1: sx(xMin), y1: sy(gx), x2: sx(xMax), y2: sy(gx), stroke: css("--grid"), "stroke-width": 1 }, svg);
+    svgEl("line", { x1: sx(xMin), y1: sy(0), x2: sx(xMax), y2: sy(0), stroke: css("--axis"), "stroke-width": 1.5 }, svg);
+    svgEl("line", { x1: sx(0), y1: sy(yMin), x2: sx(0), y2: sy(yMax), stroke: css("--axis"), "stroke-width": 1.5 }, svg);
+
+    /* parabola */
+    var d = "", px;
+    for (px = xMin; px <= xMax + 1e-9; px += 0.2)
+      d += (d ? " L" : "M") + sx(px).toFixed(1) + " " + sy(Math.min(f(px), yMax)).toFixed(1);
+    svgEl("path", { d: d, fill: "none", stroke: css("--muted"), "stroke-width": 2 }, svg);
+
+    /* honest trajectories: x_{t+1} = (1 - eta) x_t  (L = 1) */
+    var runs = [
+      { eta: 0.5, color: css("--s1"), label: "η = 0.5 · converging", steps: 7 },
+      { eta: 1.8, color: css("--s2"), label: "η = 1.8 · oscillating (converges)", steps: 7 },
+      { eta: 2.25, color: css("--s6"), label: "η = 2.25 · DIVERGING", steps: 5 }
+    ];
+    runs.forEach(function (run) {
+      var xs = [5], i;
+      for (i = 0; i < run.steps; i++) xs.push((1 - run.eta) * xs[xs.length - 1]);
+      var pd = "";
+      xs.forEach(function (x) {
+        var cx = Math.max(xMin, Math.min(xMax, x));
+        pd += (pd ? " L" : "M") + sx(cx).toFixed(1) + " " + sy(Math.min(f(x), yMax)).toFixed(1);
+      });
+      svgEl("path", { d: pd, fill: "none", stroke: run.color, "stroke-width": 2, "stroke-dasharray": "3 3", opacity: 0.7 }, svg);
+      xs.forEach(function (x, t) {
+        if (x < xMin - 0.5 || x > xMax + 0.5 || f(x) > yMax) return;
+        svgEl("circle", { cx: sx(x), cy: sy(f(x)), r: 4.5, fill: run.color, opacity: (0.45 + 0.55 * t / xs.length).toFixed(2) }, svg);
+      });
+    });
+    svgEl("text", { x: sx(5), y: sy(f(5)) - 12, fill: css("--muted"), "font-size": 12, "text-anchor": "middle" }, svg).textContent = "x₀ = 5";
+    svgEl("text", { x: W - 14, y: sy(0) + 22, fill: css("--muted"), "font-size": 12, "text-anchor": "end" }, svg).textContent = "x";
+    svgEl("text", { x: sx(0) + 8, y: m.t + 12, fill: css("--muted"), "font-size": 12 }, svg).textContent = "f(x) = ½x²";
+    runs.forEach(function (r) { legendItem(legend, r.color, r.label); });
+  })();
+
+  /* ---------- 2. Backprop stepper ---------- */
+  (function backprop() {
+    var svg = document.getElementById("bp-svg");
+    var mathBox = document.getElementById("bp-math");
+    var status = document.getElementById("bp-status");
+    var btnF = document.getElementById("bp-fwd"), btnB = document.getElementById("bp-bwd"), btnR = document.getElementById("bp-reset");
+    var rowF = document.getElementById("bp-row-fwd"), rowB = document.getElementById("bp-row-bwd"), rowP = document.getElementById("bp-row-par");
+    if (!svg || !mathBox || !status || !btnF || !btnB || !btnR || !rowF || !rowB || !rowP) return;
+
+    /* honest computation from constants */
+    var x = 2, w1 = 0.5, b1 = 1, w2 = -1, b2 = 0.5, t = 1;
+    var z1 = w1 * x, a1 = z1 + b1, h = Math.max(0, a1), z2 = w2 * h, y = z2 + b2;
+    var L = 0.5 * (y - t) * (y - t);
+    var dy = y - t;               /* dL/dy */
+    var dz2 = dy * 1, db2 = dz2;  /* +b2 copies */
+    var dh = w2 * dz2, dw2 = h * dz2;
+    var da1 = (a1 > 0 ? 1 : 0) * dh;
+    var dz1 = da1, db1 = da1;
+    var dx = w1 * dz1, dw1 = x * dz1;
+
+    var nodes = [
+      { id: "z1", label: "w₁·x", sub: "z₁" }, { id: "a1", label: "+b₁", sub: "a₁" },
+      { id: "h", label: "ReLU", sub: "h" }, { id: "z2", label: "w₂·h", sub: "z₂" },
+      { id: "y", label: "+b₂", sub: "y" }, { id: "L", label: "½(y−t)²", sub: "ℒ" }
+    ];
+    var fwdVals = [z1, a1, h, z2, y, L];
+    var fwdSteps = [
+      { i: 0, tex: "z_1 = w_1 x = 0.5 \\times 2 = " + z1 },
+      { i: 1, tex: "a_1 = z_1 + b_1 = " + z1 + " + 1 = " + a1 },
+      { i: 2, tex: "h = \\mathrm{ReLU}(a_1) = \\max(0, " + a1 + ") = " + h },
+      { i: 3, tex: "z_2 = w_2 h = (-1) \\times " + h + " = " + z2 },
+      { i: 4, tex: "y = z_2 + b_2 = " + z2 + " + 0.5 = " + y },
+      { i: 5, tex: "\\mathcal{L} = \\tfrac12 (y - t)^2 = \\tfrac12 (" + y + " - 1)^2 = " + L }
+    ];
+    /* backward: each entry = graph node index, gradient cell, param cell, tex (local × upstream) */
+    var bwdSteps = [
+      { i: 5, grad: [5, 1], par: null, tex: "\\frac{\\partial \\mathcal{L}}{\\partial y} = y - t = " + y + " - 1 = " + dy },
+      { i: 4, grad: [4, dz2], par: [4, "∂b₂ = " + db2], tex: "\\frac{\\partial \\mathcal{L}}{\\partial z_2} = \\underbrace{1}_{\\text{local}} \\times \\underbrace{(" + dy + ")}_{\\text{upstream}} = " + dz2 + ", \\quad \\frac{\\partial \\mathcal{L}}{\\partial b_2} = 1 \\times (" + dy + ") = " + db2 },
+      { i: 3, grad: [3, dh], par: [3, "∂w₂ = " + dw2], tex: "\\frac{\\partial \\mathcal{L}}{\\partial h} = \\underbrace{w_2}_{-1} \\times (" + dz2 + ") = " + dh + ", \\quad \\frac{\\partial \\mathcal{L}}{\\partial w_2} = \\underbrace{h}_{" + h + "} \\times (" + dz2 + ") = " + dw2 },
+      { i: 2, grad: [2, da1], par: null, tex: "\\frac{\\partial \\mathcal{L}}{\\partial a_1} = \\underbrace{\\mathbb{1}[a_1 > 0]}_{1} \\times " + dh + " = " + da1 },
+      { i: 1, grad: [1, dz1], par: [1, "∂b₁ = " + db1], tex: "\\frac{\\partial \\mathcal{L}}{\\partial z_1} = 1 \\times " + da1 + " = " + dz1 + ", \\quad \\frac{\\partial \\mathcal{L}}{\\partial b_1} = " + db1 },
+      { i: 0, grad: [0, dx], par: [0, "∂w₁ = " + dw1], tex: "\\frac{\\partial \\mathcal{L}}{\\partial x} = \\underbrace{w_1}_{0.5} \\times " + dz1 + " = " + dx + ", \\quad \\frac{\\partial \\mathcal{L}}{\\partial w_1} = \\underbrace{x}_{2} \\times " + dz1 + " = " + dw1 }
+    ];
+    /* note: grad cell for L-node shows dL/dL = 1 */
+
+    /* draw graph */
+    var boxes = [];
+    var xStart = 60, gap = 96, yMid = 80;
+    svgEl("text", { x: 16, y: yMid + 5, fill: css("--ink"), "font-size": 14, "font-weight": 600 }, svg).textContent = "x=2";
+    nodes.forEach(function (n, i) {
+      var cx = xStart + i * gap;
+      var rect = svgEl("rect", { x: cx - 34, y: yMid - 26, width: 68, height: 52, rx: 8, fill: "none", stroke: css("--axis"), "stroke-width": 2 }, svg);
+      svgEl("text", { x: cx, y: yMid - 2, fill: css("--ink"), "font-size": 12, "text-anchor": "middle" }, svg).textContent = n.label;
+      svgEl("text", { x: cx, y: yMid + 16, fill: css("--muted"), "font-size": 11, "text-anchor": "middle" }, svg).textContent = n.sub;
+      var vTxt = svgEl("text", { x: cx, y: yMid - 38, fill: css("--s1"), "font-size": 12, "text-anchor": "middle", "font-weight": 600 }, svg);
+      var gTxt = svgEl("text", { x: cx, y: yMid + 48, fill: css("--s6"), "font-size": 12, "text-anchor": "middle", "font-weight": 600 }, svg);
+      var ax1 = i === 0 ? 42 : cx - gap + 34;
+      svgEl("line", { x1: ax1, y1: yMid, x2: cx - 34, y2: yMid, stroke: css("--axis"), "stroke-width": 2 }, svg);
+      boxes.push({ rect: rect, v: vTxt, g: gTxt });
+    });
+
+    var fi = 0, bi = 0, active = -1;
+    function setActive(i, color) {
+      if (active >= 0) { boxes[active].rect.setAttribute("stroke", css("--axis")); boxes[active].rect.setAttribute("stroke-width", 2); }
+      active = i;
+      if (i >= 0) { boxes[i].rect.setAttribute("stroke", color); boxes[i].rect.setAttribute("stroke-width", 3); }
+    }
+    function showMath(tex) {
+      if (window.katex) { window.katex.render(tex, mathBox, { displayMode: true, throwOnError: false }); }
+      else { mathBox.textContent = tex; }
+    }
+    function fmt(v) { return (Math.round(v * 1000) / 1000).toString(); }
+
+    btnF.addEventListener("click", function () {
+      if (fi >= fwdSteps.length) return;
+      var s = fwdSteps[fi];
+      setActive(s.i, css("--s1"));
+      boxes[s.i].v.textContent = fmt(fwdVals[s.i]);
+      rowF.cells[s.i + 1].textContent = fmt(fwdVals[s.i]);
+      rowF.cells[s.i + 1].style.color = css("--s1");
+      showMath(s.tex);
+      fi++;
+      if (fi === fwdSteps.length) { btnF.disabled = true; btnB.disabled = false; status.textContent = "Forward pass done (ℒ = " + L + "). Now walk backward."; }
+      else status.textContent = "Forward " + fi + "/" + fwdSteps.length;
+    });
+    btnB.addEventListener("click", function () {
+      if (bi >= bwdSteps.length) return;
+      var s = bwdSteps[bi];
+      setActive(s.i, css("--s6"));
+      var gv = (bi === 0) ? dy : s.grad[1];
+      boxes[s.i].g.textContent = "∂: " + fmt(gv);
+      rowB.cells[s.grad[0] + 1].textContent = fmt(gv);
+      rowB.cells[s.grad[0] + 1].style.color = css("--s6");
+      if (s.par) { rowP.cells[s.par[0] + 1].textContent = s.par[1]; rowP.cells[s.par[0] + 1].style.color = css("--s6"); }
+      showMath(s.tex);
+      bi++;
+      if (bi === bwdSteps.length) { btnB.disabled = true; status.textContent = "Done. Params update as θ ← θ − η·∂ℒ/∂θ."; }
+      else status.textContent = "Backward " + bi + "/" + bwdSteps.length;
+    });
+    btnR.addEventListener("click", function () {
+      fi = 0; bi = 0; setActive(-1, "");
+      btnF.disabled = false; btnB.disabled = true;
+      mathBox.textContent = ""; status.textContent = "Ready — press \"Forward step\".";
+      boxes.forEach(function (b) { b.v.textContent = ""; b.g.textContent = ""; });
+      [rowF, rowB, rowP].forEach(function (row) {
+        for (var c = 1; c < row.cells.length; c++) { row.cells[c].textContent = (row === rowP && (c === 3 || c === 6)) ? "—" : "·"; row.cells[c].style.color = ""; }
+      });
+    });
+  })();
+
+  /* ---------- 3. Attention heatmap ---------- */
+  (function attnHeat() {
+    var svg = document.getElementById("attn-svg");
+    var legend = document.getElementById("attn-legend");
+    if (!svg || !legend) return;
+    var n = 8;
+    /* hardcoded pre-softmax scores: recency bias + attend-to-token-0 pattern */
+    var scores = [], i, j;
+    for (i = 0; i < n; i++) {
+      scores.push([]);
+      for (j = 0; j < n; j++) {
+        if (j > i) { scores[i].push(-Infinity); continue; }         /* causal mask */
+        var s = 1.6 - 0.55 * (i - j);                                /* recency */
+        if (j === 0) s += 0.9;                                       /* BOS-sink pattern */
+        scores[i].push(s);
+      }
+    }
+    /* honest row softmax */
+    var A = scores.map(function (row) {
+      var mx = Math.max.apply(null, row.filter(isFinite));
+      var ex = row.map(function (s) { return isFinite(s) ? Math.exp(s - mx) : 0; });
+      var Z = ex.reduce(function (a, b) { return a + b; }, 0);
+      return ex.map(function (e) { return e / Z; });
+    });
+    var cell = 38, ox = 70, oy = 46;
+    var seqVars = ["--seq-1", "--seq-2", "--seq-3", "--seq-4", "--seq-5", "--seq-6", "--seq-7"];
+    function bucket(v) { return seqVars[Math.min(6, Math.floor(v * 7))]; }
+    for (i = 0; i < n; i++) {
+      for (j = 0; j < n; j++) {
+        var masked = j > i;
+        svgEl("rect", {
+          x: ox + j * cell, y: oy + i * cell, width: cell - 2, height: cell - 2, rx: 3,
+          fill: masked ? "none" : css(bucket(A[i][j])),
+          stroke: masked ? css("--grid") : "none", "stroke-dasharray": masked ? "3 3" : "none", "stroke-width": 1
+        }, svg);
+        if (!masked && A[i][j] >= 0.15)
+          svgEl("text", { x: ox + j * cell + cell / 2 - 1, y: oy + i * cell + cell / 2 + 3, fill: A[i][j] > 0.5 ? "#fff" : css("--ink"), "font-size": 9.5, "text-anchor": "middle" }, svg).textContent = A[i][j].toFixed(2);
+      }
+      svgEl("text", { x: ox - 10, y: oy + i * cell + cell / 2 + 3, fill: css("--muted"), "font-size": 11, "text-anchor": "end" }, svg).textContent = "q" + i;
+      svgEl("text", { x: ox + i * cell + cell / 2, y: oy - 10, fill: css("--muted"), "font-size": 11, "text-anchor": "middle" }, svg).textContent = "k" + i;
+    }
+    svgEl("text", { x: ox + n * cell / 2, y: oy + n * cell + 26, fill: css("--muted"), "font-size": 12, "text-anchor": "middle" }, svg).textContent = "keys (attended to) →";
+    var lg = document.createElement("span");
+    lg.style.cssText = "display:inline-flex;align-items:center;gap:4px";
+    lg.appendChild(document.createTextNode("weight 0 "));
+    seqVars.forEach(function (v) {
+      var b = document.createElement("span");
+      b.style.cssText = "width:18px;height:12px;border-radius:2px;display:inline-block;background:" + css(v);
+      lg.appendChild(b);
+    });
+    lg.appendChild(document.createTextNode(" 1 · dashed = causal mask"));
+    legend.appendChild(lg);
+  })();
+
+  /* ---------- 4. Loss curves ---------- */
+  (function lossZoo() {
+    var svg = document.getElementById("loss-svg");
+    var legend = document.getElementById("loss-legend");
+    if (!svg || !legend) return;
+    var W = 660, H = 380, m = { l: 50, r: 12, t: 14, b: 36 };
+    var rMin = -3, rMax = 3, yMin = -3, yMax = 4.6;
+    function sx(r) { return m.l + (r - rMin) / (rMax - rMin) * (W - m.l - m.r); }
+    function sy(y) { return H - m.b - (y - yMin) / (yMax - yMin) * (H - m.t - m.b); }
+    var delta = 1;
+    var mse = function (r) { return 0.5 * r * r; }, dmse = function (r) { return r; };
+    var l1 = function (r) { return Math.abs(r); }, dl1 = function (r) { return r === 0 ? 0 : (r > 0 ? 1 : -1); };
+    var hub = function (r) { return Math.abs(r) <= delta ? 0.5 * r * r : delta * (Math.abs(r) - 0.5 * delta); };
+    var dhub = function (r) { return Math.abs(r) <= delta ? r : delta * (r > 0 ? 1 : -1); };
+
+    var g;
+    for (g = -3; g <= 3; g++) svgEl("line", { x1: sx(g), y1: sy(yMin), x2: sx(g), y2: sy(yMax), stroke: css("--grid"), "stroke-width": 1 }, svg);
+    for (g = -3; g <= 4; g++) svgEl("line", { x1: sx(rMin), y1: sy(g), x2: sx(rMax), y2: sy(g), stroke: css("--grid"), "stroke-width": 1 }, svg);
+    svgEl("line", { x1: sx(rMin), y1: sy(0), x2: sx(rMax), y2: sy(0), stroke: css("--axis"), "stroke-width": 1.5 }, svg);
+    svgEl("line", { x1: sx(0), y1: sy(yMin), x2: sx(0), y2: sy(yMax), stroke: css("--axis"), "stroke-width": 1.5 }, svg);
+    svgEl("text", { x: W - 14, y: sy(0) - 8, fill: css("--muted"), "font-size": 12, "text-anchor": "end" }, svg).textContent = "residual r";
+
+    function plot(fn, color, dashed) {
+      var d = "", r;
+      for (r = rMin; r <= rMax + 1e-9; r += 0.05) {
+        var y = fn(r);
+        if (y < yMin || y > yMax) { continue; }
+        d += (d ? " L" : "M") + sx(r).toFixed(1) + " " + sy(y).toFixed(1);
+      }
+      var p = svgEl("path", { d: d, fill: "none", stroke: color, "stroke-width": 2 }, svg);
+      if (dashed) { p.setAttribute("stroke-dasharray", "5 4"); p.setAttribute("opacity", "0.75"); }
+    }
+    plot(mse, css("--s6")); plot(dmse, css("--s6"), true);
+    plot(l1, css("--s1")); plot(dl1, css("--s1"), true);
+    plot(hub, css("--s2")); plot(dhub, css("--s2"), true);
+
+    /* labeled kink at |r| = delta */
+    [-delta, delta].forEach(function (r) {
+      svgEl("circle", { cx: sx(r), cy: sy(hub(r)), r: 5, fill: "none", stroke: css("--warn"), "stroke-width": 2 }, svg);
+    });
+    svgEl("text", { x: sx(delta) + 8, y: sy(hub(delta)) - 8, fill: css("--warn"), "font-size": 12 }, svg).textContent = "kink |r| = δ = 1";
+    legendItem(legend, css("--s6"), "MSE ½r²");
+    legendItem(legend, css("--s1"), "L1 |r|");
+    legendItem(legend, css("--s2"), "Huber (δ=1)");
+    legendItem(legend, css("--muted"), "dashed = gradient", true);
+  })();
+
+  /* ---------- 5. Conv slider ---------- */
+  (function convSlide() {
+    var svg = document.getElementById("conv-svg");
+    var slider = document.getElementById("conv-pos");
+    var readout = document.getElementById("conv-readout");
+    var legend = document.getElementById("conv-legend");
+    if (!svg || !slider || !readout || !legend) return;
+    var I = 7, P = 1, K = 3, S = 1;
+    var O = Math.floor((I + 2 * P - (K - 1) - 1) / S) + 1; /* = 7 */
+    var cell = 30, inX = 30, inY = 40, outX = 400, outY = 40;
+    var padded = I + 2 * P;
+
+    svgEl("text", { x: inX + padded * cell / 2, y: 24, fill: css("--muted"), "font-size": 12, "text-anchor": "middle" }, svg).textContent = "input 7×7, padding 1 (hatched)";
+    svgEl("text", { x: outX + O * cell / 2 * 0.8, y: 24, fill: css("--muted"), "font-size": 12, "text-anchor": "middle" }, svg).textContent = "output 7×7";
+
+    var r, c;
+    for (r = 0; r < padded; r++) {
+      for (c = 0; c < padded; c++) {
+        var isPad = r === 0 || c === 0 || r === padded - 1 || c === padded - 1;
+        svgEl("rect", {
+          x: inX + c * cell, y: inY + r * cell, width: cell - 2, height: cell - 2, rx: 2,
+          fill: isPad ? css("--grid") : "none", opacity: isPad ? 0.55 : 1,
+          stroke: css("--grid"), "stroke-width": 1, "stroke-dasharray": isPad ? "3 2" : "none"
+        }, svg);
+      }
+    }
+    var outCell = cell * 0.8;
+    var outRects = [];
+    for (r = 0; r < O; r++) {
+      outRects.push([]);
+      for (c = 0; c < O; c++) {
+        outRects[r].push(svgEl("rect", {
+          x: outX + c * outCell, y: outY + r * outCell, width: outCell - 2, height: outCell - 2, rx: 2,
+          fill: "none", stroke: css("--grid"), "stroke-width": 1
+        }, svg));
+      }
+    }
+    var kw = svgEl("rect", { x: 0, y: 0, width: K * cell - 2, height: K * cell - 2, rx: 3, fill: css("--s1"), opacity: 0.28, stroke: css("--s1"), "stroke-width": 2.5 }, svg);
+    var lastOut = null;
+    function update() {
+      var pos = parseInt(slider.value, 10) || 0;
+      var orow = Math.floor(pos / O), ocol = pos % O;
+      kw.setAttribute("x", inX + ocol * S * cell);
+      kw.setAttribute("y", inY + orow * S * cell);
+      if (lastOut) { lastOut.setAttribute("fill", "none"); }
+      lastOut = outRects[orow][ocol];
+      lastOut.setAttribute("fill", css("--s1"));
+      readout.textContent = "output cell (" + orow + ", " + ocol + ") ← window rows " + (orow * S - P) + "…" + (orow * S - P + K - 1) + ", cols " + (ocol * S - P) + "…" + (ocol * S - P + K - 1) + " of the unpadded input";
+    }
+    slider.max = String(O * O - 1);
+    slider.addEventListener("input", update);
+    update();
+    legendItem(legend, css("--s1"), "3×3 kernel window / produced output cell");
+    legendItem(legend, css("--grid"), "zero padding (P=1)");
+  })();
+})();
+</script>
+</main>
+</body>
+</html>

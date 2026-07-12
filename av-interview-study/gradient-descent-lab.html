@@ -1,0 +1,422 @@
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>GD Lab — AV Interview Study</title><link rel="stylesheet" href="assets/style.css"><link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/katex.min.css"><script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/katex.min.js"></script><script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/contrib/auto-render.min.js"></script><script defer src="assets/app.js"></script></head><body>
+<nav class="topnav"><a href="index.html">Home</a><a href="fundamentals-classification.html">Classification</a><a href="fundamentals-inference.html">Data→Inference</a><a href="multimodal-encoder.html">Multimodal Encoder</a><a href="sysdesign-playbook.html">Sys-Design Playbook</a><a href="math-code.html">Math+Code</a><a href="gradient-descent-lab.html">GD Lab</a><a href="glossary.html">Glossary</a></nav>
+<main class="page">
+
+<h1>Gradient Descent Lab</h1>
+<p class="subtitle">Drill for the known coding question: "minimize $f(x) = ax^2+bx+c$ by gradient descent, in pure Python." Read the solution, then build intuition on the slider before you're asked to whiteboard it.</p>
+
+<h2>1. The question, solved cleanly</h2>
+
+<div class="concept">
+<div class="concept-title">Canonical solution</div>
+<div class="code-block"><pre><code>def gradient_descent(a, b, x0=0.0, lr=0.1, tol=1e-8, max_iters=10_000):
+    """Minimize f(x) = a*x^2 + b*x + c via gradient descent.
+
+    f'(x) = 2*a*x + b is the analytic gradient. Assumes a > 0 (convex,
+    has a unique minimum). Stops when the gradient magnitude drops
+    below tol, or after max_iters steps.
+
+    Returns (x_min, iterations_used).
+    """
+    x = x0
+    for i in range(max_iters):
+        grad = 2 * a * x + b
+        if abs(grad) < tol:
+            return x, i
+        x -= lr * grad
+    return x, max_iters
+</code></pre></div>
+<p>15 lines, no imports, no numpy. The whole thing is: compute the gradient analytically, step against it, check a stopping condition. Say the analytic gradient out loud before you type it — interviewers want to see you differentiate on the spot, not just recall the loop shape.</p>
+</div>
+
+<div class="concept">
+<div class="concept-title">Follow-up: numerical gradient via central difference</div>
+<div class="math-block">$$f'(x) \approx \frac{f(x+h) - f(x-h)}{2h}$$</div>
+<p>Central difference is $O(h^2)$ accurate vs. $O(h)$ for a one-sided difference ($\frac{f(x+h)-f(x)}{h}$) — the $O(h)$ error terms cancel by symmetry. Use $h \approx 10^{-5}$: small enough for accuracy, large enough to avoid floating-point cancellation from subtracting two nearly-equal function values.</p>
+<div class="code-block"><pre><code>def numerical_grad(f, x, h=1e-5):
+    return (f(x + h) - f(x - h)) / (2 * h)
+
+def gradient_descent_numeric(f, x0=0.0, lr=0.1, tol=1e-8, max_iters=10_000):
+    x = x0
+    for i in range(max_iters):
+        grad = numerical_grad(f, x)
+        if abs(grad) < tol:
+            return x, i
+        x -= lr * grad
+    return x, max_iters
+</code></pre></div>
+</div>
+
+<div class="concept">
+<div class="concept-title">Follow-up: stopping criteria options</div>
+<ul>
+<li><strong>Gradient norm</strong> (used above): $|\nabla f(x)| < \text{tol}$ — stop when near-flat. Most standard.</li>
+<li><strong>Function value change</strong>: $|f(x_{t+1}) - f(x_t)| < \text{tol}$ — useful when the gradient is noisy but the loss itself is stable.</li>
+<li><strong>Parameter change</strong>: $|x_{t+1} - x_t| < \text{tol}$ — equivalent to gradient-norm criterion here since $\Delta x = -\eta \nabla f$, but generalizes better to settings where the gradient is stochastic.</li>
+<li><strong>Fixed iteration budget</strong>: always run $N$ steps — simplest, used when you need bounded wall-clock time regardless of convergence.</li>
+</ul>
+</div>
+
+<div class="concept">
+<div class="concept-title">Follow-up: what if $a &lt; 0$?</div>
+<p>Then $f$ is concave — a downward parabola with no minimum, only a maximum. Gradient descent will run downhill toward $x \to \pm\infty$ and never converge. Detect it rather than looping forever:</p>
+<div class="code-block"><pre><code>def gradient_descent_safe(a, b, x0=0.0, lr=0.1, tol=1e-8, max_iters=10_000,
+                           divergence_bound=1e8):
+    if a <= 0:
+        raise ValueError("a must be > 0: f is not convex, no minimum exists")
+    x = x0
+    for i in range(max_iters):
+        grad = 2 * a * x + b
+        if abs(grad) < tol:
+            return x, i
+        if abs(x) > divergence_bound:
+            raise RuntimeError(f"diverged at iteration {i}, x={x}")
+        x -= lr * grad
+    return x, max_iters
+</code></pre></div>
+<p>Two independent failure modes worth distinguishing out loud: $a \le 0$ (no minimum exists — a problem with the objective) vs. $\eta$ too large for a valid $a>0$ (a minimum exists but the step size overshoots it — a problem with the optimizer config, see next).</p>
+</div>
+
+<div class="concept">
+<div class="concept-title">Follow-up: learning-rate sweep behavior</div>
+<p>From the derivation on the <a href="math-code.html">Math+Code page</a>: for $f(x)=ax^2+bx+c$, curvature $L=f''(x)=2a$, and the one-step recurrence on the offset from the minimum is $\Delta_{t+1} = (1-\eta L)\,\Delta_t = (1-2\eta a)\,\Delta_t$. So:</p>
+<ul>
+<li>$0 &lt; \eta &lt; \dfrac{1}{a}$ (i.e. $\eta L &lt; 2$) — monotonic or damped-oscillatory convergence.</li>
+<li>$\eta = \dfrac{1}{a}$ exactly — $|1-2\eta a|=1$, permanent oscillation between $\pm\Delta_0$, never converges, never diverges.</li>
+<li>$\eta &gt; \dfrac{1}{a}$ — $|1-2\eta a|&gt;1$, magnitude grows every step, diverges geometrically.</li>
+</ul>
+<p>The lab visualizer below lets you sweep $\eta$ against this exact threshold and watch the three regimes.</p>
+</div>
+
+<div class="concept">
+<div class="concept-title">Follow-up: momentum version</div>
+<div class="code-block"><pre><code>def gradient_descent_momentum(a, b, x0=0.0, lr=0.1, beta=0.9,
+                               tol=1e-8, max_iters=10_000):
+    x, v = x0, 0.0
+    for i in range(max_iters):
+        grad = 2 * a * x + b
+        v = beta * v + grad
+        if abs(grad) < tol:
+            return x, i
+        x -= lr * v
+    return x, max_iters
+</code></pre></div>
+<p>On this quadratic, momentum mostly matters when you're deliberately below the divergence threshold but still oscillating (a stiff, narrow parabola) — it damps the oscillation and gets you to the minimum in fewer steps than plain GD at the same $\eta$.</p>
+</div>
+
+<div class="concept">
+<div class="concept-title">Follow-up: closed-form check</div>
+<div class="math-block">$$f'(x) = 2ax + b = 0 \;\Rightarrow\; x^* = -\frac{b}{2a}$$</div>
+<div class="code-block"><pre><code>def closed_form_min(a, b):
+    if a <= 0:
+        raise ValueError("no minimum for a <= 0")
+    return -b / (2 * a)
+
+# sanity check any of the iterative versions against this directly:
+a, b = 3.0, -12.0
+x_gd, _ = gradient_descent(a, b, x0=10.0, lr=0.05)
+x_star = closed_form_min(a, b)
+assert abs(x_gd - x_star) < 1e-4, (x_gd, x_star)
+</code></pre></div>
+<p>Always mention this: for a quadratic there's no reason to <em>only</em> show the iterative version — closing the loop with $x^*=-b/2a$ and asserting agreement is the fastest way to show you understand gradient descent is approximating something you could, in this toy case, solve exactly.</p>
+</div>
+
+<h2>2. Interactive visualizer</h2>
+<p>Drag the sliders, then Step or Run. The dashed line marks the exact divergence threshold $\eta = 1/a$ derived above — cross it and the trajectory visibly blows up instead of settling into the minimum.</p>
+
+<div class="diagram">
+<svg id="gd-svg" viewBox="0 0 640 420" width="100%" style="max-width:640px;background:var(--bg-alt);border:1px solid var(--border);border-radius:8px;">
+  <path id="gd-curve" fill="none" stroke="var(--accent)" stroke-width="2"></path>
+  <line id="gd-axis-x" stroke="var(--fg-muted)" stroke-width="1"></line>
+  <line id="gd-axis-y" stroke="var(--fg-muted)" stroke-width="1"></line>
+  <circle id="gd-min-marker" r="4" fill="#2fa84f"></circle>
+  <g id="gd-trail"></g>
+  <circle id="gd-point" r="6" fill="#e0562d"></circle>
+</svg>
+</div>
+
+<div class="concept" style="font-size:0.92rem;">
+<div style="display:grid;grid-template-columns:1fr 1fr;gap:0.75rem 1.5rem;">
+  <label>a (curvature/2): <span id="gd-a-val">1.00</span>
+    <input id="gd-a" type="range" min="0.2" max="4" step="0.05" value="1" style="width:100%;"></label>
+  <label>b: <span id="gd-b-val">-4.00</span>
+    <input id="gd-b" type="range" min="-8" max="8" step="0.1" value="-4" style="width:100%;"></label>
+  <label>learning rate η: <span id="gd-lr-val">0.10</span>
+    <input id="gd-lr" type="range" min="0.01" max="1.2" step="0.01" value="0.1" style="width:100%;"></label>
+  <label>start x₀: <span id="gd-x0-val">7.00</span>
+    <input id="gd-x0" type="range" min="-10" max="10" step="0.1" value="7" style="width:100%;"></label>
+</div>
+<p style="margin-top:0.75rem;">Divergence threshold: <strong>η = 1/a = <span id="gd-threshold">1.00</span></strong> &nbsp;
+  <span id="gd-regime" style="font-weight:600;"></span></p>
+<div style="display:flex;gap:0.6rem;flex-wrap:wrap;margin-top:0.5rem;">
+  <button id="gd-step">Step</button>
+  <button id="gd-run">Run</button>
+  <button id="gd-pause" disabled>Pause</button>
+  <button id="gd-reset">Reset</button>
+</div>
+<p style="margin-top:0.75rem;font-family:'SF Mono',Menlo,Consolas,monospace;font-size:0.85rem;">
+  t = <span id="gd-t">0</span> &nbsp;|&nbsp;
+  x_t = <span id="gd-xt">7.000</span> &nbsp;|&nbsp;
+  f(x_t) = <span id="gd-fxt">0.000</span> &nbsp;|&nbsp;
+  gradient = <span id="gd-grad">0.000</span>
+</p>
+</div>
+
+<div class="callout"><strong>What to watch:</strong> at η just under the threshold, points converge but overshoot the minimum on alternating sides (damped oscillation — the $(1-2\eta a)$ factor is negative but $|{\cdot}|<1$). At η just over threshold, the same alternation but each point lands farther from center than the last — that's $|1-2\eta a|>1$, visible within 4-5 steps.</div>
+
+<h2>3. Pure-Python idioms under pressure</h2>
+
+<div class="concept">
+<div class="concept-title">Five patterns worth having cold</div>
+<ol>
+<li><strong>Clean loops without numpy</strong> — index-free iteration and early return on convergence, not a fixed range with a break flag:
+<div class="code-block"><pre><code>for i in range(max_iters):
+    grad = 2 * a * x + b
+    if abs(grad) < tol:
+        return x, i
+    x -= lr * grad
+</code></pre></div>
+</li>
+<li><strong>f-strings for debug prints</strong> — always include the iteration and enough precision to see convergence behavior, not just the final value:
+<div class="code-block"><pre><code>print(f"t={i:4d}  x={x:+.6f}  f(x)={f(x):+.6f}  grad={grad:+.6f}")
+</code></pre></div>
+</li>
+<li><strong>List comprehensions for tracing a run</strong> — capture a trajectory in one line when you need it for a plot or assertion, without polluting the hot loop with side effects:
+<div class="code-block"><pre><code>trace = []
+x = x0
+for i in range(50):
+    grad = 2 * a * x + b
+    trace.append((i, x, f(x)))
+    x -= lr * grad
+# or, if you already have a step function:
+xs = [x0]
+for _ in range(50):
+    xs.append(xs[-1] - lr * (2 * a * xs[-1] + b))
+</code></pre></div>
+</li>
+<li><strong>Closures for parameterized objectives</strong> — build $f$ and its gradient once from $(a,b,c)$ so the descent loop stays generic and testable against different quadratics without rewriting it:
+<div class="code-block"><pre><code>def make_quadratic(a, b, c):
+    f = lambda x: a * x**2 + b * x + c
+    grad = lambda x: 2 * a * x + b
+    return f, grad
+
+f, grad = make_quadratic(3.0, -12.0, 5.0)
+</code></pre></div>
+</li>
+<li><strong>Defensive asserts near numerical edges</strong> — cheap, and it signals you know where things break (a≤0, tol too loose, lr past threshold) without derailing the main solution:
+<div class="code-block"><pre><code>assert a > 0, "f is concave, no minimum"
+assert lr > 0, "learning rate must be positive"
+</code></pre></div>
+</li>
+</ol>
+</div>
+
+<div class="term-box">
+<h4>Terms</h4>
+<ul>
+<li><span class="term">Gradient descent</span> — iterative first-order optimization: move against the local gradient direction by a fixed or scheduled step size.<span class="related">Related: momentum, Adam (see Math+Code)</span></li>
+<li><span class="term">Learning rate</span> — the step-size multiplier $\eta$ on the gradient; single most consequential hyperparameter for this toy problem.<span class="related">Related: divergence threshold</span></li>
+<li><span class="term">Convergence criterion</span> — the rule that ends the loop: gradient norm, function-value delta, parameter delta, or fixed budget.<span class="related">Related: tolerance (tol)</span></li>
+<li><span class="term">Curvature / L-smoothness</span> — for this quadratic, $L=f''(x)=2a$; it directly sets the safe step-size ceiling $\eta<2/L$.<span class="related">Related: divergence threshold, Hessian (see Math+Code)</span></li>
+<li><span class="term">Momentum</span> — exponentially-averaged gradient history used to damp oscillation and accelerate convergence.<span class="related">Related: Adam</span></li>
+<li><span class="term">Divergence</span> — when $|1-\eta L|>1$, the update magnitude grows every step instead of shrinking.<span class="related">Related: learning rate</span></li>
+<li><span class="term">Central difference</span> — a symmetric finite-difference gradient estimate, $O(h^2)$ accurate vs. $O(h)$ for a one-sided difference.<span class="related">Related: numerical gradient</span></li>
+<li><span class="term">Closed-form solution</span> — here, $x^*=-b/2a$ from setting $f'(x)=0$ directly; use it to sanity-check any iterative implementation.<span class="related">Related: convexity (see Math+Code)</span></li>
+</ul>
+</div>
+
+<div class="quiz">
+<details><summary>Q: You set a=2, and want the largest learning rate that still guarantees convergence. What's the ceiling, and what do you expect to see right at that value?</summary>
+<p>Ceiling is $\eta < 1/a = 0.5$ (strictly; the recurrence coefficient $1-2\eta a$ hits exactly $-1$ at $\eta=0.5$). Right at $\eta=0.5$, the trajectory doesn't converge or diverge — it oscillates forever between $x_0$'s two mirrored offsets around the minimum, since $|{-1}|=1$ means the update magnitude neither shrinks nor grows.</p>
+</details>
+</div>
+
+<script>
+(function () {
+  const svg = document.getElementById('gd-svg');
+  const curveEl = document.getElementById('gd-curve');
+  const axisXEl = document.getElementById('gd-axis-x');
+  const axisYEl = document.getElementById('gd-axis-y');
+  const minMarker = document.getElementById('gd-min-marker');
+  const trailEl = document.getElementById('gd-trail');
+  const pointEl = document.getElementById('gd-point');
+
+  const aSlider = document.getElementById('gd-a');
+  const bSlider = document.getElementById('gd-b');
+  const lrSlider = document.getElementById('gd-lr');
+  const x0Slider = document.getElementById('gd-x0');
+
+  const aVal = document.getElementById('gd-a-val');
+  const bVal = document.getElementById('gd-b-val');
+  const lrVal = document.getElementById('gd-lr-val');
+  const x0Val = document.getElementById('gd-x0-val');
+  const thresholdEl = document.getElementById('gd-threshold');
+  const regimeEl = document.getElementById('gd-regime');
+
+  const tEl = document.getElementById('gd-t');
+  const xtEl = document.getElementById('gd-xt');
+  const fxtEl = document.getElementById('gd-fxt');
+  const gradEl = document.getElementById('gd-grad');
+
+  const stepBtn = document.getElementById('gd-step');
+  const runBtn = document.getElementById('gd-run');
+  const pauseBtn = document.getElementById('gd-pause');
+  const resetBtn = document.getElementById('gd-reset');
+
+  const W = 640, H = 420, MARGIN = 30;
+  const c = 0; // constant term doesn't affect gradient descent behavior, fixed at 0
+
+  let a, b, lr, x, t, running, timer, trail;
+
+  function f(xv) { return a * xv * xv + b * xv + c; }
+  function grad(xv) { return 2 * a * xv + b; }
+  function xStar() { return -b / (2 * a); }
+
+  function readSliders() {
+    a = parseFloat(aSlider.value);
+    b = parseFloat(bSlider.value);
+    lr = parseFloat(lrSlider.value);
+    aVal.textContent = a.toFixed(2);
+    bVal.textContent = b.toFixed(2);
+    lrVal.textContent = lr.toFixed(2);
+    x0Val.textContent = parseFloat(x0Slider.value).toFixed(2);
+    thresholdEl.textContent = (1 / a).toFixed(2);
+  }
+
+  // domain/range mapping recomputed each redraw so the curve stays framed
+  function bounds() {
+    const x0 = parseFloat(x0Slider.value);
+    const xs = parseFloat(xStar());
+    const span = Math.max(Math.abs(x0 - xs), 4) * 1.6;
+    const xMin = xs - span, xMax = xs + span;
+    let yMin = Infinity, yMax = -Infinity;
+    for (let i = 0; i <= 50; i++) {
+      const xv = xMin + (xMax - xMin) * i / 50;
+      const yv = f(xv);
+      if (yv < yMin) yMin = yv;
+      if (yv > yMax) yMax = yv;
+    }
+    const yPad = (yMax - yMin) * 0.12 || 1;
+    return { xMin, xMax, yMin: yMin - yPad, yMax: yMax + yPad };
+  }
+
+  function toPx(xv, yv, b_) {
+    const px = MARGIN + (xv - b_.xMin) / (b_.xMax - b_.xMin) * (W - 2 * MARGIN);
+    const py = H - MARGIN - (yv - b_.yMin) / (b_.yMax - b_.yMin) * (H - 2 * MARGIN);
+    return [px, py];
+  }
+
+  function redrawCurve() {
+    const b_ = bounds();
+    let d = '';
+    for (let i = 0; i <= 80; i++) {
+      const xv = b_.xMin + (b_.xMax - b_.xMin) * i / 80;
+      const [px, py] = toPx(xv, f(xv), b_);
+      d += (i === 0 ? 'M' : 'L') + px.toFixed(1) + ',' + py.toFixed(1) + ' ';
+    }
+    curveEl.setAttribute('d', d);
+
+    const [zx, zy] = toPx(b_.xMin, 0, b_);
+    const [zx2] = toPx(b_.xMax, 0, b_);
+    const [zxAxis, zyTop] = toPx(0, b_.yMax, b_);
+    const [, zyBot] = toPx(0, b_.yMin, b_);
+    axisXEl.setAttribute('x1', zx); axisXEl.setAttribute('x2', zx2);
+    axisXEl.setAttribute('y1', zy); axisXEl.setAttribute('y2', zy);
+    axisYEl.setAttribute('x1', zxAxis); axisYEl.setAttribute('x2', zxAxis);
+    axisYEl.setAttribute('y1', zyTop); axisYEl.setAttribute('y2', zyBot);
+
+    const [mx, my] = toPx(xStar(), f(xStar()), b_);
+    minMarker.setAttribute('cx', mx);
+    minMarker.setAttribute('cy', my);
+
+    return b_;
+  }
+
+  function redrawPoint() {
+    const b_ = redrawCurve();
+    const clampedX = Math.max(b_.xMin, Math.min(b_.xMax, x));
+    const yv = f(x);
+    const clampedY = Math.max(b_.yMin, Math.min(b_.yMax, yv));
+    const [px, py] = toPx(clampedX, clampedY, b_);
+    pointEl.setAttribute('cx', px);
+    pointEl.setAttribute('cy', py);
+
+    trailEl.innerHTML = '';
+    trail.forEach((xv, i) => {
+      const yv2 = Math.max(b_.yMin, Math.min(b_.yMax, f(xv)));
+      const cxv = Math.max(b_.xMin, Math.min(b_.xMax, xv));
+      const [tx, ty] = toPx(cxv, yv2, b_);
+      const circle = document.createElementNS('http://www.w3.org/2000/svg', 'circle');
+      circle.setAttribute('cx', tx);
+      circle.setAttribute('cy', ty);
+      circle.setAttribute('r', 3);
+      circle.setAttribute('fill', 'var(--fg-muted)');
+      circle.setAttribute('opacity', 0.3 + 0.5 * (i / Math.max(1, trail.length - 1)));
+      trailEl.appendChild(circle);
+    });
+  }
+
+  function updateReadouts() {
+    tEl.textContent = t;
+    xtEl.textContent = x.toFixed(3);
+    fxtEl.textContent = f(x).toFixed(3);
+    gradEl.textContent = grad(x).toFixed(3);
+    const ratio = lr * a; // (1 - 2*lr*a) magnitude check: diverges if lr*a > 1
+    if (lr >= 1 / a) {
+      regimeEl.textContent = lr === 1 / a ? '— oscillating (boundary)' : '— DIVERGING';
+      regimeEl.style.color = lr === 1 / a ? 'var(--term-border)' : '#e0562d';
+    } else {
+      regimeEl.textContent = '— converging';
+      regimeEl.style.color = '#2fa84f';
+    }
+  }
+
+  function reset() {
+    stop();
+    readSliders();
+    x = parseFloat(x0Slider.value);
+    t = 0;
+    trail = [];
+    updateReadouts();
+    redrawPoint();
+  }
+
+  function doStep() {
+    if (Math.abs(x) > 1e6) { stop(); return; } // diverged past any useful plot range
+    trail.push(x);
+    if (trail.length > 40) trail.shift();
+    const g = grad(x);
+    x = x - lr * g;
+    t += 1;
+    updateReadouts();
+    redrawPoint();
+  }
+
+  function stop() {
+    running = false;
+    clearInterval(timer);
+    runBtn.disabled = false;
+    pauseBtn.disabled = true;
+  }
+
+  stepBtn.addEventListener('click', () => { readSliders(); doStep(); });
+  runBtn.addEventListener('click', () => {
+    readSliders();
+    running = true;
+    runBtn.disabled = true;
+    pauseBtn.disabled = false;
+    timer = setInterval(() => {
+      if (Math.abs(grad(x)) < 1e-6 || Math.abs(x) > 1e6 || t > 200) { stop(); return; }
+      doStep();
+    }, 180);
+  });
+  pauseBtn.addEventListener('click', stop);
+  resetBtn.addEventListener('click', reset);
+  [aSlider, bSlider, lrSlider, x0Slider].forEach((s) => s.addEventListener('input', reset));
+
+  reset();
+})();
+</script>
+
+</main>
+</body></html>

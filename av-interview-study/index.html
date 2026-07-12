@@ -1,0 +1,60 @@
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>AV Interview Study</title><link rel="stylesheet" href="assets/style.css"><link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/katex.min.css"><script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/katex.min.js"></script><script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/contrib/auto-render.min.js"></script><script defer src="assets/app.js"></script></head><body>
+<nav class="topnav"><a href="index.html">Home</a><a href="fundamentals-classification.html">Classification</a><a href="fundamentals-inference.html">Data→Inference</a><a href="multimodal-encoder.html">Multimodal Encoder</a><a href="sysdesign-playbook.html">Sys-Design Playbook</a><a href="math-code.html">Math+Code</a><a href="gradient-descent-lab.html">GD Lab</a><a href="glossary.html">Glossary</a></nav>
+<main class="page">
+
+<h1>AV Interview Study</h1>
+<p class="subtitle">A working set of notes for an interview loop at an autonomous-vehicle foundation-models team.</p>
+
+<div class="concept">
+<div class="concept-title">The loop</div>
+<p>Three rounds, and this site is organized to match them:</p>
+<ol>
+<li><strong>System design 1 — multimodal perception encoder.</strong> How would you design an encoder that fuses camera, LiDAR, and radar into a shared representation for downstream perception/prediction? Covered in <a href="multimodal-encoder.html">Multimodal Encoder</a> and the general framework in <a href="sysdesign-playbook.html">Sys-Design Playbook</a>.</li>
+<li><strong>System design 2 — ML fundamentals.</strong> Classification basics through to how model complexity and data scale interact all the way to inference-time serving. Covered in <a href="fundamentals-classification.html">Classification</a> and <a href="fundamentals-inference.html">Data→Inference</a>.</li>
+<li><strong>Behavioral.</strong> Not covered on this site — use your own notes and the <a href="sysdesign-playbook.html">Sys-Design Playbook</a> page's "how to think about it" callouts as a source of concrete technical stories.</li>
+</ol>
+<p>A possible coding round — "find the minima of a quadratic using gradient descent in pure Python" — is covered end-to-end in <a href="math-code.html">Math+Code</a> and drilled interactively in the <a href="gradient-descent-lab.html">GD Lab</a>.</p>
+</div>
+
+<h2>Pages</h2>
+<div class="card-grid">
+  <a class="card" href="fundamentals-classification.html">
+    <h3>Fundamentals — Classification</h3>
+    <p>Logistic regression to loss functions to evaluation metrics: the classification toolkit an interviewer expects you to reach for instantly.</p>
+  </a>
+  <a class="card" href="fundamentals-inference.html">
+    <h3>Fundamentals — Data → Inference</h3>
+    <p>How model and data complexity scale together, and what changes once you have to actually serve the thing: quantization, batching, latency.</p>
+  </a>
+  <a class="card" href="multimodal-encoder.html">
+    <h3>Multimodal Encoder</h3>
+    <p>Designing a perception encoder that fuses camera, LiDAR, and radar — architectures, fusion points, and the tradeoffs an AV team cares about.</p>
+  </a>
+  <a class="card" href="sysdesign-playbook.html">
+    <h3>Sys-Design Playbook</h3>
+    <p>A reusable framework for any "design a system that does X" prompt, plus the AV-specific version of it.</p>
+  </a>
+  <a class="card" href="math-code.html">
+    <h3>Math + Code</h3>
+    <p>The math behind gradient descent and a clean pure-Python implementation, worked from first principles.</p>
+  </a>
+  <a class="card" href="gradient-descent-lab.html">
+    <h3>Gradient Descent Lab</h3>
+    <p>An interactive lab for building intuition on step size, convergence, and failure modes before the coding round.</p>
+  </a>
+  <a class="card" href="glossary.html">
+    <h3>Glossary</h3>
+    <p>~100 searchable terms spanning classification, training/scaling, inference/deployment, architectures, and multimodal/AV — the independent-study reference.</p>
+  </a>
+</div>
+
+<h2>Suggested 4-week study order</h2>
+<ul class="week-plan">
+  <li><strong>Week 1:</strong> <a href="fundamentals-classification.html">Classification</a> + <a href="math-code.html">Math+Code</a>. Rebuild the classification toolkit and get comfortable deriving gradient descent by hand.</li>
+  <li><strong>Week 2:</strong> <a href="fundamentals-inference.html">Data→Inference</a> + <a href="gradient-descent-lab.html">GD Lab</a>. Move from "what is the model" to "how does it scale and get served," then drill the coding round until it's automatic.</li>
+  <li><strong>Week 3:</strong> <a href="multimodal-encoder.html">Multimodal Encoder</a>. This is the most open-ended round — spend real time whiteboarding designs, not just reading.</li>
+  <li><strong>Week 4:</strong> <a href="sysdesign-playbook.html">Sys-Design Playbook</a> + <a href="glossary.html">Glossary</a> sweeps + mock interviews. Consolidate the framework, drill terms you still hesitate on, and run at least two full mock loops.</li>
+</ul>
+
+</main>
+</body></html>

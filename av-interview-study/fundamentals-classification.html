@@ -1,0 +1,251 @@
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>Classification Fundamentals — AV Interview Study</title><link rel="stylesheet" href="assets/style.css"><link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/katex.min.css"><script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/katex.min.js"></script><script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/contrib/auto-render.min.js"></script><script defer src="assets/app.js"></script></head><body><nav class="topnav"><a href="index.html">Home</a><a href="fundamentals-classification.html">Classification</a><a href="fundamentals-inference.html">Data→Inference</a><a href="multimodal-encoder.html">Multimodal Encoder</a><a href="sysdesign-playbook.html">Sys-Design Playbook</a><a href="math-code.html">Math+Code</a><a href="gradient-descent-lab.html">GD Lab</a><a href="glossary.html">Glossary</a></nav><main class="page">
+
+<h1>Classification Fundamentals</h1>
+<p class="page-intro">The classification round tests whether you can go from "here's a labeled dataset" to a calibrated, correctly-evaluated decision function, and explain every step in the right vocabulary. This page builds that chain: problem setup → linear decision functions → the loss that makes them trainable → the two failure modes (bias/variance) → the two fixes (regularization, diagnostics) → the two things that break naive accuracy (imbalance, miscalibration) → when to skip deep nets entirely.</p>
+
+<section id="setup">
+<h2>1. The classification problem setup</h2>
+<div class="concept">
+<p>Classification is estimating a function \( f: \mathcal{X} \to \mathcal{Y} \) where \( \mathcal{Y} \) is a finite, unordered set of labels (binary: \( \{0,1\} \); multiclass: \( \{1,\dots,K\} \)). Unlike regression, the target has no metric structure — label 3 isn't "more" than label 1. What we actually learn is not \( f \) directly but a conditional probability model \( p_\theta(y \mid x) \), and we get hard predictions by thresholding or arg-maxing it. This distinction matters: a classifier that only outputs argmax-correct labels throws away information (confidence) that downstream systems — planners, fusion stacks, safety monitors — need.</p>
+<p>The learning problem: given i.i.d. samples \( \{(x_i, y_i)\}_{i=1}^N \) drawn from an unknown joint distribution \( P(x,y) \), choose \( \theta \) to minimize expected loss (risk) \( \mathbb{E}_{(x,y)\sim P}[\ell(f_\theta(x), y)] \), approximated by the empirical average over the training set. Everything below is a specific choice of \( f_\theta \), \( \ell \), and a way to keep the empirical-risk minimizer close to the true-risk minimizer (regularization).</p>
+</div>
+<div class="callout">Think of a classifier as a bet-sizing machine, not a label-printer. "Is this a pedestrian" at p=0.51 and p=0.99 should trigger very different downstream behavior even though both argmax to "yes."</div>
+<div class="term-box"><ul>
+<li><span class="term">risk / empirical risk</span> — true expected loss vs. its finite-sample estimate; generalization is the gap between them. <span class="related">Related: bias-variance, overfitting.</span></li>
+<li><span class="term">discriminative vs generative model</span> — discriminative learns \(p(y\mid x)\) directly (logistic regression, most deep nets); generative learns \(p(x,y)\) or \(p(x\mid y)\) and derives \(p(y\mid x)\) via Bayes' rule (naive Bayes, GDA). <span class="related">Related: classical vs learned (§9).</span></li>
+<li><span class="term">decision function vs. score function</span> — the score is continuous (logit/probability), the decision is the thresholded/argmax output. <span class="related">Related: calibration (§8).</span></li>
+</ul></div>
+<div class="quiz">
+<details><summary>Why is classification usually framed as learning \(p(y|x)\) rather than learning the label directly?</summary>Because probabilities are composable and thresholds are a downstream policy choice — you can trade precision for recall, fuse with other sensors' confidences, or defer to a human, none of which is possible once you've collapsed to a hard label.</details>
+<details><summary>What's the difference between the Bayes-optimal classifier and the classifier you actually train?</summary>The Bayes-optimal classifier is defined w.r.t. the true \(P(x,y)\) (unknowable); your trained classifier approximates it using finite data and a hypothesis class, incurring approximation error (hypothesis class too small) and estimation error (finite samples).</details>
+</div>
+</section>
+
+<section id="logistic">
+<h2>2. Logistic regression, sigmoid, decision boundary</h2>
+<div class="concept">
+<p>Logistic regression models the log-odds of the positive class as linear in the inputs:</p>
+<div class="math-block">$$ \log\frac{p(y=1\mid x)}{1-p(y=1\mid x)} = w^\top x + b $$</div>
+<p>Solving for \(p\) gives the sigmoid:</p>
+<div class="math-block">$$ p(y=1\mid x) = \sigma(w^\top x + b), \qquad \sigma(z) = \frac{1}{1+e^{-z}} $$</div>
+<p>The sigmoid squashes \((-\infty,\infty)\) into \((0,1)\) monotonically, so it preserves the ranking of the linear score \(z = w^\top x + b\) — this is why it's called a <em>link function</em>. The decision boundary (where \(p=0.5\)) is exactly where \(z=0\), i.e. the hyperplane \(w^\top x + b = 0\). Everything logistic regression can express is a linear separator in \(x\)-space (or a linear separator in feature space, if you've hand-engineered nonlinear features).</p>
+<p>Useful sigmoid identity: \( \sigma'(z) = \sigma(z)(1-\sigma(z)) \) — this is what makes the cross-entropy gradient collapse so cleanly (§3).</p>
+</div>
+<div class="callout">A linear decision boundary is a hyperplane; in 2D that's a line, in 3D a plane. Logistic regression can only bend that boundary by you adding polynomial/interaction features — the model itself never bends it.</div>
+<div class="diagram">
+<svg viewBox="0 0 320 160" width="100%" height="160" role="img" aria-label="Sigmoid curve">
+<line x1="10" y1="80" x2="310" y2="80" stroke="currentColor" stroke-width="1" opacity="0.4"/>
+<line x1="160" y1="10" x2="160" y2="150" stroke="currentColor" stroke-width="1" opacity="0.4"/>
+<path d="M 10 140 C 90 138, 130 130, 160 80 C 190 30, 230 22, 310 20" fill="none" stroke="currentColor" stroke-width="2.5"/>
+<text x="270" y="35" font-size="11" fill="currentColor">σ(z)→1</text>
+<text x="15" y="130" font-size="11" fill="currentColor">σ(z)→0</text>
+<text x="164" y="75" font-size="11" fill="currentColor">z=0, p=0.5</text>
+</svg>
+</div>
+<div class="term-box"><ul>
+<li><span class="term">logit / log-odds</span> — the pre-sigmoid linear score \(z=w^\top x+b\); unbounded, additive, what the model actually optimizes over. <span class="related">Related: softmax (§3), temperature scaling (§8).</span></li>
+<li><span class="term">link function</span> — the monotonic map (sigmoid, softmax) between linear score and probability. <span class="related">Related: generalized linear models.</span></li>
+<li><span class="term">separating hyperplane</span> — the linear decision boundary; margin-based classifiers (SVM) optimize its distance to the nearest points instead of a likelihood. <span class="related">Related: classical vs learned (§9).</span></li>
+</ul></div>
+<div class="quiz">
+<details><summary>Why can't plain logistic regression learn an XOR-like decision boundary?</summary>XOR is not linearly separable in the raw feature space — any hyperplane misclassifies at least one quadrant. You'd need engineered interaction features (e.g. \(x_1 x_2\)) or a nonlinear model.</details>
+<details><summary>If you double all the weights \(w\) (keep \(b\) fixed at 0), how does the decision boundary change, and how does the predicted probability change?</summary>The decision boundary (where \(z=0\)) doesn't move — it's the same hyperplane. But the probabilities become more extreme (sigmoid saturates faster), so the model becomes more confident everywhere without changing its actual decisions.</details>
+</div>
+</section>
+
+<section id="softmax-ce">
+<h2>3. Softmax, cross-entropy, and why the gradient is so clean</h2>
+<div class="concept">
+<p>For \(K\) classes, softmax generalizes sigmoid: given logits \(z\in\mathbb{R}^K\),</p>
+<div class="math-block">$$ p_i = \text{softmax}(z)_i = \frac{e^{z_i}}{\sum_{j=1}^K e^{z_j}} $$</div>
+<p>This is a valid probability distribution (nonnegative, sums to 1) and reduces to sigmoid for \(K=2\) (parameterize with one free logit relative to the other). Categorical cross-entropy loss against a one-hot target \(y\) (or soft target for label smoothing / distillation) is:</p>
+<div class="math-block">$$ \mathcal{L} = -\sum_{i=1}^K y_i \log p_i $$</div>
+<p>For a hard label this collapses to \(\mathcal{L} = -\log p_{\text{true class}}\) — you're only penalized for the probability mass you failed to put on the correct answer.</p>
+<p><strong>Why cross-entropy is maximum likelihood:</strong> the likelihood of observing label \(y\) under the model is \(p_y\); the negative log-likelihood of the whole dataset (assuming i.i.d. samples) is \(-\sum_n \log p_{y_n}\), which is exactly the sum of per-example cross-entropy losses. So minimizing CE loss over the dataset is literally maximum-likelihood estimation of \(\theta\) — there's no separate justification needed, it falls out of "assume the model's probabilities are correct and maximize the probability of the data you actually saw."</p>
+<p><strong>The gradient:</strong> for softmax + cross-entropy together, the gradient of the loss w.r.t. the logits is</p>
+<div class="math-block">$$ \frac{\partial \mathcal{L}}{\partial z_i} = p_i - y_i $$</div>
+<p>This is the single most load-bearing identity in classification. It says: the gradient signal is just "predicted probability minus target," per class, with no leftover chain-rule mess from the softmax normalization — the exponentials and the log cancel exactly. Practically it means (a) gradient magnitude is naturally bounded in \([-1,1]\) per class — no exploding-gradient pathology from the loss itself, and (b) a confidently-wrong prediction (\(p_i\) near 1 for the wrong class) produces the largest gradient, which is exactly the desired "punish confident mistakes hardest" behavior. The same \(p-y\) form appears for sigmoid+binary-cross-entropy — it's not a softmax-specific coincidence, it's a property of any exponential-family link function paired with its matching (canonical) loss.</p>
+</div>
+<div class="callout">You almost never implement softmax-then-log-then-CE as three separate ops — numerically, you compute log-softmax directly (log-sum-exp trick) to avoid overflow, and frameworks fuse softmax+CE into one function for exactly this reason.</div>
+<div class="code-block"><pre><code>import numpy as np
+
+def softmax_ce(logits, y_true_idx):
+    # log-sum-exp trick for numerical stability
+    z = logits - logits.max()
+    log_probs = z - np.log(np.sum(np.exp(z)))
+    probs = np.exp(log_probs)
+    loss = -log_probs[y_true_idx]
+    grad = probs.copy()
+    grad[y_true_idx] -= 1.0        # this is p - y
+    return loss, probs, grad
+</code></pre></div>
+<div class="term-box"><ul>
+<li><span class="term">cross-entropy</span> — expected number of "bits" (nats, if natural log) needed to encode the true label using the model's predicted distribution; equals NLL for hard labels. <span class="related">Related: KL divergence (CE = entropy of true dist + KL(true‖pred)).</span></li>
+<li><span class="term">negative log-likelihood (NLL)</span> — the statistics-native name for the same loss; cross-entropy is NLL under a categorical/Bernoulli model. <span class="related">Related: maximum likelihood estimation.</span></li>
+<li><span class="term">canonical link</span> — the link function whose matching loss produces the clean \(p-y\) gradient (sigmoid↔BCE, softmax↔CE, identity↔MSE). <span class="related">Related: generalized linear models.</span></li>
+<li><span class="term">label smoothing</span> — replacing one-hot targets with e.g. \(0.9\) true / \(0.1/(K-1)\) rest, to prevent overconfidence; changes the gradient target but not the mechanics. <span class="related">Related: calibration (§8), knowledge distillation.</span></li>
+</ul></div>
+<div class="quiz">
+<details><summary>Derive (informally) why \(\partial\mathcal{L}/\partial z_i = p_i - y_i\) for the true-class logit vs. a wrong-class logit — same formula, why?</summary>\(\mathcal{L}=-\log p_{true}\) and \(p_i = e^{z_i}/\sum_j e^{z_j}\). Differentiating \(\log p_{true}\) w.r.t. any \(z_i\) via the quotient/chain rule gives \(\partial\log p_{true}/\partial z_i = \mathbb{1}[i=true] - p_i\); negate for the loss and you get \(p_i - y_i\) where \(y_i\) is the one-hot indicator — the softmax normalization term produces the \(-p_i\) piece uniformly regardless of which class you differentiate against.</details>
+<details><summary>Why does cross-entropy penalize a confidently wrong prediction so much more harshly than mean-squared error would?</summary>\(-\log p\) blows up as \(p\to 0\) (unbounded), whereas MSE's \((1-p)^2\) saturates at 1. A model that's 99.9% confident and wrong pays a huge CE penalty but a bounded MSE penalty — CE's gradient signal stays informative even in the saturated regime.</details>
+</div>
+</section>
+
+<section id="bias-variance">
+<h2>4. Bias-variance tradeoff</h2>
+<div class="concept">
+<p>For a regression-style decomposition (the classification analogue is qualitatively identical but the algebra is messier), the expected squared error of a learned predictor \(\hat f(x)\) trained on random datasets, evaluated against the true function \(f(x)\) plus irreducible label noise \(\varepsilon\) (\(\text{Var}(\varepsilon)=\sigma^2\)), decomposes as:</p>
+<div class="math-block">$$ \mathbb{E}_{\mathcal{D}}\big[(y - \hat f_{\mathcal{D}}(x))^2\big] = \underbrace{\big(\mathbb{E}_{\mathcal{D}}[\hat f_{\mathcal{D}}(x)] - f(x)\big)^2}_{\text{Bias}^2} + \underbrace{\mathbb{E}_{\mathcal{D}}\big[(\hat f_{\mathcal{D}}(x)-\mathbb{E}_{\mathcal{D}}[\hat f_{\mathcal{D}}(x)])^2\big]}_{\text{Variance}} + \sigma^2 $$</div>
+<p><strong>Bias</strong> is systematic error from the hypothesis class being too restrictive to represent the true function (underfitting) — averaged over infinite retraining on different datasets, you're still wrong in the same direction. <strong>Variance</strong> is sensitivity to the particular training set drawn — a high-variance model fits noise, so retraining on a different sample gives a very different function (overfitting). <strong>Irreducible error</strong> \(\sigma^2\) is label/measurement noise no model can remove. Model capacity trades these against each other: increasing capacity (more layers, less regularization, more features) lowers bias but raises variance; the sweet spot minimizes their sum, not either term alone.</p>
+</div>
+<div class="callout">Diagnostically: high bias looks like "does poorly on train AND val, similarly." High variance looks like "does great on train, much worse on val." This is the single fastest triage question in a debugging interview.</div>
+<div class="diagram">
+<svg viewBox="0 0 340 170" width="100%" height="170" role="img" aria-label="Underfit vs good fit vs overfit">
+<text x="10" y="15" font-size="11" fill="currentColor">Underfit (high bias)</text>
+<circle cx="30" cy="120" r="3" fill="currentColor"/><circle cx="55" cy="100" r="3" fill="currentColor"/><circle cx="80" cy="130" r="3" fill="currentColor"/><circle cx="105" cy="90" r="3" fill="currentColor"/>
+<line x1="20" y1="115" x2="115" y2="105" stroke="currentColor" stroke-width="2"/>
+<text x="130" y="15" font-size="11" fill="currentColor">Good fit</text>
+<circle cx="140" cy="120" r="3" fill="currentColor"/><circle cx="165" cy="100" r="3" fill="currentColor"/><circle cx="190" cy="130" r="3" fill="currentColor"/><circle cx="215" cy="90" r="3" fill="currentColor"/>
+<path d="M 135 118 Q 160 95 190 128 T 220 88" fill="none" stroke="currentColor" stroke-width="2"/>
+<text x="245" y="15" font-size="11" fill="currentColor">Overfit (high var)</text>
+<circle cx="250" cy="120" r="3" fill="currentColor"/><circle cx="275" cy="100" r="3" fill="currentColor"/><circle cx="300" cy="130" r="3" fill="currentColor"/><circle cx="325" cy="90" r="3" fill="currentColor"/>
+<path d="M 245 121 C 255 100 260 140 275 100 S 295 145 300 129 S 315 70 328 89" fill="none" stroke="currentColor" stroke-width="2"/>
+</svg>
+</div>
+<div class="term-box"><ul>
+<li><span class="term">bias (statistical)</span> — systematic deviation of the average learned model from the truth; a hypothesis-class limitation. <span class="related">Related: underfitting.</span></li>
+<li><span class="term">variance (statistical)</span> — sensitivity of the learned model to the specific training sample. <span class="related">Related: overfitting, ensembling/bagging (variance reduction).</span></li>
+<li><span class="term">irreducible error</span> — label noise floor; no model, however good, drives test error below it. <span class="related">Related: Bayes error rate.</span></li>
+<li><span class="term">capacity / VC dimension</span> — informal/formal measures of how expressive a hypothesis class is. <span class="related">Related: regularization (§5), scaling laws (inference page §2).</span></li>
+</ul></div>
+<div class="quiz">
+<details><summary>You add more layers to a network and both train and validation loss get worse. Bias or variance problem, and what do you actually check first?</summary>Neither, cleanly — that pattern usually means an optimization failure (bad learning rate, vanishing/exploding gradients, bad init), not a bias-variance issue. Check the training curve is even decreasing before reasoning about bias/variance at all.</details>
+<details><summary>Does adding more training data reduce bias, variance, or both?</summary>Primarily variance — more data means less sensitivity to the particular sample drawn, so the variance term shrinks. Bias is a hypothesis-class ceiling; more data alone can't fix a model too simple to represent the true function.</details>
+</div>
+</section>
+
+<section id="regularization">
+<h2>5. Regularization: L1 vs L2, and the Adam subtlety</h2>
+<div class="concept">
+<p>Regularization adds a penalty on model complexity to the training objective to reduce variance at the cost of a little bias. The two standard penalties:</p>
+<div class="math-block">$$ \mathcal{L}_{\text{L2}} = \mathcal{L}_{\text{data}} + \lambda \|w\|_2^2 = \mathcal{L}_{\text{data}} + \lambda \sum_i w_i^2 $$</div>
+<div class="math-block">$$ \mathcal{L}_{\text{L1}} = \mathcal{L}_{\text{data}} + \lambda \|w\|_1 = \mathcal{L}_{\text{data}} + \lambda \sum_i |w_i| $$</div>
+<p><strong>Geometric intuition:</strong> minimizing loss subject to \(\|w\|_2^2 \le c\) constrains \(w\) to a sphere; the loss contours tend to touch the sphere at a generic point, shrinking all weights smoothly toward zero without hitting exactly zero. Minimizing subject to \(\|w\|_1 \le c\) constrains \(w\) to a diamond (cross-polytope) whose vertices sit on the axes — loss contours are much more likely to first touch the constraint region at a vertex, which means some coordinates are exactly zero. That's why L1 induces sparsity (implicit feature selection) and L2 induces "small but nonzero, spread out" weights (better conditioning, smoother solutions, and it plays nicer with gradient descent's continuous updates).</p>
+<p><strong>Weight decay vs. L2 under Adam:</strong> under plain SGD, adding \(\lambda\|w\|_2^2\) to the loss and directly shrinking weights by a multiplicative factor each step (\(w \leftarrow (1-\eta\lambda)w - \eta\nabla\mathcal{L}_{\text{data}}\)) are mathematically identical — "L2 regularization" and "weight decay" are the same operation. Under Adam they are <em>not</em> the same. Adam divides each parameter's gradient by a running estimate of its second moment before applying the update — including the L2 penalty's own gradient contribution \(2\lambda w\). That means weights with historically large gradients get their L2 penalty's effect suppressed by the same normalization that suppresses their data gradient, so effective regularization strength becomes gradient-magnitude-dependent instead of a clean, uniform shrinkage. AdamW fixes this by decoupling: apply the multiplicative weight-decay step directly to the weights, outside the adaptive-moment normalization, restoring the SGD-equivalent behavior.</p>
+</div>
+<div class="callout">If your framework has both a "weight_decay" hyperparameter and you're also adding an L2 term by hand into the loss with an Adam optimizer, you're likely double-penalizing in an uneven, gradient-magnitude-dependent way — this is a real, common bug.</div>
+<div class="term-box"><ul>
+<li><span class="term">L1 / Lasso</span> — sparsity-inducing penalty, feature-selection flavor. <span class="related">Related: L1 pruning criteria (inference page §3).</span></li>
+<li><span class="term">L2 / Ridge / weight decay (SGD)</span> — smooth shrinkage penalty; equivalent to weight decay only under plain SGD. <span class="related">Related: AdamW.</span></li>
+<li><span class="term">AdamW</span> — Adam variant that decouples weight decay from the adaptive gradient normalization (Loshchilov & Hutter 2017). <span class="related">Related: mixed precision (inference page §3).</span></li>
+<li><span class="term">elastic net</span> — L1+L2 combined penalty, trades off sparsity and smoothness. <span class="related">Related: —</span></li>
+</ul></div>
+<div class="quiz">
+<details><summary>Why does L1's diamond-shaped constraint region produce exact zeros while L2's sphere doesn't?</summary>The diamond has corners exactly on the coordinate axes (where one or more weights are zero); a generic (non-axis-aligned) loss contour expanding from the unconstrained optimum is disproportionately likely to first touch the constraint boundary at one of these corners. The sphere has no preferred points — the tangency point is generically off-axis, so all coordinates stay nonzero.</details>
+<details><summary>You switch an SGD-trained model's optimizer to Adam, keep the same weight_decay value, and effective regularization gets noticeably weaker. Why?</summary>Because under Adam the L2 gradient is divided by each parameter's second-moment estimate just like the data gradient, so params with large historical gradients get their penalty suppressed — you need AdamW (decoupled decay) to keep the regularization strength as intended.</details>
+</div>
+</section>
+
+<section id="diagnostics">
+<h2>6. Overfitting diagnostics</h2>
+<div class="concept">
+<p>The primary diagnostic tool is the train/validation loss (or metric) curve over training steps/epochs. Three canonical shapes: both curves plateau near each other and high (underfitting/high bias — add capacity, remove regularization, train longer); train keeps dropping while val flattens then rises (classic overfitting/high variance — add regularization, more data, early stop); both drop together and track closely at a low value (good fit). A widening train/val gap over time is the signature to watch for, not any single snapshot value.</p>
+</div>
+<div class="callout">Early stopping is a regularizer too — you're implicitly constraining how far into the high-variance regime training is allowed to go, using val loss as the stopping criterion instead of an explicit penalty term.</div>
+<div class="diagram">
+<svg viewBox="0 0 320 170" width="100%" height="170" role="img" aria-label="Train vs validation loss curves showing overfitting">
+<line x1="30" y1="150" x2="310" y2="150" stroke="currentColor" stroke-width="1" opacity="0.4"/>
+<line x1="30" y1="10" x2="30" y2="150" stroke="currentColor" stroke-width="1" opacity="0.4"/>
+<path d="M 30 30 C 80 90, 150 130, 310 145" fill="none" stroke="currentColor" stroke-width="2.5"/>
+<text x="250" y="140" font-size="10" fill="currentColor">train loss</text>
+<path d="M 30 40 C 90 95, 160 100, 200 105 C 240 112, 280 90, 310 60" fill="none" stroke="currentColor" stroke-width="2.5" stroke-dasharray="5,4"/>
+<text x="250" y="70" font-size="10" fill="currentColor">val loss</text>
+<line x1="200" y1="15" x2="200" y2="150" stroke="currentColor" stroke-width="1" opacity="0.3" stroke-dasharray="2,3"/>
+<text x="203" y="25" font-size="10" fill="currentColor">val starts rising →</text>
+</svg>
+</div>
+<div class="term-box"><ul>
+<li><span class="term">early stopping</span> — halting training at the val-loss minimum; an implicit regularizer via limiting optimization time in high-capacity models. <span class="related">Related: regularization (§5).</span></li>
+<li><span class="term">learning curve</span> — metric vs. training-set size (distinct from loss-vs-epoch curve); diagnoses whether more data would help. <span class="related">Related: dataset scaling (inference page §1).</span></li>
+<li><span class="term">k-fold cross-validation</span> — averaging val performance over k train/val splits for a less noisy generalization estimate, used when data is scarce. <span class="related">Related: —</span></li>
+</ul></div>
+<div class="quiz">
+<details><summary>Train loss is flat and high, val loss is flat and high, and they're close together. Underfit or overfit, and what's the fix?</summary>Underfit/high bias. Fix by increasing capacity (more parameters/layers), reducing regularization strength, adding better features, or training longer if it hasn't converged — not by adding more data or more regularization.</details>
+</div>
+</section>
+
+<section id="imbalance">
+<h2>7. Class imbalance</h2>
+<div class="concept">
+<p>When one class dominates (e.g. 1% positives in a rare-hazard detector), accuracy is a lying metric: a classifier that always predicts "negative" scores 99% accuracy while being useless. Three standard fixes, each with a different mechanism: <strong>resampling</strong> (oversample the minority class or undersample the majority, changing the empirical class prior the model sees during training — risks overfitting duplicated minority examples, or discarding majority information); <strong>reweighting</strong> (keep all data, multiply the loss for minority-class examples by a class-balance weight, e.g. inverse class frequency — cheaper than resampling, no duplication/discarding, but interacts with batch normalization statistics and effective learning rate per class); and <strong>focal loss</strong> (down-weight easy, well-classified examples so the loss focuses on hard/rare ones regardless of class):</p>
+<div class="math-block">$$ \mathcal{L}_{\text{focal}} = -\alpha_t (1-p_t)^\gamma \log p_t $$</div>
+<p>where \(p_t\) is the model's predicted probability for the true class, \(\gamma>0\) shrinks the loss contribution of easy examples (\(p_t\) near 1) faster than hard ones, and \(\alpha_t\) is an optional class-balance weight layered on top. Focal loss was designed for extreme imbalance (dense object detection, 1000:1 background:foreground) where reweighting alone still lets the easy majority-class gradient dominate in aggregate even after per-example weighting.</p>
+</div>
+<div class="callout">Always ask "imbalanced in the training distribution, or imbalanced relative to deployment prevalence, or both?" — sometimes the fix isn't a loss-function trick at all, it's recognizing your eval set should reflect deployment prevalence even if your training set is rebalanced.</div>
+<div class="term-box"><ul>
+<li><span class="term">class prior / base rate</span> — \(P(y=k)\) in the population; imbalance is a base-rate problem, not strictly a modeling one. <span class="related">Related: PR-AUC (§8).</span></li>
+<li><span class="term">oversampling / SMOTE</span> — duplicate or synthetically interpolate minority-class examples. <span class="related">Related: augmentation (inference page §1).</span></li>
+<li><span class="term">focal loss</span> — down-weights easy examples via \((1-p_t)^\gamma\); standard in dense detection (RetinaNet). <span class="related">Related: hard-negative mining.</span></li>
+<li><span class="term">hard-negative mining</span> — explicitly selecting the majority-class examples the model gets most wrong, rather than random subsampling. <span class="related">Related: active learning (inference page §1).</span></li>
+</ul></div>
+<div class="quiz">
+<details><summary>Why can accuracy stay high while recall on the minority class is near zero?</summary>Accuracy is dominated by the majority class's count — if negatives are 99% of the data, predicting all-negative gets 99% accuracy while catching 0% of positives (recall=0); accuracy simply doesn't weight the minority class by its operational importance.</details>
+<details><summary>What's the mechanistic difference between reweighting and focal loss, given both can achieve similar goals?</summary>Reweighting scales the loss by a fixed factor determined by class membership alone. Focal loss scales the loss by a factor that depends on the model's current confidence \(p_t\) on that specific example — so it dynamically de-emphasizes examples the model already gets right, majority or minority class alike, rather than applying a static per-class multiplier.</details>
+</div>
+</section>
+
+<section id="metrics">
+<h2>8. Evaluation metrics, ROC vs PR, calibration</h2>
+<div class="concept">
+<p>From a confusion matrix (predicted positive/negative × actual positive/negative), define:</p>
+<div class="math-block">$$ \text{Precision} = \frac{TP}{TP+FP}, \quad \text{Recall (TPR)} = \frac{TP}{TP+FN}, \quad \text{F1} = \frac{2\cdot P \cdot R}{P+R} $$</div>
+<p>Precision answers "of the things I flagged positive, how many actually were?"; recall answers "of all the actual positives, how many did I catch?" F1 is their harmonic mean — it punishes lopsided precision/recall more than an arithmetic mean would, so a classifier can't game F1 by trivially maximizing one at the other's expense.</p>
+<table class="metric-table"><thead><tr><th></th><th>Predicted +</th><th>Predicted −</th></tr></thead><tbody>
+<tr><th>Actual +</th><td>TP</td><td>FN</td></tr>
+<tr><th>Actual −</th><td>FP</td><td>TN</td></tr>
+</tbody></table>
+<p><strong>ROC-AUC vs. PR-AUC:</strong> ROC plots True Positive Rate (recall) against False Positive Rate \(FPR=FP/(FP+TN)\) as the decision threshold sweeps; AUC is the probability a random positive scores higher than a random negative. ROC is threshold-independent and intuitive, but on heavily imbalanced data it can look deceptively good: FPR's denominator (\(FP+TN\)) is dominated by the huge negative count, so even a large absolute number of false positives barely moves FPR. PR-AUC plots precision against recall instead, and precision's denominator (\(TP+FP\)) is directly sensitive to false positives regardless of how many true negatives exist — so PR-AUC degrades visibly under imbalance exactly when ROC-AUC would still look fine. Rule of thumb: use PR-AUC when positives are rare and false positives are costly (fraud, rare-hazard detection); ROC-AUC is fine on roughly balanced classes or when you care equally about both error types.</p>
+<p><strong>Calibration:</strong> a model is calibrated if, among all examples where it predicts probability \(p\), the true positive rate is also \(p\) — i.e. its confidences are trustworthy, not just its rankings. A <em>reliability diagram</em> bins predictions by predicted probability and plots empirical accuracy per bin against the bin's mean predicted probability; a perfectly calibrated model traces the diagonal. Deep nets are notoriously overconfident (miscalibrated) even when highly accurate. <strong>Temperature scaling</strong> fixes this cheaply post-hoc: divide logits by a single learned scalar \(T>1\) before the softmax, \(p_i = \text{softmax}(z_i/T)\), fit \(T\) on a held-out validation set by minimizing NLL. Because \(T\) is a single scalar applied uniformly, it smooths the probability distribution without changing which class has the highest score — accuracy is unchanged, only confidence is recalibrated.</p>
+</div>
+<div class="callout">Calibration and accuracy are orthogonal — you can be 95% accurate and badly miscalibrated (systematically overconfident) at the same time. If probabilities feed a downstream cost-sensitive decision (e.g. brake-or-not thresholding), miscalibration silently breaks that decision even though offline accuracy looks great.</div>
+<div class="code-block"><pre><code>import numpy as np
+
+def precision_recall_f1(y_true, y_pred):
+    tp = np.sum((y_pred == 1) & (y_true == 1))
+    fp = np.sum((y_pred == 1) & (y_true == 0))
+    fn = np.sum((y_pred == 0) & (y_true == 1))
+    precision = tp / (tp + fp) if (tp + fp) else 0.0
+    recall    = tp / (tp + fn) if (tp + fn) else 0.0
+    f1 = 2 * precision * recall / (precision + recall) if (precision + recall) else 0.0
+    return precision, recall, f1
+</code></pre></div>
+<div class="term-box"><ul>
+<li><span class="term">confusion matrix</span> — TP/FP/FN/TN counts at a fixed threshold; every scalar metric below is derived from it. <span class="related">Related: precision/recall.</span></li>
+<li><span class="term">ROC-AUC</span> — threshold-independent ranking quality; misleadingly stable under class imbalance. <span class="related">Related: PR-AUC.</span></li>
+<li><span class="term">PR-AUC / average precision</span> — the imbalance-robust alternative; precision is directly sensitive to false-positive volume. <span class="related">Related: class imbalance (§7).</span></li>
+<li><span class="term">calibration / reliability diagram</span> — whether predicted probabilities match empirical frequencies. <span class="related">Related: temperature scaling.</span></li>
+<li><span class="term">temperature scaling</span> — one-scalar post-hoc calibration fix, logits divided by learned \(T\); preserves argmax/accuracy. <span class="related">Related: logit (§3).</span></li>
+<li><span class="term">Expected Calibration Error (ECE)</span> — scalar summary of the reliability diagram's deviation from the diagonal, weighted by bin population. <span class="related">Related: —</span></li>
+</ul></div>
+<div class="quiz">
+<details><summary>Your rare-hazard detector has ROC-AUC 0.97 but PR-AUC 0.31. What does that gap tell you, and which number should drive the go/no-go decision?</summary>The gap means the model ranks well overall but, at operating thresholds relevant to the rare positive class, precision is poor — many false positives relative to true positives, just diluted by the huge true-negative count in ROC's FPR term. PR-AUC should drive the decision here since positives are rare and false positives presumably matter operationally.</details>
+<details><summary>You apply temperature scaling and accuracy doesn't change at all. Is that expected, or a bug?</summary>Expected — dividing all logits by a single scalar \(T\) is a monotonic transform that preserves the relative order of logits, so argmax (and therefore accuracy) is unchanged by construction; only the confidence magnitudes shift.</details>
+</div>
+</section>
+
+<section id="classical-vs-learned">
+<h2>9. Classical vs. learned: when logistic regression / GBTs beat deep nets</h2>
+<div class="concept">
+<p>Deep nets win when there's abundant data, raw/unstructured inputs (pixels, waveforms, tokens) where hand-engineering features is prohibitive, and enough compute to let representation learning do the feature engineering for you. Classical methods — logistic regression, gradient-boosted trees (GBTs: XGBoost/LightGBM), random forests — tend to win or tie on: <strong>tabular/structured data</strong> with a modest number of heterogeneous features (categorical + numeric mixes), where trees' axis-aligned splits handle non-smooth, non-monotonic feature interactions naturally and don't need the huge sample sizes deep nets do to find that structure; <strong>small-to-medium data regimes</strong> where a deep net would just overfit or fail to find signal; <strong>interpretability requirements</strong> (regulated domains, safety cases) where a linear model's per-feature coefficient or a tree's split path is directly auditable, unlike a black-box net; and <strong>tight latency/compute budgets</strong> at the edge, where a shallow GBT can be orders of magnitude cheaper than even a small net. In practice, well-tuned GBTs are still the default strong baseline (and frequently the winner) on tabular Kaggle-style benchmarks precisely because tabular data lacks the spatial/sequential structure that convolution/attention are built to exploit.</p>
+</div>
+<div class="callout">If your feature vector doesn't have a "shift-invariant" or "sequential" structure to exploit — it's just a table of heterogeneous columns — that's a strong prior toward trying GBTs first, not toward architecture search on MLPs.</div>
+<div class="term-box"><ul>
+<li><span class="term">gradient-boosted trees (GBT)</span> — ensemble of shallow trees fit sequentially to residual error; strong tabular-data default. <span class="related">Related: XGBoost, LightGBM.</span></li>
+<li><span class="term">inductive bias</span> — architectural assumptions baked into a model (convolution = translation invariance, trees = axis-aligned splits); matching the bias to the data's actual structure beats raw scale on small/structured data. <span class="related">Related: scaling laws (inference page §2).</span></li>
+</ul></div>
+<div class="quiz">
+<details><summary>You have 50k rows of structured sensor-log metadata (timestamps, categorical sensor IDs, a handful of numeric readings) and need a fast, auditable failure classifier. Deep net or GBT, and why?</summary>GBT — the data is tabular/heterogeneous with no spatial/sequential structure to exploit, the sample size is modest for a net to learn representations from scratch, and tree split paths are directly auditable, which matters for a failure classifier that likely feeds a safety review.</details>
+</div>
+</section>
+
+</main></body></html>

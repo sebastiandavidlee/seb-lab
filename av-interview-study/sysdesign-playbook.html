@@ -1,0 +1,227 @@
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>Sys-Design Playbook — AV Interview Study</title><link rel="stylesheet" href="assets/style.css"><link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/katex.min.css"><script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/katex.min.js"></script><script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/contrib/auto-render.min.js"></script><script defer src="assets/app.js"></script></head><body><nav class="topnav"><a href="index.html">Home</a><a href="fundamentals-classification.html">Classification</a><a href="fundamentals-inference.html">Data→Inference</a><a href="multimodal-encoder.html">Multimodal Encoder</a><a href="sysdesign-playbook.html">Sys-Design Playbook</a><a href="math-code.html">Math+Code</a><a href="gradient-descent-lab.html">GD Lab</a><a href="glossary.html">Glossary</a></nav><main class="page">
+
+<h1>ML System-Design Interview Playbook</h1>
+<p class="subtitle">A generalized way to run a 45-minute ML system-design round — the arc, not a script. Apply it to any prompt, including "design a multimodal perception encoder."</p>
+
+<h2>1. The seven-step arc</h2>
+
+<div class="concept">
+<div class="concept-title">Why an arc, not a checklist</div>
+<p>Interviewers are grading your <em>process</em> as much as your final architecture — can you scope an ambiguous problem, make and justify trade-offs out loud, and adapt when constraints change? The arc below is a default ordering; real interviews loop back (you'll revisit metrics after proposing architecture, etc.) but starting in this order signals structured thinking from minute one.</p>
+</div>
+
+<div class="diagram"><svg viewBox="0 0 760 160" xmlns="http://www.w3.org/2000/svg" font-family="sans-serif" font-size="11">
+<style>.b{fill:#eaf0fe;stroke:#2d5fce;stroke-width:1.5}.t{fill:#1c1f24}.a{stroke:#5b6270;stroke-width:1.5;marker-end:url(#ah3)}</style>
+<defs><marker id="ah3" markerWidth="8" markerHeight="8" refX="6" refY="3" orient="auto"><path d="M0,0 L6,3 L0,6 Z" fill="#5b6270"/></marker></defs>
+<g>
+<rect class="b" x="5" y="50" width="98" height="60" rx="6"/><text class="t" x="54" y="75" text-anchor="middle">1. Clarify</text><text class="t" x="54" y="90" text-anchor="middle" font-size="9">requirements /</text><text class="t" x="54" y="102" text-anchor="middle" font-size="9">constraints</text>
+<line class="a" x1="103" y1="80" x2="120" y2="80"/>
+<rect class="b" x="123" y="50" width="98" height="60" rx="6"/><text class="t" x="172" y="75" text-anchor="middle">2. Define</text><text class="t" x="172" y="90" text-anchor="middle" font-size="9">I/O &amp;</text><text class="t" x="172" y="102" text-anchor="middle" font-size="9">metrics</text>
+<line class="a" x1="221" y1="80" x2="238" y2="80"/>
+<rect class="b" x="241" y="50" width="98" height="60" rx="6"/><text class="t" x="290" y="75" text-anchor="middle">3. Data</text><text class="t" x="290" y="90" text-anchor="middle" font-size="9">story</text>
+<line class="a" x1="339" y1="80" x2="356" y2="80"/>
+<rect class="b" x="359" y="50" width="98" height="60" rx="6"/><text class="t" x="408" y="70" text-anchor="middle">4. Architecture</text><text class="t" x="408" y="85" text-anchor="middle" font-size="9">proposal +</text><text class="t" x="408" y="98" text-anchor="middle" font-size="9">trade-offs</text>
+<line class="a" x1="457" y1="80" x2="474" y2="80"/>
+<rect class="b" x="477" y="50" width="98" height="60" rx="6"/><text class="t" x="526" y="75" text-anchor="middle">5. Training</text><text class="t" x="526" y="90" text-anchor="middle" font-size="9">strategy</text>
+<line class="a" x1="575" y1="80" x2="592" y2="80"/>
+<rect class="b" x="595" y="50" width="98" height="60" rx="6"/><text class="t" x="644" y="70" text-anchor="middle">6. Inference /</text><text class="t" x="644" y="85" text-anchor="middle" font-size="9">deployment</text><text class="t" x="644" y="98" text-anchor="middle" font-size="9">budget</text>
+</g>
+<line class="a" x1="644" y1="110" x2="644" y2="130" stroke-dasharray="0"/>
+<line class="a" x1="644" y1="140" x2="120" y2="140"/>
+<rect class="b" x="5" y="120" width="98" height="40" rx="6"/><text class="t" x="54" y="138" text-anchor="middle" font-size="9">7. Failure modes</text><text class="t" x="54" y="150" text-anchor="middle" font-size="9">/ iteration</text>
+</svg></div>
+
+<div class="term-box">
+<h4>Terms — The arc</h4>
+<ul>
+<li><span class="term">Requirements gathering</span> — clarifying constraints (latency, hardware, sensors, online vs. offline, safety criticality) before proposing anything.</li>
+<li><span class="term">I/O contract</span> — explicit definition of model inputs and outputs, including shape, frequency, and format.</li>
+<li><span class="term">Success metric vs. proxy metric</span> — the true business/safety objective vs. the differentiable/measurable stand-in you actually optimize.</li>
+<li><span class="term">Data story</span> — where labeled/unlabeled data comes from, how it's collected, curated, and kept unbiased.</li>
+<li><span class="term">Deployment budget</span> — the concrete latency/memory/power envelope the model must fit inside on target hardware.</li>
+</ul>
+<span class="related">Related: multimodal-encoder.html §6 (robustness/production)</span>
+</div>
+
+<h2>2. Step-by-step: what to actually do and say</h2>
+
+<div class="concept">
+<div class="concept-title">Step 1 — Clarify requirements/constraints (≈5 min)</div>
+<p>Do not propose anything yet. Ask questions that would change your architecture if answered differently: What's the deployment target — onboard embedded compute or offline/cloud? What's the latency budget? Which sensors are guaranteed present vs. optional? Is this safety-critical (drives certification/verification requirements) or an assistive/analytics feature? Is there an existing pipeline this replaces or augments?</p>
+<div class="callout"><strong>How to think about it:</strong> the "requirements table" habit — literally sketch a small table (rows: latency, sensors, compute target, online/offline, safety tier) and fill it in live as you ask. It signals you know these are the load-bearing variables, not decoration.</div>
+</div>
+
+<div class="concept">
+<div class="concept-title">Step 2 — Define I/O and metrics (≈5 min)</div>
+<p>State precisely: what goes in (sensor streams, at what rate/resolution), what comes out (boxes? occupancy grid? BEV features for a downstream consumer?), and how success is measured. Separate the <em>true</em> objective (e.g. "reduce at-fault collisions") from the <em>proxy</em> metric you'll actually train/eval against (e.g. mAP on 3D detection, IoU on occupancy, calibration error on uncertainty). Naming both, and the gap between them, is a strong signal.</p>
+</div>
+
+<div class="concept">
+<div class="concept-title">Step 3 — Data story (≈5 min)</div>
+<p>Where does labeled data come from (fleet logs + human labeling, simulation, weak/auto-labeling from a stronger offline model)? How do you handle the long-tail/rare-event problem inherent to driving? How do you avoid geographic/weather/time-of-day bias in the collected data? Briefly mention active learning or targeted data collection for known failure modes if relevant.</p>
+</div>
+
+<div class="concept">
+<div class="concept-title">Step 4 — Architecture proposal with justified trade-offs (≈12-15 min, the core)</div>
+<p>Now propose. Draw a block diagram as you talk — sensors → per-modality encoders → fusion → shared representation → heads — narrating each box's purpose and, critically, volunteering the trade-off <em>before</em> being asked ("I'd fuse in BEV space rather than early fusion because it keeps failure isolation if one sensor degrades, at some cost in maximum expressiveness — happy to discuss the alternative"). This is where §4 below on narrating a diagram matters most.</p>
+</div>
+
+<div class="concept">
+<div class="concept-title">Step 5 — Training strategy (≈5 min)</div>
+<p>Supervised losses per head, any self-supervised/contrastive pretraining, distillation, multi-task balancing, how you'd bootstrap from an existing large pretrained backbone rather than training from scratch. Keep this proportional — don't let it eat the time budget from step 4.</p>
+</div>
+
+<div class="concept">
+<div class="concept-title">Step 6 — Inference/deployment budget (≈5 min)</div>
+<p>Translate the architecture into a per-stage latency table against the target hardware's budget; mention concrete levers — quantization, pruning, distillation to a smaller deployed model, operator fusion, batching multi-camera inputs — and how you'd validate the deployed model still meets accuracy bars after each lever.</p>
+</div>
+
+<div class="concept">
+<div class="concept-title">Step 7 — Failure modes and iteration (≈5-8 min, often interviewer-driven)</div>
+<p>This is usually where the interviewer starts firing "what if" probes (see §3 below). Show you can reason about a specific failure mode to a specific mitigation, not just wave at "we'd retrain."</p>
+</div>
+
+<div class="term-box">
+<h4>Terms — Execution habits</h4>
+<ul>
+<li><span class="term">Volunteering trade-offs</span> — stating the cost of a design choice unprompted, before the interviewer has to ask "why not X instead?"</li>
+<li><span class="term">Block diagram narration</span> — talking through a diagram box-by-box as you draw it, rather than drawing silently then explaining.</li>
+<li><span class="term">Timeboxing</span> — allocating and roughly tracking minutes per phase so no single step (usually step 4) eats the whole interview.</li>
+<li><span class="term">Anchoring on real experience</span> — briefly citing your own hands-on work as evidence for a claim, without turning it into a story.</li>
+</ul>
+<span class="related">Related: §5 leveraging experience, §6 worked sketches</span>
+</div>
+
+<h2>3. Common interviewer probes and the thinking pattern for each</h2>
+
+<div class="concept">
+<div class="concept-title">The probe is testing a reasoning pattern, not a memorized answer</div>
+<table>
+<thead><tr><th>Probe</th><th>What it's really testing</th><th>Thinking pattern to apply</th></tr></thead>
+<tbody>
+<tr><td>"What if you lose LiDAR?"</td><td>Graceful degradation / robustness design</td><td>Name the training-time mechanism (modality dropout) and the architectural property (mid-fusion doesn't hard-depend on one modality) that makes this survivable, then state the expected accuracy/behavior change, not just "it still works."</td></tr>
+<tr><td>"10× more data arrives — what changes?"</td><td>Scaling intuition, bottleneck identification</td><td>Identify what actually becomes the bottleneck at 10×: labeling throughput, storage/IO, training compute/time, or diminishing returns from redundant easy examples vs. needing more long-tail coverage. Don't just say "bigger model."</td></tr>
+<tr><td>"Halve the latency budget"</td><td>Prioritization under a hard constraint</td><td>Walk the latency table and name the first thing you'd cut/simplify (e.g. swap voxel 3D-conv for PointPillars, reduce ViT depth, prune fusion tokens) and what accuracy you'd expect to trade away — shows you understand where the compute actually goes.</td></tr>
+<tr><td>"One sensor is miscalibrated (drift)"</td><td>Production/operational awareness beyond the model</td><td>Distinguish detectable drift (online consistency checks between modalities) from silent drift, and mention recalibration or drift-tolerant fusion as the fix — this is a systems answer, not a modeling answer.</td></tr>
+<tr><td>"Your model is confidently wrong on a rare case"</td><td>Uncertainty estimation and long-tail handling</td><td>Tie back to calibrated uncertainty heads and the data story's long-tail strategy; mention that "confidently wrong" is exactly what uncertainty estimation exists to catch downstream.</td></tr>
+<tr><td>"How would you know it's actually better before shipping?"</td><td>Evaluation rigor, offline-vs-online gap</td><td>Distinguish offline proxy-metric improvement from closed-loop/simulation eval from staged online rollout — a real answer names at least two of these stages.</td></tr>
+</tbody>
+</table>
+</div>
+
+<div class="term-box">
+<h4>Terms — Probes</h4>
+<ul>
+<li><span class="term">Graceful degradation</span> — a system's ability to keep functioning (at reduced but non-catastrophic quality) when a component fails.</li>
+<li><span class="term">Bottleneck identification</span> — naming the specific resource (compute, data, labeling, IO) that limits scaling, rather than a generic "more resources."</li>
+<li><span class="term">Closed-loop evaluation</span> — testing a model's effect on actual downstream behavior (e.g. in simulation) rather than only an offline proxy metric.</li>
+<li><span class="term">Staged rollout</span> — deploying incrementally (shadow mode → limited fleet → full fleet) to catch regressions before full exposure.</li>
+</ul>
+<span class="related">Related: §7 anti-patterns</span>
+</div>
+
+<div class="quiz"><details><summary>Self-test: interviewer says "assume you have infinite compute" — how should that change your step 4 answer?</summary><p>It's usually a probe to see if you can separate "what's architecturally best" from "what's deployable" — answer by naming the architecture you'd pick under no constraint (e.g. larger ViT backbone, full 3D sparse conv over pillars, more expensive cross-attention fusion), then immediately note which of those choices you'd walk back first once a real latency budget is reintroduced. Shows you're not just reciting one memorized design.</p></details></div>
+
+<h2>4. Drawing and narrating a block diagram</h2>
+
+<div class="concept">
+<div class="concept-title">The diagram is a thinking tool, not a deliverable</div>
+<p>Draw left-to-right (input → output), keep boxes coarse-grained at first (sensors → encoders → fusion → heads), and only add detail inside a box when you're actually discussing it — don't front-load a fully detailed diagram before you've explained anything, and don't leave the diagram static while you talk past it. Label arrows with what flows along them (tokens, BEV features, gradients during training) when it clarifies the trade-off you're making.</p>
+</div>
+
+<div class="diagram"><svg viewBox="0 0 700 180" xmlns="http://www.w3.org/2000/svg" font-family="sans-serif" font-size="11">
+<style>.b{fill:#eaf4fe;stroke:#2d7fce;stroke-width:1.5}.t{fill:#1c1f24}.a{stroke:#5b6270;stroke-width:1.5;marker-end:url(#ah4)}</style>
+<defs><marker id="ah4" markerWidth="8" markerHeight="8" refX="6" refY="3" orient="auto"><path d="M0,0 L6,3 L0,6 Z" fill="#5b6270"/></marker></defs>
+<rect class="b" x="10" y="20" width="110" height="40" rx="5"/><text class="t" x="65" y="44" text-anchor="middle">Sensors</text>
+<line class="a" x1="120" y1="40" x2="170" y2="40"/>
+<rect class="b" x="175" y="20" width="130" height="40" rx="5"/><text class="t" x="240" y="44" text-anchor="middle">Per-modal encoders</text>
+<line class="a" x1="305" y1="40" x2="355" y2="40"/>
+<rect class="b" x="360" y="20" width="110" height="40" rx="5"/><text class="t" x="415" y="44" text-anchor="middle">Fusion (BEV)</text>
+<line class="a" x1="470" y1="40" x2="520" y2="40"/>
+<rect class="b" x="525" y="20" width="110" height="40" rx="5"/><text class="t" x="580" y="44" text-anchor="middle">Task heads</text>
+<text class="t" x="240" y="90" font-size="10">↑ latency budget noted per box</text>
+<text class="t" x="240" y="106" font-size="10">↑ trade-off called out per arrow ("what's lost by fusing here")</text>
+<text class="t" x="20" y="140" font-size="10">Order of narration: draw box → say purpose → say one trade-off → arrow → next box</text>
+</svg></div>
+
+<h2>5. Leveraging your own experience without rambling</h2>
+
+<div class="concept">
+<div class="concept-title">Evidence, one sentence, move on</div>
+<p>Real hands-on experience (quantizing a world model for a resource-constrained GPU, generating synthetic keypoint training data, building classical 3D geometric pipelines) is strong evidence when it's used as a one-sentence anchor for a specific claim — not as an anecdote. Pattern: make the claim → "I've seen this concretely when I [one clause of specific experience]" → return immediately to the design thread. If the interviewer wants more, they'll ask; volunteering the full story unprompted eats your time budget and reads as padding rather than evidence.</p>
+<p>Example: "I'd quantize the deployed encoder to int8 for the onboard budget — when I did AWQ-int4 quantization on a world model, the resident-memory win was large but required a calibration pass to hold accuracy, so I'd budget time for that here too." One sentence of evidence, then back to the architecture.</p>
+</div>
+
+<div class="callout"><strong>How to think about it:</strong> the interviewer is evaluating whether you generalize from experience to a new problem, not whether the experience itself is impressive. Keep the ratio heavily weighted toward the current problem.</div>
+
+<h2>6. Worked sketches (outline level — not scripts)</h2>
+
+<div class="concept">
+<div class="concept-title">Sketch A — "Design a multimodal perception encoder"</div>
+<ol>
+<li><strong>Clarify:</strong> onboard real-time (assume ~50ms perception budget), sensors = surround camera + LiDAR + radar, safety-critical tier, replaces an existing camera-only stack.</li>
+<li><strong>I/O & metrics:</strong> input = synced multi-camera + LiDAR sweep + radar returns at ~10-20Hz; output = 3D detections + occupancy grid; proxy metrics = mAP/NDS-style detection score, occupancy IoU; true metric = downstream planning safety/comfort, acknowledged as a gap.</li>
+<li><strong>Data story:</strong> fleet logs auto-labeled by an offline heavier teacher model + human QA on a sampled/uncertain subset; explicit oversampling of rare classes (cyclists, construction) and adverse weather.</li>
+<li><strong>Architecture:</strong> per-modality encoders (ViT or CNN for camera, PointPillars for LiDAR, point-based for radar) → lift camera to BEV via deformable attention → fuse in shared BEV grid via cross-attention with LiDAR/radar as K/V → detection + occupancy heads. Volunteer: chose BEV mid-fusion over early fusion for failure isolation, over late fusion for learned cross-modal interaction.</li>
+<li><strong>Training:</strong> pretrain camera backbone with contrastive image-text alignment (open-vocab benefit), MAE-pretrain LiDAR encoder on unlabeled sweeps, supervised fine-tune all heads jointly with uncertainty-weighted multi-task loss.</li>
+<li><strong>Inference/deployment:</strong> per-stage latency table against the 50ms budget; quantize fusion+heads to int8, keep camera backbone the biggest budget line, note PointPillars was chosen partly for this reason.</li>
+<li><strong>Failure modes:</strong> modality-dropout trained for sensor loss; temporal BEV window for occlusion; uncertainty head flags low-confidence regions to planning; staged rollout (shadow → limited fleet) before full deployment.</li>
+</ol>
+</div>
+
+<div class="concept">
+<div class="concept-title">Sketch B — "Design a classification system that scales" (shows the arc transfers)</div>
+<ol>
+<li><strong>Clarify:</strong> what's being classified, how many classes, online (per-request) vs. batch, expected QPS growth, label freshness requirements.</li>
+<li><strong>I/O & metrics:</strong> input format and rate; proxy = precision/recall or F1 per class, calibration; true objective = downstream business metric, name the gap.</li>
+<li><strong>Data story:</strong> label sourcing at current scale, and specifically how labeling scales (or doesn't) as QPS/class-count grows — active learning or weak supervision to avoid linear labeling cost growth.</li>
+<li><strong>Architecture:</strong> feature extraction → classifier head; volunteer the trade-off between a single large multi-class model vs. sharded/hierarchical classifiers as class count grows.</li>
+<li><strong>Training:</strong> retraining cadence, handling class imbalance and concept drift as new classes/data arrive.</li>
+<li><strong>Inference/deployment:</strong> serving latency at target QPS, caching, batching, horizontal scaling of inference replicas.</li>
+<li><strong>Failure modes:</strong> new/unseen class handling (open-set), data drift detection, rollback strategy for a bad model push.</li>
+</ol>
+<p>Notice the arc is identical — only the concrete content in each step changes. That transferability is the actual skill being tested.</p>
+</div>
+
+<div class="term-box">
+<h4>Terms — Worked sketches</h4>
+<ul>
+<li><span class="term">NDS (nuScenes Detection Score)</span> — a common composite AV detection metric combining mAP with attribute/velocity/orientation errors.</li>
+<li><span class="term">Concept drift</span> — a model's learned input-output relationship becoming stale as the real-world distribution shifts over time.</li>
+<li><span class="term">Open-set recognition</span> — correctly handling inputs that don't belong to any known training class, rather than forcing a wrong label.</li>
+<li><span class="term">Shadow mode</span> — running a new model in production alongside the live one without acting on its output, purely to compare.</li>
+</ul>
+<span class="related">Related: multimodal-encoder.html full page</span>
+</div>
+
+<h2>7. Anti-patterns</h2>
+
+<div class="concept">
+<div class="concept-title">The four most common ways to lose points</div>
+<ul>
+<li><strong>Jumping to architecture first</strong> — proposing a fusion architecture before establishing constraints or metrics signals you'll build the same answer regardless of the problem, which is the opposite of what system design is testing.</li>
+<li><strong>Ignoring metrics</strong> — never naming what "better" means (proxy vs. true objective) makes the rest of the design ungrounded — you can't justify a trade-off without a metric to trade against.</li>
+<li><strong>Not asking about constraints</strong> — designing for an unstated "ideal" deployment (infinite compute, perfect sensors) when the role is explicitly latency/hardware-constrained wastes the interview on an answer that doesn't apply.</li>
+<li><strong>Silent trade-offs</strong> — making a design choice without saying what you gave up; the interviewer then has to spend probe time extracting something you should have volunteered, which reads as less senior.</li>
+</ul>
+</div>
+
+<div class="callout"><strong>How to think about it:</strong> every one of these anti-patterns is really the same failure — treating the interview as "produce the right final diagram" instead of "narrate a structured decision process." The diagram is a side effect of the process, not the goal.</div>
+
+<h2>Printable one-page checklist</h2>
+
+<div class="concept">
+<div class="concept-title">Run through this in order; check off as you go</div>
+<ul class="week-plan">
+<li><strong>0-5 min — Clarify:</strong> latency budget? sensors guaranteed vs. optional? onboard or offline? safety tier? existing system being replaced?</li>
+<li><strong>5-10 min — I/O & metrics:</strong> exact input/output stated? proxy metric named? true objective named and gap acknowledged?</li>
+<li><strong>10-15 min — Data story:</strong> label source? long-tail/rare-event strategy? bias avoidance?</li>
+<li><strong>15-30 min — Architecture:</strong> block diagram drawn left-to-right? each box's purpose stated? each choice's trade-off volunteered before being asked?</li>
+<li><strong>30-35 min — Training:</strong> supervised heads + any self-supervised/distillation strategy? multi-task balancing named?</li>
+<li><strong>35-40 min — Inference/deployment:</strong> per-stage latency table? concrete compression levers named (quantization/pruning/distillation)?</li>
+<li><strong>40-45 min — Failure modes:</strong> at least 2-3 concrete "what if X fails" answers ready with named mechanisms, not hand-waves?</li>
+<li><strong>Throughout:</strong> anchored at most 1-2 pieces of real experience, one sentence each? avoided all four anti-patterns above?</li>
+</ul>
+</div>
+
+</main></body></html>

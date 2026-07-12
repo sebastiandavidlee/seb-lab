@@ -1,0 +1,303 @@
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>Playbook — AV Study v2</title><link rel="stylesheet" href="assets/style.css"><link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/katex.min.css"><script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/katex.min.js"></script><script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/contrib/auto-render.min.js"></script><script defer src="assets/app.js"></script></head><body><nav class="topnav"><a href="index.html">Home</a><a href="classification.html">Classification</a><a href="inference.html">Data→Inference</a><a href="encoder.html">Encoder</a><a href="playbook.html">Playbook</a><a href="math.html">Math</a><a href="gd-lab.html">GD Lab</a><a href="glossary.html">Glossary</a></nav><main class="page">
+
+<h1>The 45-Minute System-Design Playbook</h1>
+<p>The <a href="encoder.html">Encoder page</a> is <em>what</em> to say; this page is <em>when and how</em>. System-design rounds are graded on process — whether you clarify before you architect, name trade-offs unprompted, and respect budgets — at least as much as on the design itself. Run the arc below until the timing is muscle memory.</p>
+
+<!-- ============================================================ -->
+<section id="arc">
+<h2>1. The seven-step arc</h2>
+
+<figure class="viz">
+  <svg viewBox="0 0 880 210" role="img" aria-label="Timeline of a 45-minute system design interview split into seven steps with minutes allocated">
+    <!-- baseline -->
+    <line x1="40" y1="120" x2="850" y2="120" stroke="var(--axis)" stroke-width="2"/>
+    <!-- segments: 45 min mapped to 810 px => 18 px/min. widths: 4,5,5,13,7,5,4 = 43 + 2 buffer -->
+    <!-- step rects sit on baseline; alternate opacity of violet; labels above/below -->
+    <g font-size="12" fill="var(--ink)" text-anchor="middle">
+      <!-- 1 clarify: 4 min = 72 -->
+      <rect x="40" y="90" width="72" height="30" fill="var(--s5)" opacity="0.20" stroke="var(--s5)" stroke-width="2"/>
+      <text x="76" y="80">1 Clarify</text><text x="76" y="142" fill="var(--muted)" font-size="11">4 min</text>
+      <!-- 2 I/O+metrics: 5 min = 90 -->
+      <rect x="112" y="90" width="90" height="30" fill="var(--s5)" opacity="0.32" stroke="var(--s5)" stroke-width="2"/>
+      <text x="157" y="80">2 I/O + metrics</text><text x="157" y="142" fill="var(--muted)" font-size="11">5 min</text>
+      <!-- 3 data: 5 min = 90 -->
+      <rect x="202" y="90" width="90" height="30" fill="var(--s5)" opacity="0.20" stroke="var(--s5)" stroke-width="2"/>
+      <text x="247" y="80">3 Data</text><text x="247" y="142" fill="var(--muted)" font-size="11">5 min</text>
+      <!-- 4 architecture: 13 min = 234 -->
+      <rect x="292" y="90" width="234" height="30" fill="var(--s5)" opacity="0.45" stroke="var(--s5)" stroke-width="2"/>
+      <text x="409" y="80">4 Architecture + trade-offs</text><text x="409" y="142" fill="var(--muted)" font-size="11">13 min — the centerpiece</text>
+      <!-- 5 training: 7 min = 126 -->
+      <rect x="526" y="90" width="126" height="30" fill="var(--s5)" opacity="0.32" stroke="var(--s5)" stroke-width="2"/>
+      <text x="589" y="80">5 Training</text><text x="589" y="142" fill="var(--muted)" font-size="11">7 min</text>
+      <!-- 6 inference budget: 5 min = 90 -->
+      <rect x="652" y="90" width="90" height="30" fill="var(--s5)" opacity="0.20" stroke="var(--s5)" stroke-width="2"/>
+      <text x="697" y="80">6 Inference</text><text x="697" y="142" fill="var(--muted)" font-size="11">5 min</text>
+      <!-- 7 failure modes: 4 min = 72 -->
+      <rect x="742" y="90" width="72" height="30" fill="var(--s5)" opacity="0.45" stroke="var(--s5)" stroke-width="2"/>
+      <text x="778" y="80">7 Failures</text><text x="778" y="142" fill="var(--muted)" font-size="11">4 min</text>
+      <!-- buffer -->
+      <rect x="814" y="90" width="36" height="30" fill="none" stroke="var(--grid)" stroke-width="2" stroke-dasharray="4 3"/>
+      <text x="832" y="142" fill="var(--muted)" font-size="11">2 min</text>
+    </g>
+    <!-- time ticks -->
+    <g font-size="10" fill="var(--muted)" text-anchor="middle">
+      <text x="40" y="168">0:00</text><text x="292" y="168">14:00</text><text x="526" y="168">27:00</text><text x="850" y="168">45:00</text>
+    </g>
+    <text x="445" y="196" text-anchor="middle" font-size="11" fill="var(--muted)">Rule of thumb: if you haven't started drawing architecture by minute 15, cut data short; if you haven't said "failure modes" by minute 40, say it anyway.</text>
+  </svg>
+  <figcaption>The 45-minute arc. Steps 1–3 earn you the right to architect; step 4 is where the encoder-page diagram lives; steps 5–7 are where senior candidates separate from junior ones.</figcaption>
+</figure>
+</section>
+
+<!-- ============================================================ -->
+<section id="steps">
+<h2>2. What to actually say at each step</h2>
+
+<div class="concept">
+<h3>Step 1 — Clarify the problem (4 min)</h3>
+<p><strong>Thinking pattern:</strong> shrink the problem space before touching it. Ask the forking questions — the ones whose answers change the design. <strong>Ask:</strong> “What's the operational domain — highway, urban, both? What's the sensor suite — am I choosing it or is it fixed? Is this for a modular stack (boxes to a planner) or end-to-end? What compute class — automotive SoC or datacenter-in-the-trunk?” <em>One-liner: “Before I draw anything: fixed sensor suite or am I choosing it?”</em></p>
+</div>
+
+<div class="concept">
+<h3>Step 2 — Define I/O and metrics (5 min)</h3>
+<p><strong>Thinking pattern:</strong> a system is its interface plus its score. State inputs (6 cameras, 1 LiDAR, 5 radars, ego-motion, calibration), outputs (BEV features → 3D boxes with velocity + uncertainty, occupancy, map elements), and how you'll know it works: mAP/NDS for detection, IoU for occupancy, and — say this — <em>closed-loop and safety-weighted metrics, because offline mAP doesn't price a missed pedestrian differently from a missed cone</em>. <em>One-liner: “Success is not mAP; it's p99 latency under budget with no safety-critical class regressing.”</em></p>
+</div>
+
+<div class="concept">
+<h3>Step 3 — Data story (5 min)</h3>
+<p><strong>Thinking pattern:</strong> volume is free, labels and the long tail are not. Fleet logs give unlabeled scale (→ self-supervised pretraining); auto-labeling with offboard privileged models makes cheap pseudo-labels; humans label the hard slice; synthetic data and domain randomization cover the long tail you can't collect (your keypoint/synthetic-data work is evidence here — see <a href="#experience">Section 5</a>). Name curriculum: mine hard examples with the model in the loop. <em>One-liner: “The data engine matters more than the architecture after month three.”</em></p>
+</div>
+
+<div class="concept">
+<h3>Step 4 — Architecture + trade-offs (13 min)</h3>
+<p><strong>Thinking pattern:</strong> draw left to right, narrate every arrow, and attach a trade-off to every choice <em>as you make it</em> — don't wait to be asked. This is the <a href="encoder.html#pipeline">encoder-page centerpiece diagram</a>: branches → tokens → fusion → BEV → heads. Announce alternatives you rejected: “I fuse mid-level rather than late because box-level fusion can't recover sub-threshold evidence; I keep a late-fused fallback for safety.” <em>One-liner: “Every arrow I draw, I'll tell you what it costs.”</em></p>
+</div>
+
+<div class="concept">
+<h3>Step 5 — Training strategy (7 min)</h3>
+<p><strong>Thinking pattern:</strong> maturity ladder, matching <a href="encoder.html#training">Encoder Section 7</a>. Supervised heads first; MAE-style pretraining on fleet images/voxels; contrastive cross-modal alignment; distillation from an offboard teacher; then the multi-task balancing risk and how you'd watch for negative transfer. <em>One-liner: “Pretrain on the fleet, fine-tune on the labels, distill into the budget.”</em></p>
+</div>
+
+<div class="concept">
+<h3>Step 6 — Inference budget (5 min)</h3>
+<p><strong>Thinking pattern:</strong> allocate the 100 ms explicitly (the <a href="encoder.html#production">latency table</a>), name the levers per stage — resolution, quantization, sparse attention, head pruning — and insist on p99 not mean. This is your strongest home turf: quantifying a world-model quantization win (int4-resident, near-BF16, 18× faster) is exactly the currency of this step. <em>One-liner: “I budget p99, and the image backbones are where the milliseconds are.”</em></p>
+</div>
+
+<div class="concept">
+<h3>Step 7 — Failure modes + monitoring (4 min)</h3>
+<p><strong>Thinking pattern:</strong> enumerate by category, not anecdote: sensor loss (dropout training → graceful degradation), calibration drift (online self-calibration + cross-modal residual monitoring), distribution shift (new city, weather), rare classes (open-vocabulary head, data engine), and silent regressions (per-slice evaluation, shadow mode). <em>One-liner: “The system should know when it doesn't know — uncertainty is an output.”</em></p>
+</div>
+
+<div class="term-box">
+<h4>Memorize these terms</h4>
+<p><span class="term">operational design domain (ODD)</span> <span class="term">forking question</span> <span class="term">closed-loop metric</span> <span class="term">data engine</span> <span class="term">auto-labeling / offboard model</span> <span class="term">hard-example mining</span> <span class="term">shadow mode</span> <span class="term">per-slice evaluation</span></p>
+<p class="related">Related: all seven steps anchor to sections of the <a href="encoder.html">Encoder page</a></p>
+</div>
+
+<details class="quiz"><summary>Quiz: You have 45 minutes and the interviewer says "design a perception encoder for our AVs." What are your first two sentences?</summary>
+<p>Something like: “Before drawing anything, let me pin the constraints: is the sensor suite fixed — cameras, LiDAR, radar — and is this feeding a modular planner or an end-to-end stack? And what's the compute class onboard?” Clarifying questions first — the answers fork the whole design, and asking them <em>is</em> the graded behavior.</p></details>
+<details class="quiz"><summary>Quiz: Why is stating metrics before architecture worth more points than a fancier architecture?</summary>
+<p>Because architecture can't be evaluated without a score to optimize: the metric choice determines every later trade-off (e.g., a p99 latency bound rules out heavy ensembles; safety-weighted recall changes threshold tuning). Interviewers read metrics-first as evidence you've shipped systems, not just read papers.</p></details>
+</section>
+
+<!-- ============================================================ -->
+<section id="probes">
+<h2>3. Probe trainer — the 8 follow-ups they will actually ask</h2>
+<p>Interviewers steer the round with probes. Each card gives the reasoning <em>pattern</em> — the shape of a good answer, not a script to recite. Click to reveal, then answer aloud before reading.</p>
+
+<details class="quiz probe"><summary>“What happens if you lose LiDAR mid-drive?”</summary>
+<p><strong>Pattern: degrade, don't die.</strong> (1) Detection: health monitor flags the dead branch. (2) Mechanism: fusion was trained with sensor dropout, so attention renormalizes over camera+radar tokens; depth now comes from learned camera depth priors + radar ranging — noisier, so uncertainty widens. (3) System response: uncertainty heads report it, planner gets wider margins / reduced ODD (slower speed, larger following distance). Never claim unchanged performance — claim <em>known, bounded</em> degradation.</p>
+<p class="related">Covers: <a href="encoder.html#production">Encoder §8 (dropout, uncertainty)</a>, <a href="encoder.html#fusion">§6 (failure isolation)</a></p></details>
+
+<details class="quiz probe"><summary>“You get 10× more data. What changes?”</summary>
+<p><strong>Pattern: ask what KIND of data, then re-balance the pipeline.</strong> 10× unlabeled fleet logs → scale self-supervised pretraining (MAE, world-model objectives) and mine the long tail; labels are now the bottleneck → invest in auto-labeling. 10× labels → bigger backbone becomes trainable (ViTs love data), re-check that the model, not the data, is the ceiling. Either way: dedup and curate — data value is heavy-tailed, and 10× of the same commute is nearly worthless.</p>
+<p class="related">Covers: <a href="encoder.html#training">Encoder §7 (pretraining ladder)</a>, step 3 (data engine)</p></details>
+
+<details class="quiz probe"><summary>“Halve your latency budget. Go.”</summary>
+<p><strong>Pattern: profile first, then spend cheapest accuracy first.</strong> Order the levers by accuracy-per-millisecond: quantization (INT8/FP8 — often near-free), input resolution on far-field-irrelevant cameras, token pruning / sparser deformable attention, then distill the big model into a smaller trunk (keep the teacher offboard). Only after those: drop heads or modalities. Give real numbers if you have them — a quantization result with measured speedup and quality delta is worth ten adjectives.</p>
+<p class="related">Covers: <a href="encoder.html#production">Encoder §8b (latency table)</a>, §7 (distillation)</p></details>
+
+<details class="quiz probe"><summary>“Your model is confidently wrong on a rare class. What do you do?”</summary>
+<p><strong>Pattern: separate the calibration problem from the coverage problem.</strong> Confidently = miscalibration → temperature scaling, better uncertainty heads, ensembles for epistemic signal. Wrong on rare = coverage → data engine: mine similar cases from the fleet (embedding search), auto-label, synthesize the long tail, retrain, and add the class to per-slice eval so it can't silently regress again. Close the loop: this failure becomes a monitored slice forever.</p>
+<p class="related">Covers: <a href="encoder.html#production">Encoder §8 (uncertainty)</a>, step 3 + step 7</p></details>
+
+<details class="quiz probe"><summary>“Sensor calibration drifts over the vehicle's life. How does your design cope?”</summary>
+<p><strong>Pattern: tolerate small, detect medium, refuse large.</strong> Tolerate: calibration-jitter augmentation in training so small errors don't matter. Detect: online self-calibration from ego-motion and cross-modal residuals (LiDAR edges vs image edges) as a continuous health metric. Refuse: past a threshold, flag the vehicle for service and shrink the ODD. Name the failure signature: long range degrades first, because angular error scales with range.</p>
+<p class="related">Covers: <a href="encoder.html#production">Encoder §8a (extrinsics drift)</a>, <a href="encoder.html#bev">§4 (projection dependence)</a></p></details>
+
+<details class="quiz probe"><summary>“How do you know your new encoder is actually better?”</summary>
+<p><strong>Pattern: layered evaluation, offline → shadow → closed-loop.</strong> Offline: same data, per-slice metrics (night, rain, rare classes, far range) — aggregate mAP hides regressions. Shadow mode: run the candidate in parallel on the fleet, diff its outputs against the incumbent on live data, human-review the biggest disagreements. Closed-loop: sim/resim evaluation where the planner consumes the new perception, because perception deltas only matter through behavior. Ship gate: no safety-critical slice regresses, p99 within budget.</p>
+<p class="related">Covers: step 2 (metrics), step 7 (monitoring)</p></details>
+
+<details class="quiz probe"><summary>“New vehicle platform, different sensor positions, day one. Cold start?”</summary>
+<p><strong>Pattern: design so geometry is config, not weights.</strong> Because the encoder consumes calibration explicitly (projection in the lifting/fusion steps) and tokens carry position embeddings derived from it, new extrinsics are mostly a config change; camera-height/FOV shift is a domain gap → fine-tune on a small new-platform dataset + augment old data by resampling to the new geometry + sim of the new rig. What breaks worst: anything that memorized the old rig implicitly — which is the argument for geometry-explicit designs in the first place.</p>
+<p class="related">Covers: <a href="encoder.html#bev">Encoder §4 (calibration-explicit lifting)</a>, <a href="encoder.html#pipeline">§2 (tokens as interface)</a></p></details>
+
+<details class="quiz probe"><summary>“Long-tail pedestrian behavior — someone crawling, in costume, on a scooter. Your answer can't be 'collect more data.'”</summary>
+<p><strong>Pattern: shrink reliance on class labels.</strong> (1) Occupancy/geometry path: an occupancy head doesn't care what it is — something is there, don't hit it; this is the safety net that must not depend on classification. (2) Open-vocabulary semantics: VLM-aligned features recognize "person-like" beyond the label set. (3) Synthetic long tail: generate the crawl/costume cases (your DR/synthetic-data experience is the evidence). (4) Uncertainty → behavior: low-confidence dynamic object near the road = slow down regardless of class.</p>
+<p class="related">Covers: <a href="encoder.html#beyond">Encoder §9 (open-vocab, world models)</a>, §8 (uncertainty)</p></details>
+
+<div class="term-box">
+<h4>Memorize these terms</h4>
+<p><span class="term">graceful degradation</span> <span class="term">accuracy-per-millisecond</span> <span class="term">calibration vs coverage failure</span> <span class="term">shadow mode</span> <span class="term">resimulation</span> <span class="term">geometry as config</span> <span class="term">occupancy safety net</span></p>
+<p class="related">Every probe maps to an Encoder-page section — the links in each card are the study loop.</p>
+</div>
+</section>
+
+<!-- ============================================================ -->
+<section id="whiteboard">
+<h2>4. The sample final whiteboard</h2>
+<p>What the board should look like at minute 40 — the encoder centerpiece, simplified to what a marker can draw, with the narration order badged 1–7 to match the arc.</p>
+
+<figure class="viz">
+  <svg viewBox="0 0 880 330" role="img" aria-label="Simplified whiteboard diagram with numbered narration badges one through seven">
+    <defs><marker id="warr" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path d="M0,0 L10,5 L0,10 z" fill="var(--axis)"/></marker></defs>
+    <!-- corner notes: constraints & metrics, written first -->
+    <g>
+      <rect x="20" y="20" width="200" height="78" rx="6" fill="none" stroke="var(--grid)" stroke-dasharray="5 4"/>
+      <text x="30" y="40" font-size="11" fill="var(--ink-2)">ODD: urban, 10 Hz, auto SoC</text>
+      <text x="30" y="58" font-size="11" fill="var(--ink-2)">suite: 6 cam / 1 LiDAR / 5 radar</text>
+      <text x="30" y="76" font-size="11" fill="var(--ink-2)">metrics: slice mAP, occ IoU, p99≤100ms</text>
+      <circle cx="20" cy="20" r="11" fill="var(--s5)"/><text x="20" y="24" text-anchor="middle" font-size="11" fill="var(--surface, #fff)" font-weight="700">1</text>
+      <circle cx="220" cy="20" r="11" fill="var(--s5)"/><text x="220" y="24" text-anchor="middle" font-size="11" fill="var(--surface, #fff)" font-weight="700">2</text>
+    </g>
+    <g>
+      <rect x="20" y="112" width="200" height="60" rx="6" fill="none" stroke="var(--grid)" stroke-dasharray="5 4"/>
+      <text x="30" y="132" font-size="11" fill="var(--ink-2)">data: fleet logs + auto-label +</text>
+      <text x="30" y="150" font-size="11" fill="var(--ink-2)">human hard-slice + synthetic tail</text>
+      <circle cx="20" cy="112" r="11" fill="var(--s5)"/><text x="20" y="116" text-anchor="middle" font-size="11" fill="var(--surface, #fff)" font-weight="700">3</text>
+    </g>
+    <!-- main flow -->
+    <g>
+      <rect x="260" y="40" width="90" height="34" rx="6" fill="var(--s1)" opacity="0.3" stroke="var(--s1)" stroke-width="2"/><text x="305" y="61" text-anchor="middle" font-size="12" fill="var(--ink)">cams ×6</text>
+      <rect x="260" y="96" width="90" height="34" rx="6" fill="var(--s2)" opacity="0.3" stroke="var(--s2)" stroke-width="2"/><text x="305" y="117" text-anchor="middle" font-size="12" fill="var(--ink)">LiDAR</text>
+      <rect x="260" y="152" width="90" height="34" rx="6" fill="var(--s3)" opacity="0.3" stroke="var(--s3)" stroke-width="2"/><text x="305" y="173" text-anchor="middle" font-size="12" fill="var(--ink)">radar</text>
+      <rect x="390" y="40" width="90" height="34" rx="6" fill="var(--s1)" opacity="0.5" stroke="var(--s1)" stroke-width="2"/><text x="435" y="61" text-anchor="middle" font-size="12" fill="var(--ink)">ViT</text>
+      <rect x="390" y="96" width="90" height="34" rx="6" fill="var(--s2)" opacity="0.5" stroke="var(--s2)" stroke-width="2"/><text x="435" y="117" text-anchor="middle" font-size="12" fill="var(--ink)">pillars</text>
+      <rect x="390" y="152" width="90" height="34" rx="6" fill="var(--s3)" opacity="0.5" stroke="var(--s3)" stroke-width="2"/><text x="435" y="173" text-anchor="middle" font-size="12" fill="var(--ink)">MLP</text>
+      <g stroke="var(--axis)" stroke-width="2" marker-end="url(#warr)">
+        <line x1="352" y1="57" x2="386" y2="57"/><line x1="352" y1="113" x2="386" y2="113"/><line x1="352" y1="169" x2="386" y2="169"/>
+        <line x1="482" y1="57" x2="530" y2="100"/><line x1="482" y1="113" x2="530" y2="113"/><line x1="482" y1="169" x2="530" y2="126"/>
+      </g>
+      <rect x="535" y="85" width="120" height="56" rx="6" fill="var(--s5)" opacity="0.35" stroke="var(--s5)" stroke-width="2"/>
+      <text x="595" y="108" text-anchor="middle" font-size="12" fill="var(--ink)">tokens → x-attn</text>
+      <text x="595" y="126" text-anchor="middle" font-size="11" fill="var(--muted)">Q=BEV, K/V=sensors</text>
+      <line x1="657" y1="113" x2="700" y2="113" stroke="var(--axis)" stroke-width="2" marker-end="url(#warr)"/>
+      <rect x="705" y="85" width="100" height="56" rx="6" fill="var(--s5)" opacity="0.5" stroke="var(--s5)" stroke-width="2"/>
+      <text x="755" y="108" text-anchor="middle" font-size="12" fill="var(--ink)">BEV grid</text>
+      <text x="755" y="126" text-anchor="middle" font-size="11" fill="var(--muted)">+ temporal</text>
+      <!-- heads -->
+      <g stroke="var(--axis)" stroke-width="2" marker-end="url(#warr)">
+        <line x1="755" y1="141" x2="650" y2="205"/><line x1="755" y1="141" x2="755" y2="200"/><line x1="755" y1="141" x2="845" y2="205"/>
+      </g>
+      <rect x="590" y="208" width="110" height="32" rx="6" fill="var(--s5)" opacity="0.16" stroke="var(--s5)" stroke-width="2" stroke-dasharray="4 3"/><text x="645" y="228" text-anchor="middle" font-size="11" fill="var(--ink)">3D det + vel + σ</text>
+      <rect x="712" y="208" width="86" height="32" rx="6" fill="var(--s5)" opacity="0.16" stroke="var(--s5)" stroke-width="2" stroke-dasharray="4 3"/><text x="755" y="228" text-anchor="middle" font-size="11" fill="var(--ink)">occupancy</text>
+      <rect x="808" y="208" width="66" height="32" rx="6" fill="var(--s5)" opacity="0.16" stroke="var(--s5)" stroke-width="2" stroke-dasharray="4 3"/><text x="841" y="228" text-anchor="middle" font-size="11" fill="var(--ink)">forecast</text>
+      <!-- badge 4 on architecture, 5 training note, 6 latency note, 7 failure note -->
+      <circle cx="595" cy="72" r="11" fill="var(--s5)"/><text x="595" y="76" text-anchor="middle" font-size="11" fill="var(--surface, #fff)" font-weight="700">4</text>
+    </g>
+    <!-- side notes for 5,6,7 -->
+    <g>
+      <rect x="20" y="196" width="200" height="54" rx="6" fill="none" stroke="var(--grid)" stroke-dasharray="5 4"/>
+      <text x="30" y="216" font-size="11" fill="var(--ink-2)">train: MAE pretrain → supervise →</text>
+      <text x="30" y="234" font-size="11" fill="var(--ink-2)">distill; watch per-task val</text>
+      <circle cx="20" cy="196" r="11" fill="var(--s5)"/><text x="20" y="200" text-anchor="middle" font-size="11" fill="var(--surface, #fff)" font-weight="700">5</text>
+    </g>
+    <g>
+      <rect x="20" y="262" width="200" height="54" rx="6" fill="none" stroke="var(--grid)" stroke-dasharray="5 4"/>
+      <text x="30" y="282" font-size="11" fill="var(--ink-2)">latency: 30ms cams / 20ms fusion,</text>
+      <text x="30" y="300" font-size="11" fill="var(--ink-2)">INT8, p99 ≤ 100ms</text>
+      <circle cx="20" cy="262" r="11" fill="var(--s5)"/><text x="20" y="266" text-anchor="middle" font-size="11" fill="var(--surface, #fff)" font-weight="700">6</text>
+    </g>
+    <g>
+      <rect x="260" y="262" width="250" height="54" rx="6" fill="none" stroke="var(--s6)" stroke-width="2" stroke-dasharray="5 4"/>
+      <text x="270" y="282" font-size="11" fill="var(--ink-2)">failures: sensor dropout ✓, calib monitor,</text>
+      <text x="270" y="300" font-size="11" fill="var(--ink-2)">per-slice eval, shadow mode</text>
+      <circle cx="260" cy="262" r="11" fill="var(--s5)"/><text x="260" y="266" text-anchor="middle" font-size="11" fill="var(--surface, #fff)" font-weight="700">7</text>
+    </g>
+  </svg>
+  <figcaption>Minute-40 whiteboard: constraint and metric notes in the corner (written FIRST — badges 1–2), the data note (3), the main flow narrated left to right (4), and training / latency / failure notes (5–7) added as those steps arrive. Badges = the arc's step numbers.</figcaption>
+  <div class="legend"><span><i style="background:var(--s1)"></i> camera</span><span><i style="background:var(--s2)"></i> LiDAR</span><span><i style="background:var(--s3)"></i> radar</span><span><i style="background:var(--s5)"></i> fused/BEV</span></div>
+</figure>
+
+<div class="callout"><strong>Board discipline:</strong> constraints and metrics go on the board <em>before</em> any architecture and never get erased — every later trade-off points back at them ("I chose pillars over voxels because of THIS latency line").</div>
+</section>
+
+<!-- ============================================================ -->
+<section id="experience">
+<h2>5. Wiring in your real experience</h2>
+<p>Claims are cheap; measured results are not. One rehearsed sentence per asset, attached to the step where it lands:</p>
+
+<div class="viz">
+<table>
+<thead><tr><th>Your work</th><th>Lands in step</th><th>The one-sentence anchor</th></tr></thead>
+<tbody>
+<tr><td>World-model quantization (int4-resident, near-BF16, ~18× faster)</td><td>6 — inference budget</td><td>"I've taken a 16B world model from streamed-offload to int4-resident on a 16 GB GPU at near-BF16 quality — the same lever applies to the image backbones here."</td></tr>
+<tr><td>Synthetic-data keypoint models / domain randomization</td><td>3 — data</td><td>"I've trained keypoint models entirely on randomized synthetic data that transfer to real hardware — that's my template for the long-tail classes we can't collect."</td></tr>
+<tr><td>Classical 3D vision (cuboid fitting, GICP, symmetry disambiguation)</td><td>4 + 7 — heads & failure modes</td><td>"I'd keep a geometric fallback — my container-pose pipeline fits cuboids with classical registration precisely because learned models fail unpredictably on out-of-distribution geometry."</td></tr>
+<tr><td>VLA deployment (zero-shot policies on real arms, latency-profiled)</td><td>9 → closing</td><td>"I've deployed VLA policies where the encoder's tokens feed actions directly — which is why I design encoder tokens as an interface, not just a detector input."</td></tr>
+<tr><td>Sim benchmark hygiene (Isaac vs MuJoCo crossover, unit-corrected)</td><td>2 — metrics</td><td>"I've been burned by measurement-boundary asymmetry in benchmarks — I insist on one shared timing function per boundary before comparing anything."</td></tr>
+</tbody>
+</table>
+</div>
+
+<div class="term-box">
+<h4>Memorize these terms</h4>
+<p><span class="term">evidence anchor</span> <span class="term">measured result vs adjective</span> <span class="term">geometric fallback</span> <span class="term">tokens as interface</span></p>
+<p class="related">Related: <a href="encoder.html#beyond">Encoder §9</a> for the VLA/world-model closing move</p>
+</div>
+</section>
+
+<!-- ============================================================ -->
+<section id="antipatterns">
+<h2>6. Anti-patterns — the four ways strong candidates fail</h2>
+
+<div class="quiz probe-grid">
+<div class="callout"><strong>Architecture-first.</strong> Jumping to "I'd use BEVFormer with…" in minute two. Reads as pattern-matching, not design. <em>Fix: spend the first four minutes asking forking questions; earn the diagram.</em></div>
+<div class="callout"><strong>No metrics.</strong> A design with no definition of better. Everything after it is unfalsifiable. <em>Fix: write the score on the board at minute 5 and point at it for every trade-off.</em></div>
+<div class="callout"><strong>No constraint questions.</strong> Designing for an unstated compute/sensor/ODD budget — 50% chance you solved the wrong problem. <em>Fix: "fixed suite or my choice?" costs ten seconds and forks everything.</em></div>
+<div class="callout"><strong>Silent trade-offs.</strong> Making reasonable choices without naming the rejected alternative — the interviewer can't award points for reasoning they never heard. <em>Fix: the sentence template "X over Y, because Z, at the cost of W" after every arrow.</em></div>
+</div>
+</section>
+
+<!-- ============================================================ -->
+<section id="checklist">
+<h2>7. The one-page checklist (print this)</h2>
+
+<div class="card checklist">
+<h3>45-minute run-through — check each line aloud</h3>
+<ol>
+<li><strong>0:00 Clarify (4')</strong> — ODD? sensor suite fixed? modular or end-to-end? compute class? offline or online?</li>
+<li><strong>4:00 I/O + metrics (5')</strong> — inputs w/ rates; outputs w/ uncertainty; per-slice mAP + occ IoU + p99 latency; "closed-loop is the real score."</li>
+<li><strong>9:00 Data (5')</strong> — fleet logs → self-sup; auto-label; human hard-slice; synthetic long tail; hard-example mining loop.</li>
+<li><strong>14:00 Architecture (13')</strong> — draw: 3 branches → per-modality encoders (ViT / pillars / MLP) → shared tokens (+modality, +position) → cross-attention w/ BEV queries (say who is Q, who is K/V) → BEV grid (+temporal window) → heads (det+vel+σ, occupancy, forecast). Name the rejected alternative at every arrow (early/late fusion, voxels, LSS-vs-queries).</li>
+<li><strong>27:00 Training (7')</strong> — MAE pretrain → supervised heads → contrastive alignment → distill from offboard teacher → multi-task balancing (per-task val curves).</li>
+<li><strong>34:00 Inference (5')</strong> — stage-by-stage ms table; levers: quantization, resolution, sparse attention; p99 not mean; <em>drop your quantization number here</em>.</li>
+<li><strong>39:00 Failures (4')</strong> — sensor dropout ✓ trained-in; calibration monitor; per-slice eval + shadow mode; uncertainty as an output; occupancy as the class-free safety net.</li>
+<li><strong>43:00 Close (2')</strong> — "tokens are an interface: detection today, language/policy/world-model heads tomorrow."</li>
+</ol>
+</div>
+</section>
+
+<!-- ============================================================ -->
+<section id="transfer">
+<h2>8. Proof the arc transfers: "design a classification system that scales"</h2>
+
+<div class="concept">
+<p>Same seven steps, different noun — run it in seven one-liners to convince yourself the arc is the skill, not the AV content:</p>
+<ol>
+<li><strong>Clarify:</strong> how many classes, how imbalanced, does the label set grow over time, latency/throughput target?</li>
+<li><strong>I/O + metrics:</strong> input distribution and output taxonomy; per-class recall at fixed precision — never accuracy on imbalanced data.</li>
+<li><strong>Data:</strong> label budget → pretrain self-supervised on everything, fine-tune on the labeled slice, active-learn the boundary cases.</li>
+<li><strong>Architecture:</strong> pretrained encoder + lightweight head; embedding space designed so new classes are a head change (or k-NN in embedding space), not a retrain.</li>
+<li><strong>Training:</strong> class-balanced sampling / focal loss; calibrate after training (temperature scaling).</li>
+<li><strong>Inference budget:</strong> distill/quantize the encoder; batch for throughput or stream for latency — say which.</li>
+<li><strong>Failure modes:</strong> distribution shift monitor, per-class dashboards, an "unknown/other" escape class, human-in-the-loop review queue for low confidence.</li>
+</ol>
+</div>
+
+<details class="quiz"><summary>Quiz: What stayed identical between the AV encoder design and the classification system design?</summary>
+<p>Everything structural: constraints before architecture, metrics as the arbiter of trade-offs, data-engine before model cleverness, explicit budget allocation, and failure modes as designed-in behavior rather than afterthought. Only the domain nouns changed — which is exactly why interviewers grade the arc, not the noun.</p></details>
+</section>
+
+</main></body></html>

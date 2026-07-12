@@ -1,0 +1,288 @@
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>Multimodal Encoder — AV Interview Study</title><link rel="stylesheet" href="assets/style.css"><link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/katex.min.css"><script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/katex.min.js"></script><script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/contrib/auto-render.min.js"></script><script defer src="assets/app.js"></script></head><body><nav class="topnav"><a href="index.html">Home</a><a href="fundamentals-classification.html">Classification</a><a href="fundamentals-inference.html">Data→Inference</a><a href="multimodal-encoder.html">Multimodal Encoder</a><a href="sysdesign-playbook.html">Sys-Design Playbook</a><a href="math-code.html">Math+Code</a><a href="gradient-descent-lab.html">GD Lab</a><a href="glossary.html">Glossary</a></nav><main class="page">
+
+<h1>Designing a Multimodal Perception Encoder</h1>
+<p class="subtitle">The question you already know is coming: "design a multimodal perception encoder for an AV." This page builds the vocabulary and mental models to answer it from understanding, not from a memorized script.</p>
+
+<h2>1. The sensor suite and why each one exists</h2>
+
+<div class="concept">
+<div class="concept-title">Camera, LiDAR, radar are not redundant — they fail differently</div>
+<p>Every sensor on an AV is there because it covers a hole the others leave open. The interview trap is treating sensors as interchangeable "more data." The real design question is: which failure mode does each sensor patch?</p>
+<ul>
+<li><strong>Camera</strong> — dense semantic texture (lane markings, traffic light color, pedestrian pose, text on signs). No native metric depth: a single camera gives you a ray, not a point. Fails in low light, glare, rain-on-lens, and is scale-ambiguous without stereo or learned depth.</li>
+<li><strong>LiDAR</strong> — sparse but metrically exact 3D points via time-of-flight. Illumination-invariant (works at night), but degrades in fog/rain/snow (returns scatter off particulates) and is expensive, mechanically fragile (spinning units), and gives you almost no semantic texture — a point cloud can't tell you a light is red.</li>
+<li><strong>Radar</strong> — coarse spatial resolution but direct <span class="term">Doppler</span> velocity per return, and it shrugs off fog/rain/snow better than any other modality because millimeter waves pass through small particulates. Historically low angular resolution, though 4D imaging radar is closing that gap.</li>
+<li><strong>IMU / wheel odometry / ego-motion</strong> — not a "perception" sensor in the object-detection sense, but it supplies the vehicle's own 6-DoF motion at high frequency, which every other stream needs for temporal alignment and motion compensation.</li>
+</ul>
+</div>
+
+<div class="callout"><strong>How to think about it:</strong> don't ask "which sensor is best," ask "what is the joint failure surface?" Camera and radar both struggle with texture-less scenes in different ways; camera and LiDAR both struggle in heavy precipitation but for different physical reasons (photon starvation vs. beam scattering). Fusion exists specifically to make single-point-of-failure conditions rare, not to average sensors together.</div>
+
+<table>
+<thead><tr><th>Modality</th><th>Gives you</th><th>Blind to / weak at</th><th>Weather robustness</th><th>Relative cost</th></tr></thead>
+<tbody>
+<tr><td>Camera</td><td>Dense semantics, color, texture, long-range 2D</td><td>Metric depth, night/glare</td><td>Low</td><td>Low</td></tr>
+<tr><td>LiDAR</td><td>Sparse metric 3D geometry, works at night</td><td>Semantics (color/text), far range density</td><td>Medium-low (fog/rain/snow scatter)</td><td>High</td></tr>
+<tr><td>Radar</td><td>Direct velocity (Doppler), all-weather range</td><td>Angular resolution, semantics</td><td>High</td><td>Low-medium</td></tr>
+<tr><td>IMU / odometry</td><td>Ego-motion, ego-pose at high rate</td><td>Anything about the external world</td><td>N/A (internal sensor)</td><td>Low</td></tr>
+</tbody>
+</table>
+
+<div class="term-box">
+<h4>Terms — Sensor suite</h4>
+<ul>
+<li><span class="term">Time-of-flight (ToF)</span> — LiDAR range measured from the round-trip time of a laser pulse.</li>
+<li><span class="term">Doppler shift</span> — frequency shift in a radar return proportional to relative radial velocity; radar's unique superpower.</li>
+<li><span class="term">4D imaging radar</span> — newer radar with elevation resolution added to range/azimuth/velocity, closing the gap to LiDAR-like density.</li>
+<li><span class="term">Extrinsics / intrinsics</span> — extrinsics = sensor pose relative to the vehicle frame; intrinsics = a sensor's internal calibration (e.g. camera focal length, distortion).</li>
+<li><span class="term">Ego-motion compensation</span> — correcting sensor data for the vehicle's own movement during a scan or exposure window.</li>
+</ul>
+<span class="related">Related: §3 BEV, §6 calibration drift</span>
+</div>
+
+<div class="quiz"><details><summary>Self-test: why not just add more cameras and skip LiDAR/radar entirely?</summary><p>Camera-only stacks (e.g. Tesla's approach) are viable but push enormous burden onto learned depth and temporal geometry — they must infer metric 3D from motion parallax and priors, which degrades in featureless or adversarial scenes and has no direct velocity signal. Radar/LiDAR give you signals that are physically direct rather than inferred, which matters most exactly in the rare, safety-critical tail cases a camera-only net hasn't seen enough of.</p></details></div>
+
+<h2>2. Per-modality encoders: how each stream becomes features</h2>
+
+<div class="concept">
+<div class="concept-title">Images: CNN vs. ViT</div>
+<p>A <span class="term">CNN</span> (e.g. ResNet) builds features through local convolutions with a growing receptive field — strong inductive bias for translation invariance and locality, so it's data-efficient and fast, but its receptive field grows only gradually with depth.</p>
+<p>A <span class="term">Vision Transformer (ViT)</span> throws away the convolutional inductive bias and instead: cuts the image into fixed-size patches, linearly projects each patch into a token, adds a positional embedding, and runs full self-attention across all tokens from layer one — so every token can attend to every other token immediately, giving global receptive field at the cost of needing more data (or distillation/pretraining) to learn what convolution got for free.</p>
+<div class="math-block">$$x \in \mathbb{R}^{H \times W \times C} \;\rightarrow\; \{p_1, \dots, p_N\},\; p_i \in \mathbb{R}^{P^2 C} \;\rightarrow\; z_i = E p_i + E_{pos,i} \in \mathbb{R}^{D}$$</div>
+<p>where the image is split into <code>N = HW/P²</code> patches of size <code>P×P</code>, each patch is flattened and linearly projected by a learned matrix <code>E</code>, and a learned positional embedding <code>E_pos</code> is added so the transformer — which is otherwise permutation-invariant — knows where each patch came from.</p>
+<p>At AV scale: CNNs (or CNN backbones like ResNet/RegNet) remain common for their compute efficiency at high resolution and real-time latency budgets; ViT-family backbones dominate when you can afford the compute and want a token representation that fuses cleanly with other modalities (transformers are the natural fusion substrate — see §3).</p>
+</div>
+
+<div class="concept">
+<div class="concept-title">Point clouds: PointNet, voxelization, PointPillars, range-view</div>
+<p>A raw LiDAR point cloud is an <em>unordered set</em> of points — there's no canonical order, so any encoder must be permutation-invariant.</p>
+<p><span class="term">PointNet</span>'s core trick: run a shared MLP independently on every point to lift it into a high-dim feature, then apply a symmetric function — max-pooling across the point dimension — to aggregate into one order-independent global feature. Max is symmetric because <code>max(a,b) = max(b,a)</code> regardless of input order; the network never has to care what order the points arrived in.</p>
+<div class="math-block">$$f(\{x_1,\dots,x_n\}) \approx \gamma\big(\max_i\, h(x_i)\big)$$</div>
+<p>Three practical ways to turn a point cloud into something a conv/transformer backbone can consume:</p>
+<ul>
+<li><strong>Voxelization</strong> — bin points into a regular 3D grid, aggregate points per voxel (e.g. via a small PointNet), then run 3D or sparse convolutions over the voxel grid. Preserves 3D structure but is compute-heavy — 3D conv scales with the cube of resolution.</li>
+<li><strong>PointPillars</strong> — collapse the z-axis: bin points into vertical columns ("pillars") over a 2D BEV grid, encode each pillar with a PointNet-style MLP+max-pool, scatter the result into a 2D pseudo-image, then run ordinary fast 2D convolutions. This won for real-time AV use because it swaps expensive 3D convolution for cheap 2D convolution while keeping enough geometric fidelity for driving-relevant objects (which are mostly ground-supported, so z-collapse loses little).</li>
+<li><strong>Range-view</strong> — project points onto the native 2D sensor grid the LiDAR actually scans in (range × azimuth), giving a dense image-like representation for free (no binning/sparsity issues) at the cost of scale distortion and occlusion artifacts near object boundaries.</li>
+</ul>
+</div>
+
+<div class="concept">
+<div class="concept-title">Radar: point-based vs. tensor-based</div>
+<p>Sparse radar returns (a handful of points per object, each with range/azimuth/velocity) can be encoded the same way as LiDAR points (PointNet-style), but radar's low native resolution makes this noisy. The alternative is to keep the raw <span class="term">range-Doppler-azimuth tensor</span> pre-detection and feed it through a CNN like an image — richer signal but a nonstandard "image" domain requiring bespoke preprocessing and more fusion engineering.</p>
+</div>
+
+<div class="term-box">
+<h4>Terms — Per-modality encoders</h4>
+<ul>
+<li><span class="term">Patch embedding</span> — linear projection of a flattened image patch into a token vector; ViT's analogue of a conv stem.</li>
+<li><span class="term">Permutation invariance</span> — an encoder's output should not depend on the input order of an unordered set (points).</li>
+<li><span class="term">Symmetric function</span> — an aggregation (max, sum, mean) whose output is unchanged by reordering its inputs; the mechanism PointNet uses for permutation invariance.</li>
+<li><span class="term">Sparse convolution</span> — convolution that only computes at occupied voxel locations, exploiting point-cloud sparsity for speed.</li>
+<li><span class="term">Pseudo-image</span> — PointPillars' 2D scatter of per-pillar features, shaped like an image so ordinary 2D CNNs apply.</li>
+<li><span class="term">Receptive field</span> — the region of input that influences a given output unit; grows locally in CNNs, is global immediately in attention.</li>
+</ul>
+<span class="related">Related: §3 tokens, §4 fusion</span>
+</div>
+
+<div class="diagram"><svg viewBox="0 0 760 200" xmlns="http://www.w3.org/2000/svg" font-family="sans-serif" font-size="12">
+<style>.b{fill:#eaf0fe;stroke:#2d5fce;stroke-width:1.5}.t{fill:#1c1f24}.a{stroke:#5b6270;stroke-width:1.5;marker-end:url(#ah)}</style>
+<defs><marker id="ah" markerWidth="8" markerHeight="8" refX="6" refY="3" orient="auto"><path d="M0,0 L6,3 L0,6 Z" fill="#5b6270"/></marker></defs>
+<rect class="b" x="10" y="20" width="120" height="50" rx="6"/><text class="t" x="70" y="40" text-anchor="middle">Camera</text><text class="t" x="70" y="56" text-anchor="middle" font-size="10">CNN / ViT</text>
+<rect class="b" x="10" y="80" width="120" height="50" rx="6"/><text class="t" x="70" y="100" text-anchor="middle">LiDAR</text><text class="t" x="70" y="116" text-anchor="middle" font-size="10">PointNet / Pillars</text>
+<rect class="b" x="10" y="140" width="120" height="50" rx="6"/><text class="t" x="70" y="160" text-anchor="middle">Radar</text><text class="t" x="70" y="176" text-anchor="middle" font-size="10">point / tensor CNN</text>
+<line class="a" x1="130" y1="45" x2="230" y2="90"/>
+<line class="a" x1="130" y1="105" x2="230" y2="105"/>
+<line class="a" x1="130" y1="165" x2="230" y2="120"/>
+<rect class="b" x="235" y="70" width="130" height="70" rx="6"/><text class="t" x="300" y="100" text-anchor="middle">Shared token</text><text class="t" x="300" y="116" text-anchor="middle">space</text>
+<line class="a" x1="365" y1="105" x2="460" y2="105"/>
+<rect class="b" x="465" y="70" width="130" height="70" rx="6"/><text class="t" x="530" y="95" text-anchor="middle">Fusion</text><text class="t" x="530" y="112" text-anchor="middle" font-size="10">cross-attn / BEV</text>
+<line class="a" x1="595" y1="105" x2="690" y2="105"/>
+<rect class="b" x="620" y="10" width="130" height="50" rx="6"/><text class="t" x="685" y="30" text-anchor="middle">Det / Seg</text><text class="t" x="685" y="46" text-anchor="middle" font-size="10">heads</text>
+<rect class="b" x="620" y="80" width="130" height="50" rx="6"/><text class="t" x="685" y="100" text-anchor="middle">Occupancy</text><text class="t" x="685" y="116" text-anchor="middle" font-size="10">head</text>
+<rect class="b" x="620" y="150" width="130" height="50" rx="6"/><text class="t" x="685" y="170" text-anchor="middle">Policy /</text><text class="t" x="685" y="186" text-anchor="middle" font-size="10">world model</text>
+<line class="a" x1="530" y1="70" x2="685" y2="60"/>
+<line class="a" x1="595" y1="105" x2="620" y2="105"/>
+<line class="a" x1="530" y1="140" x2="685" y2="150"/>
+</svg></div>
+
+<h2>3. The unification problem: everything becomes tokens</h2>
+
+<div class="concept">
+<div class="concept-title">Tokens as the common currency</div>
+<p>Once you have per-modality features, the design question becomes: what is the shared representation that lets a fusion module compare "a patch of image" against "a pillar of LiDAR" against "a radar return"? The modern answer is <span class="term">tokenization</span> — represent every modality as a set of vectors in a common embedding dimension, each carrying its own <span class="term">positional / spatial encoding</span> so the fusion module knows where in the world (or image) that token came from.</p>
+<p>Positional encodings for multimodal fusion aren't just "which pixel" — they need to encode 3D spatial location (so a camera token and a LiDAR token that observe the same physical point can be related), which is why calibration (extrinsics/intrinsics) becomes part of the model's input, not just a preprocessing detail.</p>
+</div>
+
+<div class="concept">
+<div class="concept-title">Bird's-eye-view (BEV) as the AV lingua franca</div>
+<p>The dominant unification strategy in modern AV stacks is to lift every modality into a shared <span class="term">bird's-eye-view (BEV)</span> grid: a top-down 2D (or 2.5D) grid over the ground plane where each cell holds a feature vector summarizing "what's here." BEV is natural for driving because planning, prediction, and most cost maps are inherently top-down, and because LiDAR/radar are already metric in this frame — camera is the modality that needs to be "lifted" into it.</p>
+<p>Two dominant camera-to-BEV lifting strategies:</p>
+<ul>
+<li><strong>LSS-style depth-distribution lifting</strong> (Lift-Splat-Shoot) — for each image pixel/feature, predict a discrete probability distribution over depth bins, then "splat" the feature into 3D by scattering it along the camera ray weighted by that depth distribution, and pool into BEV grid cells. Intuition: instead of committing to one depth guess per pixel, spread the pixel's contribution across plausible depths, weighted by confidence.</li>
+<li><strong>BEVFormer-style deformable-attention lifting</strong> — start from a learned, empty BEV grid and, for each BEV query cell, use deformable cross-attention to sample and pull relevant features from the camera image feature maps at a handful of learned offsets, rather than explicitly reasoning about a depth distribution. Intuition: let each BEV cell "ask" the images "what do you see here?" via attention, with the geometry (which image regions correspond to this BEV cell) baked in through the camera projection used to seed the sampling offsets.</li>
+</ul>
+</div>
+
+<div class="diagram"><svg viewBox="0 0 700 260" xmlns="http://www.w3.org/2000/svg" font-family="sans-serif" font-size="12">
+<style>.b{fill:#eaf4fe;stroke:#2d7fce;stroke-width:1.5}.t{fill:#1c1f24}.a{stroke:#5b6270;stroke-width:1.5;marker-end:url(#ah2)}</style>
+<defs><marker id="ah2" markerWidth="8" markerHeight="8" refX="6" refY="3" orient="auto"><path d="M0,0 L6,3 L0,6 Z" fill="#5b6270"/></marker></defs>
+<text class="t" x="130" y="20" text-anchor="middle" font-weight="bold">LSS: depth-distribution lift</text>
+<rect class="b" x="20" y="35" width="90" height="35" rx="4"/><text class="t" x="65" y="57" text-anchor="middle" font-size="10">image feature</text>
+<line class="a" x1="65" y1="70" x2="65" y2="105"/>
+<rect class="b" x="20" y="105" width="90" height="35" rx="4"/><text class="t" x="65" y="127" text-anchor="middle" font-size="10">depth dist.</text>
+<line class="a" x1="110" y1="122" x2="160" y2="180"/>
+<path class="a" d="M65 140 L65 235" stroke-dasharray="3,3"/>
+<text class="t" x="15" y="240" font-size="9">ray, weighted</text>
+<text class="t" x="15" y="252" font-size="9">splat by depth</text>
+<rect class="b" x="150" y="180" width="120" height="55" rx="4"/><text class="t" x="210" y="212" text-anchor="middle" font-size="10">BEV grid cells</text>
+<text class="t" x="490" y="20" text-anchor="middle" font-weight="bold">BEVFormer: deformable-attn lift</text>
+<rect class="b" x="380" y="180" width="220" height="45" rx="4"/><text class="t" x="490" y="207" text-anchor="middle" font-size="10">learned empty BEV query grid</text>
+<line class="a" x1="450" y1="180" x2="420" y2="80"/>
+<line class="a" x1="490" y1="180" x2="490" y2="80"/>
+<line class="a" x1="530" y1="180" x2="560" y2="80"/>
+<text class="t" x="490" y="65" text-anchor="middle" font-size="9">sample offsets (deformable cross-attn)</text>
+<rect class="b" x="360" y="35" width="260" height="35" rx="4"/><text class="t" x="490" y="57" text-anchor="middle" font-size="10">multi-camera image features</text>
+</svg></div>
+
+<div class="term-box">
+<h4>Terms — Unification & BEV</h4>
+<ul>
+<li><span class="term">Tokenization</span> — representing input (of any modality) as a set of vectors in a shared embedding space.</li>
+<li><span class="term">Positional / spatial encoding</span> — extra signal added to a token so an order-agnostic attention mechanism knows its location.</li>
+<li><span class="term">Bird's-eye-view (BEV)</span> — a top-down grid representation where each cell aggregates fused, multimodal features; the shared "canvas" most AV stacks fuse and plan on.</li>
+<li><span class="term">Lift-Splat-Shoot (LSS)</span> — camera-to-BEV method: predict per-pixel depth distribution, splat features along the ray, pool into BEV.</li>
+<li><span class="term">BEVFormer / deformable attention</span> — camera-to-BEV method: learned BEV queries pull image features via sparse, learned sampling offsets instead of explicit depth prediction.</li>
+<li><span class="term">Occupancy grid</span> — a 3D (or BEV) generalization of detection output: per-cell "is something here" probability, useful for open-set/unlabeled obstacles.</li>
+</ul>
+<span class="related">Related: §4 fusion, §7 world models</span>
+</div>
+
+<div class="quiz"><details><summary>Self-test: why is BEV preferred over fusing directly in each camera's own image plane?</summary><p>Different cameras (and LiDAR/radar) each have their own viewpoint and distortion; fusing in any single sensor's native frame privileges that sensor's geometry and makes it awkward to combine multi-camera coverage or reason metrically. BEV is viewpoint-agnostic and metric, aligns naturally with planning/map representations, and lets every sensor contribute to the same physical grid regardless of where it's mounted.</p></details></div>
+
+<h2>4. Fusion strategies</h2>
+
+<div class="concept">
+<div class="concept-title">Early, mid, and late fusion</div>
+<p><span class="term">Early fusion</span> combines raw or near-raw sensor data before feature extraction (e.g. painting LiDAR points with per-pixel camera class scores, or concatenating raw modalities into one input tensor). <span class="term">Mid / feature-level fusion</span> extracts features per modality independently, then combines the feature representations (tokens, BEV grids) inside the network — this is where most modern architectures live. <span class="term">Late fusion</span> runs a full independent detection pipeline per modality and merges only the final outputs (e.g. box-level NMS across modality-specific detections).</p>
+</div>
+
+<table>
+<thead><tr><th>Strategy</th><th>Bandwidth / compute</th><th>Failure isolation</th><th>Learned cross-modal interaction</th></tr></thead>
+<tbody>
+<tr><td>Early</td><td>High (raw data volume, tight sync needed)</td><td>Poor — one bad sensor corrupts the shared input</td><td>Maximum in principle, but hard to train well</td></tr>
+<tr><td>Mid / feature</td><td>Moderate</td><td>Good — a degraded modality still contributes partial features</td><td>Strong — the model learns to weigh/combine features (e.g. cross-attention)</td></tr>
+<tr><td>Late</td><td>Low</td><td>Best — independent pipelines, easy to drop one</td><td>Weak — combination logic is typically simple (NMS, voting), no learned interaction</td></tr>
+</tbody>
+</table>
+
+<div class="callout"><strong>How to think about it:</strong> the fusion-level choice is a bandwidth/robustness/expressiveness triangle. Interviewers probe this by asking what happens if one sensor is degraded — mid fusion is the usual answer because it's the sweet spot: rich learned interaction without full dependence on any single sensor's raw stream.</div>
+
+<div class="concept">
+<div class="concept-title">Cross-attention as the mid-fusion mechanism</div>
+<p>The dominant way to let one modality's tokens query another's is cross-attention: one modality supplies the <span class="term">queries (Q)</span>, the other supplies <span class="term">keys and values (K, V)</span>.</p>
+<div class="math-block">$$\text{CrossAttn}(Q, K, V) = \text{softmax}\!\left(\frac{QK^\top}{\sqrt{d_k}}\right) V$$</div>
+<p>Concretely: if camera BEV queries attend into LiDAR features, then <code>Q</code> comes from the camera-derived BEV tokens (asking "what geometry is here?") and <code>K, V</code> come from LiDAR tokens (answering with precise depth/geometry). The softmax over <code>QKᵀ</code> produces attention weights that decide, per query, how much of each LiDAR token to pull in — this is what lets the model learn, e.g., to trust LiDAR more in a region where camera is glare-blown and trust camera more where LiDAR is sparse.</p>
+<p>Three concrete ways to combine tokens once you're in a shared space, from crudest to most expressive:</p>
+<ul>
+<li><strong>Token concatenation</strong> — just concatenate the token sequences from each modality and let the fusion transformer's self-attention sort it out. Simple, but the burden of alignment is pushed entirely onto the network.</li>
+<li><strong>Cross-attention</strong> — explicit, directional querying between modalities as above; more inductive bias about who should query whom.</li>
+<li><strong>BEV-space (element-wise) summation / concatenation</strong> — once every modality is already lifted into the same BEV grid, simply sum or channel-concat aligned grid cells. Cheapest, but only works well because BEV lifting already did the hard geometric alignment work upstream.</li>
+</ul>
+</div>
+
+<div class="term-box">
+<h4>Terms — Fusion</h4>
+<ul>
+<li><span class="term">Early / mid / late fusion</span> — fusion stage relative to feature extraction; see table above.</li>
+<li><span class="term">Cross-attention</span> — attention where Q comes from one source and K/V from another, letting one modality query another.</li>
+<li><span class="term">Query / Key / Value (Q/K/V)</span> — the three learned projections in attention; Q asks, K indexes, V supplies content.</li>
+<li><span class="term">Point painting</span> — an early-fusion technique that appends camera-derived semantic scores onto raw LiDAR points before geometric processing.</li>
+<li><span class="term">Non-maximum suppression (NMS)</span> — dedup mechanism for overlapping box detections; common late-fusion merge step.</li>
+</ul>
+<span class="related">Related: §3 BEV, §5 training</span>
+</div>
+
+<div class="quiz"><details><summary>Self-test: interviewer asks "why not just concatenate everything and let self-attention learn it"?</summary><p>You can, and large-scale multimodal transformers sometimes do — but at AV real-time latency budgets, concatenation loses the strong geometric prior that a targeted cross-attention (query = "what's at this exact 3D location") gives you, so it typically needs far more data/compute to reach the same accuracy. Structured cross-attention with BEV-anchored queries is a way of hand-feeding the model a good inductive bias, trading a bit of generality for efficiency and faster convergence.</p></details></div>
+
+<h2>5. Training the encoder</h2>
+
+<div class="concept">
+<div class="concept-title">Supervised heads</div>
+<p>The fused BEV (or token) representation feeds task-specific heads: 3D detection (boxes + class + velocity), semantic/instance segmentation, and occupancy prediction (dense per-cell occupied/free/unknown, increasingly preferred over boxes because it handles arbitrary and open-set obstacle shapes).</p>
+</div>
+
+<div class="concept">
+<div class="concept-title">Self-supervised and contrastive pretraining</div>
+<p><span class="term">Masked autoencoding (MAE)</span> per modality: mask out a large fraction of patches/points/pillars and train the encoder-decoder to reconstruct them — forces the encoder to learn structure without labels. Works per-modality (masked image patches, masked LiDAR voxels) and can be extended cross-modally (mask one modality, reconstruct it from the others).</p>
+<p><span class="term">Contrastive image-text alignment</span> (CLIP-style) trains an image encoder and a text encoder jointly so that matched image-text pairs have high cosine similarity and mismatched pairs have low similarity, via the <span class="term">InfoNCE loss</span>:</p>
+<div class="math-block">$$\mathcal{L} = -\log \frac{\exp(\text{sim}(v_i, t_i)/\tau)}{\sum_{j=1}^{N} \exp(\text{sim}(v_i, t_j)/\tau)}$$</div>
+<p>where <code>sim</code> is typically cosine similarity, the sum runs over one positive pair and <code>N−1</code> negatives in the batch, and <span class="term">temperature τ</span> controls how sharply the softmax concentrates probability mass — a low τ makes the loss punish near-miss negatives harder, sharpening the learned embedding space at the cost of training stability. For AV, this style of contrastive pretraining is used to align sensor tokens (e.g. LiDAR point features) with language/vision foundation-model embeddings, which is part of what enables open-vocabulary perception and feeds VLM-style driving stacks.</p>
+</div>
+
+<div class="concept">
+<div class="concept-title">Distillation and multi-task balancing</div>
+<p><span class="term">Knowledge distillation</span>: train a smaller/faster deployable encoder to match the outputs (or intermediate features) of a large, offline "teacher" model that may use more sensors, more compute, or even future/offline-only information (e.g. a teacher with access to a denser LiDAR sweep). <span class="term">Multi-task balancing</span> matters because detection, segmentation, and occupancy losses have different scales and gradient magnitudes — naive summed loss lets one task dominate; common fixes are uncertainty-based task weighting, gradient normalization (e.g. GradNorm), or simple manually-tuned loss weights validated empirically.</p>
+</div>
+
+<div class="term-box">
+<h4>Terms — Training</h4>
+<ul>
+<li><span class="term">Masked autoencoding (MAE)</span> — self-supervised pretraining via masking-and-reconstruction.</li>
+<li><span class="term">InfoNCE loss</span> — contrastive loss maximizing similarity of positive pairs vs. in-batch negatives.</li>
+<li><span class="term">Temperature (τ)</span> — softmax sharpness parameter in contrastive losses.</li>
+<li><span class="term">Knowledge distillation</span> — training a student model to match a stronger teacher's outputs/features.</li>
+<li><span class="term">Multi-task loss balancing</span> — weighting scheme so no single task's loss dominates joint training (e.g. uncertainty weighting, GradNorm).</li>
+<li><span class="term">Occupancy prediction</span> — dense free/occupied/unknown grid task, handles open-set obstacles that boxes can't.</li>
+</ul>
+<span class="related">Related: §6 robustness, §7 modern context</span>
+</div>
+
+<div class="quiz"><details><summary>Self-test: why pretrain with MAE/contrastive objectives at all if you have labeled detection data?</summary><p>Labeled 3D detection/segmentation data is expensive and comparatively scarce; self-supervised objectives can use the much larger pool of unlabeled sensor logs to learn general-purpose structure (geometry, semantics) before fine-tuning on the smaller labeled set — improving sample efficiency and often robustness to distribution shift.</p></details></div>
+
+<h2>6. Robustness & production concerns</h2>
+
+<div class="concept">
+<div class="concept-title">What breaks in the real world</div>
+<ul>
+<li><strong>Sensor dropout training</strong> — randomly zero out or drop entire modalities during training so the fused model doesn't collapse when a real sensor fails or is occluded (mud on a lens, a dead LiDAR channel); this is the training-time mechanism that makes the "what if you lose LiDAR?" interview question answerable with "the model was trained for it."</li>
+<li><strong>Calibration / extrinsics drift</strong> — sensor mounts shift slightly over time/vibration/temperature; if BEV lifting relies on fixed extrinsics, drift silently misaligns fused features. Production systems need online recalibration or drift-tolerant fusion (e.g. attention that doesn't hard-code exact geometric offsets).</li>
+<li><strong>Temporal fusion</strong> — a single frame is noisy and occlusion-prone; AV stacks fuse a sliding window of past BEV features (or a recurrent/streaming memory, as in BEVFormer's temporal self-attention) to smooth detections and infer occluded or momentarily-invisible objects from history.</li>
+<li><strong>Latency budgeting</strong> — a real-time stack has a hard end-to-end deadline (commonly tens of ms); every stage (per-modality encode, fusion, heads) gets an explicit millisecond budget, and architecture choices (PointPillars over voxel 3D-conv, e.g.) are frequently driven by this budget more than by raw accuracy.</li>
+<li><strong>Uncertainty estimation</strong> — safety-critical systems need to know when they don't know; encoders increasingly output calibrated confidence (e.g. per-detection variance, ensembling, or evidential heads) so downstream planning can be conservative under high uncertainty rather than trusting a confidently-wrong detection.</li>
+</ul>
+</div>
+
+<div class="callout"><strong>How to think about it:</strong> "robustness" in an interview answer should always cash out as a concrete training-time or system-level mechanism (dropout augmentation, temporal windowing, latency budget table, uncertainty head) — not just the word "robust."</div>
+
+<div class="term-box">
+<h4>Terms — Robustness & production</h4>
+<ul>
+<li><span class="term">Sensor dropout (modality dropout)</span> — training-time augmentation that zeroes a modality to force graceful degradation.</li>
+<li><span class="term">Extrinsics drift</span> — slow miscalibration of sensor mounting pose over vehicle lifetime.</li>
+<li><span class="term">Temporal fusion / sliding window</span> — combining BEV features across recent frames for smoother, occlusion-robust perception.</li>
+<li><span class="term">Latency budget</span> — the explicit per-stage millisecond allocation within an end-to-end real-time deadline.</li>
+<li><span class="term">Uncertainty estimation</span> — calibrated confidence output so downstream planning can react to model doubt.</li>
+</ul>
+<span class="related">Related: §5 training, sysdesign-playbook.html §6 (inference/deployment)</span>
+</div>
+
+<h2>7. Modern context: feeding VLA/VLM stacks and world models</h2>
+
+<div class="concept">
+<div class="concept-title">Tokens don't stop at detection heads</div>
+<p>The same tokenized, fused representation that feeds detection/segmentation/occupancy heads is increasingly fed directly into a downstream sequence model — a driving <span class="term">world model</span> that predicts future scene states, or a <span class="term">VLA (vision-language-action)</span>-style policy that maps perception tokens (plus language/goal conditioning) directly to trajectories or control. This is the same architectural move you've already seen in manipulation VLAs: perception encoder → shared token space → transformer backbone → action/prediction head, just with AV-specific sensors and BEV geometry substituted for the robot-arm camera stream. Framing your multimodal encoder answer as "the tokens I produce are exactly what a downstream world-model/policy transformer consumes" is a strong way to connect it to the interviewer's broader system and to your own VLA background.</p>
+</div>
+
+<div class="term-box">
+<h4>Terms — Modern context</h4>
+<ul>
+<li><span class="term">World model</span> — a learned model that predicts future world/scene states conditioned on current tokens and actions.</li>
+<li><span class="term">VLA (vision-language-action)</span> — architecture mapping perception (+ language) tokens directly to actions/trajectories.</li>
+<li><span class="term">End-to-end driving</span> — architectures that go from sensor tokens to trajectory/control with minimal hand-engineered intermediate stages.</li>
+</ul>
+<span class="related">Related: sysdesign-playbook.html worked sketch</span>
+</div>
+
+<div class="quiz"><details><summary>Self-test: how would you pitch your own VLA/quantization experience as relevant to this AV encoder design?</summary><p>The shared thread is: tokenize heterogeneous sensor input into a common embedding space, fuse via attention, feed a transformer backbone, and care about the same production constraints (latency budget, quantization for onboard inference, robustness to missing/noisy input). Naming that structural parallel briefly — not a long tangent — signals transferable systems intuition rather than narrow familiarity with one domain.</p></details></div>
+
+</main></body></html>

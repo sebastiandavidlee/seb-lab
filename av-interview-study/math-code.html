@@ -1,0 +1,270 @@
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>Math + Code — AV Interview Study</title><link rel="stylesheet" href="assets/style.css"><link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/katex.min.css"><script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/katex.min.js"></script><script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/contrib/auto-render.min.js"></script><script defer src="assets/app.js"></script></head><body>
+<nav class="topnav"><a href="index.html">Home</a><a href="fundamentals-classification.html">Classification</a><a href="fundamentals-inference.html">Data→Inference</a><a href="multimodal-encoder.html">Multimodal Encoder</a><a href="sysdesign-playbook.html">Sys-Design Playbook</a><a href="math-code.html">Math+Code</a><a href="gradient-descent-lab.html">GD Lab</a><a href="glossary.html">Glossary</a></nav>
+<main class="page">
+
+<h1>Math + Code</h1>
+<p class="subtitle">The interview-math reference: derive the standard results, don't just recite them. A mechanics background gives you the calculus for free — the job here is mapping it onto ML notation and knowing the code idioms cold.</p>
+
+<h2>1. Gradients &amp; optimization</h2>
+
+<div class="concept">
+<div class="concept-title">Gradient, Jacobian, Hessian — one breath</div>
+<p>For a scalar loss $f: \mathbb{R}^n \to \mathbb{R}$, the <strong>gradient</strong> $\nabla f(x) \in \mathbb{R}^n$ is the vector of first partials — it points in the direction of steepest ascent. For a vector-valued function $g: \mathbb{R}^n \to \mathbb{R}^m$, the <strong>Jacobian</strong> $J \in \mathbb{R}^{m \times n}$ stacks the gradients of each output component as rows; it's the linearization of $g$ at a point. The <strong>Hessian</strong> $H = \nabla^2 f(x) \in \mathbb{R}^{n \times n}$ is the Jacobian of the gradient — second partials, and it tells you local curvature. In deep learning you almost never form $H$ explicitly (it's $O(n^2)$ storage), but its top eigenvalue (the curvature $L$) governs how big a step you can safely take.</p>
+</div>
+
+<div class="concept">
+<div class="concept-title">The update rule</div>
+<div class="math-block">$$x_{t+1} = x_t - \eta \, \nabla f(x_t)$$</div>
+<p>$\eta$ is the <strong>learning rate</strong> — a step size along the negative gradient direction. Everything else (momentum, Adam, schedules) is a modification of this one line.</p>
+</div>
+
+<div class="concept">
+<div class="concept-title">Divergence condition — derive it on a quadratic</div>
+<p>This is a classic probe: take the 1-D quadratic $f(x) = \tfrac{1}{2} L x^2$ (curvature $L$, minimum at $x=0$). Its gradient is $f'(x) = Lx$. One gradient step:</p>
+<div class="math-block">$$x_{t+1} = x_t - \eta L x_t = (1 - \eta L)\, x_t$$</div>
+<p>This is a linear recurrence — $x_t = (1-\eta L)^t x_0$. It converges to 0 iff $|1 - \eta L| < 1$, i.e.</p>
+<div class="math-block">$$0 < \eta < \frac{2}{L}$$</div>
+<p>At $\eta = 2/L$ exactly, $x$ oscillates between $\pm x_0$ forever (marginal case, $|1-\eta L|=1$). Past $\eta = 2/L$, $|1-\eta L| > 1$ and every step overshoots further — divergence. For a general quadratic $f(x) = \tfrac12 a x^2 + bx + c$, $f''(x) = a$ everywhere, so $L = a$ and the threshold is $\eta < 2/a$. This is the exact number the GD lab visualizes and lets you sweep.</p>
+</div>
+
+<div class="term-box">
+<h4>Terms</h4>
+<ul>
+<li><span class="term">L-smoothness</span> — $f$ has $L$-Lipschitz gradients, i.e. $\|\nabla f(x) - \nabla f(y)\| \le L\|x-y\|$; for a quadratic, $L$ is just the curvature (second derivative / largest eigenvalue of the Hessian for multivariate).<span class="related">Related: convexity, divergence condition above</span></li>
+<li><span class="term">Learning rate schedule</span> — decaying $\eta$ over training (step, cosine, warmup) rather than a fixed value.<span class="related">Related: Adam, momentum</span></li>
+</ul>
+</div>
+
+<div class="concept">
+<div class="concept-title">Momentum</div>
+<div class="math-block">$$v_{t+1} = \beta v_t + \nabla f(x_t), \qquad x_{t+1} = x_t - \eta \, v_{t+1}$$</div>
+<p>$v$ is a running exponential average of past gradients ($\beta \approx 0.9$). Intuition: a ball rolling downhill accumulates velocity, so it powers through shallow/noisy regions and damps oscillation across narrow valleys — exactly the near-divergent zig-zag from the section above.</p>
+</div>
+
+<div class="concept">
+<div class="concept-title">Adam</div>
+<div class="math-block">$$m_t = \beta_1 m_{t-1} + (1-\beta_1)g_t, \qquad v_t = \beta_2 v_{t-1} + (1-\beta_2)g_t^2$$</div>
+<div class="math-block">$$\hat m_t = \frac{m_t}{1-\beta_1^t}, \qquad \hat v_t = \frac{v_t}{1-\beta_2^t}, \qquad x_{t+1} = x_t - \eta \frac{\hat m_t}{\sqrt{\hat v_t} + \epsilon}$$</div>
+<p>$m$ is momentum (1st moment of the gradient), $v$ is a per-parameter running average of squared gradients (2nd moment) — dividing by $\sqrt{\hat v_t}$ gives each parameter its own adaptive step size, shrinking the step where gradients have historically been large/noisy. The $\hat{(\cdot)}$ hats are bias correction: $m_0=v_0=0$ biases early estimates toward zero, so dividing by $(1-\beta^t)$ compensates while $t$ is small. <strong>AdamW</strong> decouples weight decay from the gradient-based update — instead of folding $\lambda x$ into $g_t$ (which then gets adaptively rescaled, wrongly), it applies $x_{t+1} \mathrel{-}= \eta \lambda x_t$ directly. That decoupling is the whole paper.</p>
+</div>
+
+<div class="concept">
+<div class="concept-title">Convexity, and why deep nets get away without it</div>
+<p>$f$ is convex iff $f(\theta x + (1-\theta) y) \le \theta f(x) + (1-\theta) f(y)$, equivalently (twice-differentiable case) $\nabla^2 f \succeq 0$ everywhere. The quadratic $\tfrac12 x^T A x$ is the canonical convex example precisely when $A \succeq 0$ — constant, non-negative curvature, one basin, gradient descent provably converges to the global min. That's why it's the go-to textbook/interview toy: it isolates the optimizer's behavior from the loss landscape's shape.</p>
+<p>Deep nets are highly non-convex — many local minima and saddle points. Empirically we don't worry much because (a) in high dimensions, most critical points are saddles, not local minima (an unlikely coincidence for <em>every</em> eigenvalue of the Hessian to be positive), and (b) local minima found by SGD in overparameterized nets tend to have similar loss to the global min — the loss landscape is "benign" at the scale we operate. This is an empirical/theoretical folk result, not a guarantee, and is a fine thing to say plainly in an interview.</p>
+</div>
+
+<div class="quiz">
+<details><summary>Q: Your loss oscillates and grows every step at a fixed lr. What's the single most likely fix, and why?</summary>
+<p>Lower the learning rate below $2/L$. Growing oscillation is the signature of $\eta > 2/L$ derived above — you're overshooting the minimum on every step. (Second-most-likely: gradient explosion from a bad architecture — see backprop section below — but a clean oscillating growth pattern points at step size first.)</p>
+</details>
+</div>
+
+<h2>2. Backprop</h2>
+
+<div class="concept">
+<div class="concept-title">The chain rule is the whole story</div>
+<p>For a composition $L = f(g(h(x)))$, backprop is just repeated application of $\frac{\partial L}{\partial x} = \frac{\partial L}{\partial f}\frac{\partial f}{\partial g}\frac{\partial g}{\partial h}\frac{\partial h}{\partial x}$. Every "trick" in autodiff (computational graphs, reverse mode) is bookkeeping for evaluating this product efficiently — nothing more.</p>
+</div>
+
+<div class="concept">
+<div class="concept-title">Worked 2-layer example, by hand</div>
+<p>Let $z_1 = W_1 x + b_1$, $a_1 = \sigma(z_1)$, $z_2 = W_2 a_1 + b_2$, $\hat y = \sigma(z_2)$, $L = \tfrac12(\hat y - y)^2$ (scalar output for simplicity, $\sigma$ = sigmoid, $\sigma' = \sigma(1-\sigma)$).</p>
+<div class="math-block">$$\delta_2 = \frac{\partial L}{\partial z_2} = (\hat y - y)\,\sigma'(z_2)$$</div>
+<div class="math-block">$$\frac{\partial L}{\partial W_2} = \delta_2 \, a_1^T, \qquad \frac{\partial L}{\partial b_2} = \delta_2$$</div>
+<div class="math-block">$$\delta_1 = \frac{\partial L}{\partial z_1} = \big(W_2^T \delta_2\big) \odot \sigma'(z_1)$$</div>
+<div class="math-block">$$\frac{\partial L}{\partial W_1} = \delta_1 \, x^T, \qquad \frac{\partial L}{\partial b_1} = \delta_1$$</div>
+<p>Pattern to memorize: the "error signal" $\delta$ at each layer is the upstream $\delta$ pulled back through that layer's weights ($W^T \delta$), then multiplied elementwise by the local activation derivative. Weight gradients are always <em>outer product of this layer's $\delta$ with the previous layer's activation</em>.</p>
+</div>
+
+<div class="code-block"><pre><code># minimal 2-layer backprop, pure Python floats (no numpy) — the shapes above at n=1
+def sigmoid(z):
+    import math
+    return 1 / (1 + math.exp(-z))
+
+def backward(x, y, W1, b1, W2, b2):
+    z1 = W1 * x + b1
+    a1 = sigmoid(z1)
+    z2 = W2 * a1 + b2
+    yhat = sigmoid(z2)
+
+    dL_dyhat = (yhat - y)
+    delta2 = dL_dyhat * yhat * (1 - yhat)        # sigmoid'(z2) = yhat(1-yhat)
+    dW2 = delta2 * a1
+    db2 = delta2
+
+    delta1 = (W2 * delta2) * a1 * (1 - a1)       # sigmoid'(z1) = a1(1-a1)
+    dW1 = delta1 * x
+    db1 = delta1
+
+    return dW1, db1, dW2, db2
+</code></pre></div>
+
+<div class="concept">
+<div class="concept-title">Computational graph framing</div>
+<p>Forward pass builds a DAG of ops, each caching what it needs for its local derivative (e.g. $\sigma$ caches its own output since $\sigma' = \sigma(1-\sigma)$). Backward pass walks the DAG in reverse topological order, at each node multiplying the incoming upstream gradient by the node's local Jacobian-vector product and routing it to parents. This is exactly what autograd (PyTorch/JAX) does — the "trick" is that a full Jacobian is never materialized, only Jacobian-vector products, which is why backprop is $O(\text{forward cost})$ rather than $O(n^2)$.</p>
+</div>
+
+<div class="concept">
+<div class="concept-title">Vanishing / exploding gradients</div>
+<p>Chain rule through $T$ layers multiplies $T$ Jacobians together. If each factor has singular values consistently $<1$ (e.g. sigmoid's derivative is $\le 0.25$ everywhere), the product shrinks geometrically — <strong>vanishing</strong>. If factors are consistently $>1$ (large weights, unbounded activations), the product grows geometrically — <strong>exploding</strong>. Fixes address this at the source:</p>
+<ul>
+<li><strong>Residual connections</strong> ($y = x + f(x)$) add an identity path, so $\partial y/\partial x = I + \partial f/\partial x$ — gradient has a guaranteed magnitude-1 term to flow through regardless of how small $\partial f/\partial x$ gets.</li>
+<li><strong>Normalization</strong> (BatchNorm/LayerNorm) keeps activations (and therefore the scale of local Jacobians) in a controlled range layer to layer, so the product of Jacobians doesn't drift geometrically in either direction.</li>
+<li>Also standard: better init (Xavier/He, scaled to preserve activation variance across layers), ReLU-family activations (derivative is 0 or 1, not $\le 0.25$), gradient clipping (caps the exploding case directly).</li>
+</ul>
+</div>
+
+<div class="quiz">
+<details><summary>Q: Why does a residual connection help gradient flow specifically, not just accuracy?</summary>
+<p>Because differentiating $y = x + f(x)$ gives $\partial y/\partial x = I + \partial f/\partial x$. The identity term $I$ means the gradient at $y$ always has a path back to $x$ with a coefficient of exactly 1, no matter how degenerate $\partial f/\partial x$ is (even if it's exactly 0). Without the skip, you're multiplying only by $\partial f/\partial x$ at every layer, and any consistent shrink/grow compounds across depth.</p>
+</details>
+</div>
+
+<h2>3. Attention math</h2>
+
+<div class="concept">
+<div class="concept-title">Scaled dot-product attention</div>
+<div class="math-block">$$\text{Attention}(Q,K,V) = \text{softmax}\!\left(\frac{QK^T}{\sqrt{d_k}}\right) V$$</div>
+<p>Shapes, concretely, for a batch-1 sequence of $n=10$ tokens with head dim $d_k = 64$: $Q \in \mathbb{R}^{10 \times 64}$, $K \in \mathbb{R}^{10\times 64}$, $V \in \mathbb{R}^{10 \times d_v}$ (often $d_v=d_k$). $QK^T \in \mathbb{R}^{10\times 10}$ — every query's dot product against every key, a full pairwise similarity matrix. Softmax over the last axis turns each row into a probability distribution over the 10 keys. Multiplying by $V \in \mathbb{R}^{10\times 64}$ gives $\mathbb{R}^{10\times 64}$ back out — each output token is a convex combination of value vectors, weighted by how much it attends to each key.</p>
+</div>
+
+<div class="concept">
+<div class="concept-title">Why divide by $\sqrt{d_k}$</div>
+<p>If $Q, K$ have entries that are i.i.d. with mean 0, variance 1, then each dot product $q \cdot k = \sum_{i=1}^{d_k} q_i k_i$ is a sum of $d_k$ roughly-independent terms, so its variance scales as $\text{Var}(q \cdot k) \approx d_k$ — the raw logits grow with $\sqrt{d_k}$ in typical magnitude as $d_k$ grows. Large-magnitude logits push softmax into a saturated regime (one entry near 1, rest near 0), which kills gradient flow through softmax (its Jacobian is $\text{diag}(p) - pp^T$, which vanishes as $p$ approaches a one-hot vector). Dividing by $\sqrt{d_k}$ renormalizes the variance back to $\approx 1$ regardless of $d_k$, keeping softmax in a well-conditioned regime.</p>
+</div>
+
+<div class="concept">
+<div class="concept-title">Multi-head as parallel subspaces</div>
+<p>Instead of one attention with $d_{\text{model}}$-dim $Q,K,V$, project into $h$ heads each of dim $d_k = d_{\text{model}}/h$, run attention independently per head, concatenate, then linearly mix with $W_O$. Each head can specialize on a different notion of relatedness (e.g. one head tracks positional adjacency, another tracks semantic similarity) — a representational capacity argument, not a computational one (total FLOPs are ~the same as one big head).</p>
+</div>
+
+<div class="concept">
+<div class="concept-title">Complexity</div>
+<p>Forming $QK^T$ is $O(n^2 d)$ time and the attention matrix itself is $O(n^2)$ memory — the quadratic-in-sequence-length cost that motivates linear-attention/sparse-attention/FlashAttention variants for long context.</p>
+</div>
+
+<div class="code-block"><pre><code># 15-line numpy scaled dot-product attention
+import numpy as np
+
+def attention(Q, K, V, mask=None):
+    """Q: (n, d_k), K: (m, d_k), V: (m, d_v) -> (n, d_v)"""
+    d_k = Q.shape[-1]
+    scores = Q @ K.T / np.sqrt(d_k)              # (n, m)
+    if mask is not None:
+        scores = np.where(mask, scores, -np.inf)
+    scores -= scores.max(axis=-1, keepdims=True)  # numerical stability
+    weights = np.exp(scores)
+    weights /= weights.sum(axis=-1, keepdims=True)
+    return weights @ V                            # (n, d_v)
+</code></pre></div>
+
+<div class="term-box">
+<h4>Terms</h4>
+<ul>
+<li><span class="term">Causal mask</span> — sets future-position scores to $-\infty$ before softmax, so autoregressive models can't attend forward.<span class="related">Related: the mask arg above</span></li>
+<li><span class="term">KV cache</span> — during autoregressive decode, cache past $K,V$ so each new token only computes attention against cached keys/values instead of recomputing the whole sequence.<span class="related">Related: inference-time serving, see Data→Inference page</span></li>
+</ul>
+</div>
+
+<div class="quiz">
+<details><summary>Q: What happens to attention if you skip the $\sqrt{d_k}$ scaling on a model with large $d_k$?</summary>
+<p>Logits blow up in magnitude, softmax saturates toward near-one-hot outputs, and the softmax Jacobian $\text{diag}(p)-pp^T \to 0$ — gradients through attention vanish and training destabilizes, especially early when weights aren't yet well-conditioned to compensate.</p>
+</details>
+</div>
+
+<h2>4. Losses zoo — quick reference</h2>
+
+<table>
+<thead><tr><th>Loss</th><th>Formula</th><th>Gradient character</th><th>Use when</th></tr></thead>
+<tbody>
+<tr><td>MSE</td><td>$\tfrac1n\sum(\hat y_i-y_i)^2$</td><td>Linear in error; is the negative log-likelihood of a Gaussian with fixed variance</td><td>Regression, errors roughly Gaussian, no outlier concern</td></tr>
+<tr><td>Cross-entropy</td><td>$-\sum_k y_k \log \hat p_k$</td><td>$\partial/\partial z = \hat p - y$ for softmax input $z$ — clean linear gradient at the logit</td><td>Multi-class classification; is the NLL of a categorical distribution (MLE view)</td></tr>
+<tr><td>BCE</td><td>$-[y\log\hat p+(1-y)\log(1-\hat p)]$</td><td>Same $\hat p - y$ pattern at the logit for sigmoid outputs</td><td>Binary / multi-label classification</td></tr>
+<tr><td>Focal loss</td><td>$-(1-\hat p)^\gamma \log \hat p$</td><td>Down-weights already-confident (easy) examples by the $(1-\hat p)^\gamma$ factor</td><td>Severe class imbalance (e.g. dense object detection foreground/background)</td></tr>
+<tr><td>Contrastive / InfoNCE</td><td>$-\log \dfrac{e^{\text{sim}(a,p)/\tau}}{\sum_j e^{\text{sim}(a,j)/\tau}}$</td><td>Cross-entropy over a similarity distribution — pulls positive pair together, pushes negatives apart, $\tau$ controls sharpness</td><td>Representation learning, embedding alignment (CLIP-style, retrieval)</td></tr>
+<tr><td>L1</td><td>$\sum|\hat y_i-y_i|$</td><td>Constant-magnitude gradient ($\pm1$) — insensitive to outlier size</td><td>Regression with outliers you don't want to dominate the loss</td></tr>
+<tr><td>Huber</td><td>quadratic for $|e|\le\delta$, linear beyond</td><td>Smooth MSE-like gradient near zero, L1-like (bounded) gradient for large errors</td><td>Regression wanting MSE's smoothness near the optimum + L1's outlier robustness far from it</td></tr>
+</tbody>
+</table>
+
+<div class="callout"><strong>Interview note:</strong> the fact that cross-entropy's gradient w.r.t. the pre-softmax logit is exactly $\hat p - y$ (no chain-rule mess through softmax) is why the softmax+cross-entropy pairing is so standard — it's numerically clean and directly proportional to the error.</div>
+
+<h2>5. Conv / tensor arithmetic cheat-sheet</h2>
+
+<div class="concept">
+<div class="concept-title">Output size</div>
+<div class="math-block">$$O = \left\lfloor \frac{I + 2P - D(K-1) - 1}{S} \right\rfloor + 1$$</div>
+<p>$I$=input size, $P$=padding, $D$=dilation, $K$=kernel size, $S$=stride. Effective kernel footprint with dilation is $D(K-1)+1$.</p>
+</div>
+
+<div class="concept">
+<div class="concept-title">Parameter counting</div>
+<ul>
+<li><strong>Conv layer:</strong> $(K_h \times K_w \times C_{\text{in}} + 1) \times C_{\text{out}}$ (the $+1$ is bias per output channel).</li>
+<li><strong>Linear layer:</strong> $(D_{\text{in}}+1) \times D_{\text{out}}$.</li>
+<li><strong>Self-attention (one head, no biases):</strong> $W_Q, W_K, W_V \in \mathbb{R}^{d\times d_k}$ each, plus $W_O \in \mathbb{R}^{d\times d}$ overall — total $\approx 4d^2$ for $h$ heads with $d_k = d/h$ concatenated back to $d$. This is why attention layers are parameter-comparable to a couple of linear layers of width $d$, independent of sequence length $n$ — all the $n$-dependence is in compute/activations, not parameters.</li>
+</ul>
+</div>
+
+<div class="concept">
+<div class="concept-title">Receptive field</div>
+<p>Through $L$ stacked conv layers with kernel $K$ and stride 1, receptive field grows as $R = 1 + L(K-1)$ — linear in depth. With stride $S>1$ layers, later layers' receptive-field contribution gets multiplied by the accumulated stride, so downsampling (stride/pooling) grows receptive field much faster than adding stride-1 layers — this is the standard justification for pooling/strided stages in CNN backbones.</p>
+</div>
+
+<div class="code-block"><pre><code># three worked examples — sanity checks interviewers like to probe
+
+# 1) 3x3 conv, 64->128 channels, with bias
+params_conv = (3*3*64 + 1) * 128
+print(params_conv)  # 73,856
+
+# 2) output size: 224 input, 7x7 kernel, stride 2, pad 3 (ResNet stem)
+I, K, S, P, D = 224, 7, 2, 3, 1
+O = (I + 2*P - D*(K-1) - 1) // S + 1
+print(O)  # 112
+
+# 3) linear layer 512 -> 1000 (classifier head)
+params_linear = (512 + 1) * 1000
+print(params_linear)  # 513,000
+</code></pre></div>
+
+<div class="quiz">
+<details><summary>Q: A 3x3 conv, stride 1, no padding, is stacked 3 deep. What's the receptive field, and what single-layer conv matches it?</summary>
+<p>$R = 1 + 3(3-1) = 7$. A single 7x7 conv has the same receptive field, but the 3-layer stack uses $3\times(9C^2) = 27C^2$ params (per channel-squared) vs $49C^2$ for one 7x7 layer, plus 3 nonlinearities instead of 1 — more expressive per parameter. This is the classic VGG argument for stacking small kernels.</p>
+</details>
+</div>
+
+<h2>6. Probability essentials</h2>
+
+<div class="concept">
+<div class="concept-title">Softmax as Boltzmann distribution</div>
+<div class="math-block">$$p_i = \frac{e^{z_i/T}}{\sum_j e^{z_j/T}}$$</div>
+<p>This is exactly the Boltzmann/Gibbs distribution from statistical mechanics with logits $z$ playing the role of $-$energy and $T$ the temperature. $T=1$ is standard softmax. As $T \to 0$, the distribution sharpens toward a one-hot argmax (low "thermal" energy, system settles into its ground state); as $T \to \infty$, it flattens toward uniform (high energy, all states equally likely). In sampling from LLMs, "temperature" is literally this same knob.</p>
+</div>
+
+<div class="concept">
+<div class="concept-title">MLE vs MAP</div>
+<p><strong>Maximum likelihood estimation</strong> picks parameters $\theta$ that maximize $p(\text{data}\mid\theta)$ — purely data-driven, no prior belief about $\theta$. <strong>Maximum a posteriori</strong> maximizes $p(\theta\mid\text{data}) \propto p(\text{data}\mid\theta)\,p(\theta)$ — it's MLE plus a prior term. In practice, L2 weight regularization is MAP with a Gaussian prior on weights (log of a Gaussian prior is a quadratic penalty, i.e. weight decay); L1 regularization corresponds to a Laplace prior. So "why do we add weight decay" has a clean Bayesian answer: it's MAP estimation with a zero-mean Gaussian prior on the weights, encoding a soft belief that small weights are more likely a priori.</p>
+</div>
+
+<div class="concept">
+<div class="concept-title">Calibration</div>
+<p>A classifier is <strong>calibrated</strong> if, among all predictions where it outputs confidence $p$, the true label is correct approximately $p$ fraction of the time — the predicted probability is a meaningful probability, not just a confidence-ranked score. Modern large networks are often overconfident (poorly calibrated) even when accurate; temperature scaling (dividing logits by a learned scalar $T>1$ fit on a held-out set) is the standard cheap fix — it reshapes confidence without changing the argmax/ranking.</p>
+</div>
+
+<div class="term-box">
+<h4>Terms</h4>
+<ul>
+<li><span class="term">Boltzmann / Gibbs distribution</span> — energy-based probability distribution; softmax is its ML incarnation.<span class="related">Related: temperature, softmax</span></li>
+<li><span class="term">Conjugate prior</span> — a prior family that keeps the posterior in the same family after applying Bayes' rule (not required for MAP, but common in worked examples).<span class="related">Related: MAP</span></li>
+</ul>
+</div>
+
+<div class="quiz">
+<details><summary>Q: Why is L2 weight decay "MAP with a Gaussian prior," concretely?</summary>
+<p>MAP maximizes $\log p(\text{data}\mid\theta) + \log p(\theta)$. If $p(\theta) \propto e^{-\lambda\|\theta\|^2}$ (zero-mean isotropic Gaussian, precision $\propto \lambda$), then $\log p(\theta) = -\lambda\|\theta\|^2 + \text{const}$. Maximizing $\log p(\text{data}\mid\theta) - \lambda\|\theta\|^2$ is identical to minimizing negative log-likelihood plus an L2 penalty $\lambda\|\theta\|^2$ — exactly weight decay, with $\lambda$ set by the prior's variance.</p>
+</details>
+</div>
+
+</main>
+</body></html>

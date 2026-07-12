@@ -1,0 +1,96 @@
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>Home — AV Study v2</title><link rel="stylesheet" href="assets/style.css"><link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/katex.min.css"><script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/katex.min.js"></script><script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/contrib/auto-render.min.js"></script><script defer src="assets/app.js"></script></head><body><nav class="topnav"><a href="index.html">Home</a><a href="classification.html">Classification</a><a href="inference.html">Data→Inference</a><a href="encoder.html">Encoder</a><a href="playbook.html">Playbook</a><a href="math.html">Math</a><a href="gd-lab.html">GD Lab</a><a href="glossary.html">Glossary</a></nav><main class="page">
+
+<h1>AV Interview Study v2</h1>
+<p>Visual-first prep for an AV foundation-models interview loop: two system-design rounds, one behavioral, and a possible pure-Python coding round. Every page teaches with interactive diagrams first, prose second.</p>
+
+<figure class="viz hero" role="img" aria-label="Diagram mapping the three interview rounds to the study pages that prepare for them">
+<svg viewBox="0 0 900 300" width="900" height="300">
+  <!-- round boxes -->
+  <g>
+    <rect x="30" y="30" width="250" height="72" rx="10" fill="none" stroke="var(--s5)" stroke-width="2"/>
+    <text x="155" y="58" text-anchor="middle" fill="var(--ink)" font-size="14" font-weight="700">Round 1 · System design</text>
+    <text x="155" y="80" text-anchor="middle" fill="var(--ink-2)" font-size="12">Multimodal perception encoder</text>
+
+    <rect x="30" y="122" width="250" height="72" rx="10" fill="none" stroke="var(--s1)" stroke-width="2"/>
+    <text x="155" y="150" text-anchor="middle" fill="var(--ink)" font-size="14" font-weight="700">Round 2 · ML fundamentals</text>
+    <text x="155" y="172" text-anchor="middle" fill="var(--ink-2)" font-size="12">Classification → scale → inference</text>
+
+    <rect x="30" y="214" width="250" height="72" rx="10" fill="none" stroke="var(--s2)" stroke-width="2"/>
+    <text x="155" y="242" text-anchor="middle" fill="var(--ink)" font-size="14" font-weight="700">Round 3 · Behavioral</text>
+    <text x="155" y="264" text-anchor="middle" fill="var(--ink-2)" font-size="12">Stories, scope, collaboration</text>
+
+    <rect x="30" y="10" width="120" height="0" fill="none"/>
+  </g>
+  <!-- arrows -->
+  <g stroke="var(--axis)" stroke-width="2" fill="none">
+    <path d="M280 66 C 350 66, 380 60, 430 58"/>
+    <path d="M280 158 C 340 158, 360 130, 430 106"/>
+    <path d="M280 158 C 350 158, 380 158, 430 154"/>
+    <path d="M280 158 C 340 158, 360 186, 430 202"/>
+    <path d="M280 250 C 350 250, 380 250, 430 250"/>
+  </g>
+  <g fill="var(--axis)">
+    <path d="M430 58 l-9 -4 v8 z"/><path d="M430 106 l-9 -4 v8 z"/><path d="M430 154 l-9 -4 v8 z"/><path d="M430 202 l-9 -4 v8 z"/><path d="M430 250 l-9 -4 v8 z"/>
+  </g>
+  <!-- page chips -->
+  <g font-size="13">
+    <rect x="438" y="40" width="180" height="36" rx="18" fill="none" stroke="var(--s5)" stroke-width="2"/>
+    <circle cx="460" cy="58" r="5" fill="var(--s5)"/>
+    <text x="474" y="63" fill="var(--ink)">Encoder design</text>
+
+    <rect x="438" y="88" width="180" height="36" rx="18" fill="none" stroke="var(--s1)" stroke-width="2"/>
+    <circle cx="460" cy="106" r="5" fill="var(--s1)"/>
+    <text x="474" y="111" fill="var(--ink)">Classification</text>
+
+    <rect x="438" y="136" width="180" height="36" rx="18" fill="none" stroke="var(--s1)" stroke-width="2"/>
+    <circle cx="460" cy="154" r="5" fill="var(--s1)"/>
+    <text x="474" y="159" fill="var(--ink)">Data→Inference</text>
+
+    <rect x="438" y="184" width="180" height="36" rx="18" fill="none" stroke="var(--s6)" stroke-width="2"/>
+    <circle cx="460" cy="202" r="5" fill="var(--s6)"/>
+    <text x="474" y="207" fill="var(--ink)">GD Lab + Math</text>
+
+    <rect x="438" y="232" width="180" height="36" rx="18" fill="none" stroke="var(--s2)" stroke-width="2"/>
+    <circle cx="460" cy="250" r="5" fill="var(--s2)"/>
+    <text x="474" y="255" fill="var(--ink)">Playbook</text>
+  </g>
+  <!-- shared foundation -->
+  <g stroke="var(--axis)" stroke-width="2" fill="none">
+    <path d="M618 58 C 690 58, 700 110, 730 140"/>
+    <path d="M618 106 C 680 110, 700 125, 730 148"/>
+    <path d="M618 154 C 680 154, 700 154, 730 156"/>
+    <path d="M618 202 C 680 198, 700 180, 730 164"/>
+    <path d="M618 250 C 690 250, 700 200, 730 172"/>
+  </g>
+  <g font-size="13">
+    <rect x="734" y="128" width="140" height="56" rx="12" fill="none" stroke="var(--s3)" stroke-width="2"/>
+    <circle cx="756" cy="156" r="5" fill="var(--s3)"/>
+    <text x="770" y="152" fill="var(--ink)">Glossary +</text>
+    <text x="770" y="169" fill="var(--ink)">concept map</text>
+  </g>
+</svg>
+<figcaption>The loop at a glance: each round maps to dedicated pages, and every page's memorize-boxes feed the shared glossary and concept map.</figcaption>
+</figure>
+
+<h2>Pages</h2>
+<div class="card-grid">
+  <div class="card"><h3><a href="classification.html">Classification</a></h3><p>Interactive decision-boundary and threshold widgets: drag the operating point along a live ROC/PR curve and watch precision, recall, and the confusion matrix update in real time.</p></div>
+  <div class="card"><h3><a href="inference.html">Data→Inference</a></h3><p>Follow a model from 10k labels to fleet scale with widgets for scaling curves, the imbalance/long-tail regime, and a latency-vs-throughput simulator for deployment tradeoffs.</p></div>
+  <div class="card"><h3><a href="encoder.html">Encoder</a></h3><p>Design the multimodal perception encoder round visually: a clickable architecture diagram of camera/LiDAR/radar branches into BEV, with widgets comparing fusion points and token budgets.</p></div>
+  <div class="card"><h3><a href="playbook.html">Playbook</a></h3><p>Interview run-of-show: interactive answer skeletons for both system-design rounds plus behavioral story cards, with timers and structure checklists you can rehearse against.</p></div>
+  <div class="card"><h3><a href="math.html">Math</a></h3><p>The equations that come up, each paired with a manipulable plot: cross-entropy vs margin, bias-variance sliders, softmax temperature, and gradient fields you can hover.</p></div>
+  <div class="card"><h3><a href="gd-lab.html">GD Lab</a></h3><p>A live gradient-descent sandbox on quadratics: tune the learning rate and condition number, watch iterates converge or diverge, then write the pure-Python version yourself.</p></div>
+  <div class="card"><h3><a href="glossary.html">Glossary</a></h3><p>The centerpiece reference: a clickable concept map of ~35 core terms in five clusters, wired to 100+ interview-precise definitions with live search.</p></div>
+</div>
+
+<h2>Four-week study order</h2>
+<div class="card">
+  <ol>
+    <li><strong>Week 1 — Foundations.</strong> <a href="classification.html">Classification</a> + <a href="math.html">Math</a>. Get the fundamentals round cold: losses, metrics, bias-variance, calibration.</li>
+    <li><strong>Week 2 — Scale and speed.</strong> <a href="inference.html">Data→Inference</a> + <a href="gd-lab.html">GD Lab</a>. Data complexity through deployment, and the possible pure-Python gradient-descent coding round.</li>
+    <li><strong>Week 3 — The design round.</strong> <a href="encoder.html">Encoder</a>. Build and rehearse the multimodal perception encoder design end to end.</li>
+    <li><strong>Week 4 — Integration.</strong> <a href="playbook.html">Playbook</a> + <a href="glossary.html">Glossary</a> + mock interviews. Drill the concept map until every edge is explainable in one sentence.</li>
+  </ol>
+</div>
+
+</main></body></html>

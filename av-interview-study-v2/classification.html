@@ -1,0 +1,742 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Classification — AV Study v2</title>
+<link rel="stylesheet" href="assets/style.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/katex.min.css">
+<script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/katex.min.js"></script>
+<script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/contrib/auto-render.min.js"></script>
+<script defer src="assets/app.js"></script>
+</head>
+<body>
+<nav class="topnav"><a href="index.html">Home</a><a href="classification.html">Classification</a><a href="inference.html">Data→Inference</a><a href="encoder.html">Encoder</a><a href="playbook.html">Playbook</a><a href="math.html">Math</a><a href="gd-lab.html">GD Lab</a><a href="glossary.html">Glossary</a></nav>
+<main class="page">
+
+<h1>Classification, from decision boundary to deployment metric</h1>
+<p class="concept">Everything on this page is the machinery under any perception head you have shipped: the per-pixel class scores in a segmentation model, the objectness logit in a detector, the keypoint-visibility flag in your synthetic-data pipeline. The goal is to be able to derive each piece at a whiteboard, not just name it.</p>
+
+<!-- ================================================================ 1 -->
+<section id="setup">
+<h2>1. Problem setup: scores, decisions, and the two modeling families</h2>
+
+<figure class="viz">
+  <svg id="svg-setup" viewBox="0 0 640 340" role="img" aria-label="Two-class scatter with a linear decision boundary separating score space into two half-planes">
+    <!-- axes -->
+    <line x1="60" y1="290" x2="600" y2="290" stroke="var(--axis)" stroke-width="1"/>
+    <line x1="60" y1="290" x2="60" y2="30" stroke="var(--axis)" stroke-width="1"/>
+    <text x="330" y="322" text-anchor="middle" fill="var(--muted)" font-size="13">feature x₁</text>
+    <text x="24" y="160" text-anchor="middle" fill="var(--muted)" font-size="13" transform="rotate(-90 24 160)">feature x₂</text>
+    <!-- boundary: w·x + b = 0 -->
+    <line x1="150" y1="290" x2="480" y2="30" stroke="var(--s1)" stroke-width="2"/>
+    <line x1="205" y1="290" x2="535" y2="30" stroke="var(--s1)" stroke-width="1" stroke-dasharray="5 5" opacity="0.5"/>
+    <line x1="95" y1="290" x2="425" y2="30" stroke="var(--s1)" stroke-width="1" stroke-dasharray="5 5" opacity="0.5"/>
+    <text x="470" y="52" fill="var(--ink-2)" font-size="12">w·x + b = 0</text>
+    <text x="540" y="86" fill="var(--muted)" font-size="11">score = +1</text>
+    <text x="380" y="52" fill="var(--muted)" font-size="11">score = −1</text>
+    <!-- class A points (data-left of boundary) -->
+    <g fill="var(--s3)">
+      <circle cx="120" cy="110" r="6"/><circle cx="160" cy="80" r="6"/><circle cx="105" cy="180" r="6"/>
+      <circle cx="185" cy="140" r="6"/><circle cx="140" cy="220" r="6"/><circle cx="220" cy="90" r="6"/>
+      <circle cx="95" cy="250" r="6"/><circle cx="240" cy="150" r="6"/>
+    </g>
+    <!-- class B points -->
+    <g fill="var(--s2)">
+      <circle cx="420" cy="230" r="6"/><circle cx="470" cy="190" r="6"/><circle cx="380" cy="260" r="6"/>
+      <circle cx="510" cy="240" r="6"/><circle cx="450" cy="130" r="6"/><circle cx="545" cy="170" r="6"/>
+      <circle cx="350" cy="230" r="6"/><circle cx="560" cy="210" r="6"/>
+    </g>
+    <!-- one ambiguous point near the boundary -->
+    <circle cx="310" cy="175" r="6" fill="var(--s2)" stroke="var(--ink)" stroke-width="1.5"/>
+    <text x="322" y="168" fill="var(--muted)" font-size="11">near-boundary: score ≈ 0, p ≈ 0.5</text>
+  </svg>
+  <figcaption>A linear classifier carves feature space with the hyperplane <em>w·x + b = 0</em>. The signed distance to that plane is the <em>score</em>; the sign of the score is the <em>decision</em>. Dashed lines are level sets of the score.</figcaption>
+  <div class="legend"><span><span class="swatch" style="display:inline-block;width:10px;height:10px;border-radius:50%;background:var(--s3)"></span> class A</span> <span><span class="swatch" style="display:inline-block;width:10px;height:10px;border-radius:50%;background:var(--s2)"></span> class B</span> <span><span class="swatch" style="display:inline-block;width:14px;height:2px;background:var(--s1);vertical-align:middle"></span> decision boundary</span></div>
+</figure>
+
+<div class="concept">
+<p>A classifier is two things stapled together: a <strong>score function</strong> (continuous, carries confidence) and a <strong>decision rule</strong> (a threshold on the score). Keep them mentally separate — training shapes the score; the operating point picks the threshold, and it can be picked <em>after</em> training, per deployment. This is exactly the detector-confidence-threshold knob you tune per class in perception stacks.</p>
+<p>Two modeling families produce that score:</p>
+<ul>
+<li><strong>Discriminative:</strong> model \(p(y \mid x)\) directly (logistic regression, every softmax neural net). Spends all capacity on the boundary.</li>
+<li><strong>Generative:</strong> model \(p(x \mid y)\,p(y)\) and invert with Bayes (naive Bayes, GMM classifiers). Models the data itself, so it can synthesize, handle missing features, and detect outliers — but wastes capacity on structure the decision never needed.</li>
+</ul>
+</div>
+
+<div class="callout"><strong>Intuition.</strong> Discriminative asks "which side of the fence is this point on?"; generative asks "which factory produced this point?" — then infers the fence. When data is plentiful, discriminative wins (Ng &amp; Jordan 2002: generative reaches its asymptote faster, but the discriminative asymptote is lower error). Deep classification is almost entirely discriminative.</div>
+
+<aside class="term-box">
+<strong>Memorize</strong>
+<ul>
+<li><span class="term">decision boundary</span> — the level set where the score crosses the threshold; linear model → hyperplane.</li>
+<li><span class="term">discriminative vs generative</span> — \(p(y\mid x)\) vs \(p(x\mid y)p(y)\); Bayes' rule connects them.</li>
+<li><span class="term">score vs decision</span> — continuous confidence vs thresholded label; the threshold is a deployment knob, not a training artifact.</li>
+<li><span class="term">Bayes error</span> — the irreducible error of the optimal classifier when class distributions overlap.</li>
+</ul>
+<div class="related">Related: logit, operating point, likelihood ratio test.</div>
+</aside>
+
+<details class="quiz"><summary>Quiz: score vs decision</summary>
+<p><em>Q: You retrained nothing, but false positives on a rare class dropped after a config change. What most likely changed?</em> — The decision threshold (operating point) on that class's score, not the score function itself.</p>
+<p><em>Q: Why can a generative model detect out-of-distribution inputs while a discriminative one usually can't?</em> — It models \(p(x)\), so a low-likelihood input is visible; a discriminative model only ever outputs a conditional over known classes and will confidently pick one.</p>
+</details>
+</section>
+
+<!-- ================================================================ 2 -->
+<section id="logistic">
+<h2>2. Interactive: logistic regression playground</h2>
+
+<figure class="viz">
+  <svg id="svg-logistic" viewBox="0 0 640 340" role="img" aria-label="Interactive 1-D logistic regression: data points at heights 0 and 1, adjustable sigmoid curve and decision threshold"></svg>
+  <div class="viz-controls">
+    <label>w <input type="range" id="lr-w" min="-3" max="3" step="0.05" value="1"> <span id="lr-w-val" class="readout">1.00</span></label>
+    <label>b <input type="range" id="lr-b" min="-20" max="10" step="0.25" value="-5"> <span id="lr-b-val" class="readout">−5.00</span></label>
+  </div>
+  <div class="readout" id="lr-readout">accuracy — · cross-entropy —</div>
+  <figcaption>Thirty fixed 1-D points (class 0 drawn at height 0, class 1 at height 1, with a small display-only jitter). The curve is \(\sigma(wx+b)\); the vertical line is where \(p=0.5\), i.e. \(x^{*} = -b/w\). Drag <em>w</em> and <em>b</em> and watch accuracy and cross-entropy move — sometimes in opposite directions.</figcaption>
+  <div class="legend"><span><span style="display:inline-block;width:10px;height:10px;border-radius:50%;background:var(--s3)"></span> class 0</span> <span><span style="display:inline-block;width:10px;height:10px;border-radius:50%;background:var(--s2)"></span> class 1</span> <span><span style="display:inline-block;width:14px;height:2px;background:var(--s1);vertical-align:middle"></span> σ(wx+b)</span> <span><span style="display:inline-block;width:14px;height:2px;background:var(--s6);vertical-align:middle"></span> decision threshold</span></div>
+</figure>
+
+<div class="concept">
+<p>Logistic regression is a linear score \(z = wx + b\) squashed through the sigmoid \(\sigma(z) = 1/(1+e^{-z})\) so it can be read as a probability. Three things to internalize by playing:</p>
+<ul>
+<li><strong>b shifts, w sharpens.</strong> The boundary sits at \(x^{*} = -b/w\); the slope of the probability ramp is \(w/4\) at the boundary. Large \(|w|\) → confident, step-like classifier.</li>
+<li><strong>Loss and accuracy diverge.</strong> Set the boundary correctly, then crank \(w\) very high: accuracy is unchanged (same decisions) but if even one point is misclassified, cross-entropy explodes — CE punishes confident wrongness. Conversely a tiny \(w\) can have identical accuracy with mushy probabilities and mediocre CE.</li>
+<li><strong>Accuracy is flat almost everywhere.</strong> It only changes when the threshold crosses a data point — a step function with zero gradient. That is <em>why</em> we train on CE and merely report accuracy.</li>
+</ul>
+</div>
+
+<div class="callout"><strong>Intuition.</strong> Cross-entropy is a smooth, convex surrogate for the 0/1 loss you actually care about. Gradient descent needs slope; accuracy has none. Every "why not optimize the metric directly?" interview question resolves to this picture.</div>
+
+<aside class="term-box">
+<strong>Memorize</strong>
+<ul>
+<li><span class="term">sigmoid</span> — \(\sigma(z)=1/(1+e^{-z})\); derivative \(\sigma(1-\sigma)\).</li>
+<li><span class="term">logit</span> — the pre-sigmoid score \(z\); equals log-odds \(\ln\frac{p}{1-p}\).</li>
+<li><span class="term">surrogate loss</span> — smooth stand-in (CE, hinge) for the non-differentiable 0/1 loss.</li>
+<li><span class="term">decision threshold</span> — \(p=0.5 \Leftrightarrow z=0 \Leftrightarrow x=-b/w\) in 1-D.</li>
+</ul>
+<div class="related">Related: log-odds, convexity of logistic loss, perceptron (its non-probabilistic ancestor).</div>
+</aside>
+
+<details class="quiz"><summary>Quiz: loss vs accuracy</summary>
+<p><em>Q: Training loss keeps dropping but validation accuracy is flat. Give one benign explanation.</em> — The model is sharpening probabilities on already-correct examples (CE falls) without moving any decision across the threshold.</p>
+<p><em>Q: In the widget, what setting gives 100% accuracy but terrible CE? Why is it impossible here?</em> — It isn't possible if the classes overlap: any boundary misclassifies someone, and high \(w\) makes their CE term huge. With separable data, CE → 0 as \(w\to\infty\) — which is why separable logistic regression needs regularization to converge.</p>
+</details>
+</section>
+
+<!-- ================================================================ 3 -->
+<section id="softmax">
+<h2>3. Softmax + cross-entropy: the default output head</h2>
+
+<figure class="viz">
+  <svg id="svg-temp" viewBox="0 0 640 300" role="img" aria-label="Grouped bars showing softmax of three fixed logits at temperatures 0.5, 1 and 2"></svg>
+  <figcaption>The same three logits \(z = (2.0,\;1.0,\;0.2)\) pushed through \(\text{softmax}(z/\tau)\) at three temperatures. Low \(\tau\) sharpens toward argmax; high \(\tau\) flattens toward uniform. The argmax never changes. Bar heights are computed live, not drawn by hand.</figcaption>
+  <div class="legend"><span><span style="display:inline-block;width:10px;height:10px;background:var(--s1)"></span> class 1 (z=2.0)</span> <span><span style="display:inline-block;width:10px;height:10px;background:var(--s2)"></span> class 2 (z=1.0)</span> <span><span style="display:inline-block;width:10px;height:10px;background:var(--s3)"></span> class 3 (z=0.2)</span></div>
+</figure>
+
+<div class="concept">
+<p>Softmax generalizes the sigmoid to \(K\) classes; cross-entropy generalizes logistic loss:</p>
+<div class="math-block">$$p_i = \frac{e^{z_i/\tau}}{\sum_j e^{z_j/\tau}}, \qquad \mathcal{L}_{CE} = -\sum_i y_i \log p_i = -\log p_{\text{true}}$$</div>
+<p><strong>Why CE = maximum likelihood:</strong> if the model outputs \(p(y\mid x;\theta)\), the negative log-likelihood of the dataset is exactly the summed cross-entropy. Minimizing CE <em>is</em> MLE for a categorical output — that's the principled reason it's the default, not a convention.</p>
+<p><strong>The gradient everyone should derive once:</strong></p>
+<div class="math-block">$$\frac{\partial \mathcal{L}_{CE}}{\partial z_i} = p_i - y_i$$</div>
+<p>Prediction minus target. Clean, bounded in \([-1,1]\), never saturates the way MSE-through-sigmoid does (whose gradient carries a \(\sigma'(z)\) factor that vanishes for confident-wrong outputs). This composed gradient is the single most-asked derivation in ML fundamentals rounds.</p>
+<div class="code-block"><pre><code># softmax + CE, numerically stable
+import numpy as np
+def softmax_ce(z, y):            # z: (K,) logits, y: int label
+    z = z - z.max()              # shift-invariance: avoids overflow
+    logp = z - np.log(np.exp(z).sum())
+    loss = -logp[y]
+    p = np.exp(logp)
+    grad = p.copy(); grad[y] -= 1.0   # dL/dz = p - y
+    return loss, grad</code></pre></div>
+</div>
+
+<div class="callout"><strong>Intuition.</strong> Softmax is a smooth argmax with a thermostat. Temperature \(\tau\) rescales logits before the exponential: it changes <em>relative confidence</em> but never the winner. That single fact powers distillation (soften the teacher) and calibration (temperature scaling) — both later on these pages.</div>
+
+<aside class="term-box">
+<strong>Memorize</strong>
+<ul>
+<li><span class="term">softmax</span> — exponentiate-and-normalize; shift-invariant (\(z + c\) gives same \(p\)), which is also the stability trick.</li>
+<li><span class="term">cross-entropy</span> — \(-\log p_{\text{true}}\); equals NLL, so minimizing it is MLE.</li>
+<li><span class="term">(p − y) gradient</span> — softmax+CE composed gradient w.r.t. logits.</li>
+<li><span class="term">temperature τ</span> — divides logits; sharpens (τ&lt;1) or flattens (τ&gt;1) without changing argmax.</li>
+<li><span class="term">label smoothing</span> — replace one-hot \(y\) with \((1-\epsilon)\)-hot; regularizes confidence, slightly mis-calibrates.</li>
+</ul>
+<div class="related">Related: KL divergence (CE = entropy + KL), NLL, log-sum-exp.</div>
+</aside>
+
+<details class="quiz"><summary>Quiz: derive it</summary>
+<p><em>Q: Derive \(\partial \mathcal{L}/\partial z_i\) for softmax + CE.</em> — Write \(\mathcal{L} = -z_t + \log\sum_j e^{z_j}\) for true class \(t\); differentiate: \(-\mathbb{1}[i{=}t] + p_i = p_i - y_i\).</p>
+<p><em>Q: Why subtract the max before exponentiating?</em> — Softmax is invariant to adding a constant to all logits; subtracting the max makes every exponent ≤ 0, preventing overflow with no change in output.</p>
+</details>
+</section>
+
+<!-- ================================================================ 4 -->
+<section id="biasvar">
+<h2>4. Interactive: bias–variance explorer</h2>
+
+<figure class="viz">
+  <svg id="svg-fit" viewBox="0 0 640 340" role="img" aria-label="Noisy sine data with a polynomial fit whose degree is set by a slider"></svg>
+  <div class="viz-controls">
+    <label>polynomial degree <input type="range" id="bv-deg" min="1" max="12" step="1" value="3"> <span id="bv-deg-val" class="readout">3</span></label>
+  </div>
+  <div class="readout" id="bv-readout">train MSE — · test MSE —</div>
+  <figcaption>Forty fixed points from \(y = \sin(2\pi x) + 0.3\varepsilon\), split 20 train / 20 test. The fit is an honest least-squares polynomial solved in-page via the normal equations. Degree 1 can't bend (bias); degree 12 threads the noise (variance).</figcaption>
+  <div class="legend"><span><span style="display:inline-block;width:10px;height:10px;border-radius:50%;background:var(--s3)"></span> train</span> <span><span style="display:inline-block;width:10px;height:10px;border-radius:50%;border:2px solid var(--s2);background:transparent"></span> test</span> <span><span style="display:inline-block;width:14px;height:2px;background:var(--s1);vertical-align:middle"></span> polynomial fit</span> <span><span style="display:inline-block;width:14px;height:2px;background:var(--muted);vertical-align:middle"></span> true function (dashed)</span></div>
+</figure>
+
+<figure class="viz">
+  <svg id="svg-uch" viewBox="0 0 640 260" role="img" aria-label="Train and test error versus polynomial degree; the test curve traces a U shape"></svg>
+  <figcaption>Error vs degree, revealed up to your current slider position (all values precomputed from the same fits). Train error falls monotonically; test error traces the U. Zones are placed at the actual argmin of test error, not by decree.</figcaption>
+  <div class="legend"><span><span style="display:inline-block;width:14px;height:2px;background:var(--s2);vertical-align:middle"></span> train error</span> <span><span style="display:inline-block;width:14px;height:2px;background:var(--s6);vertical-align:middle"></span> test error</span></div>
+</figure>
+
+<div class="concept">
+<p>The expected test error of a regressor decomposes exactly:</p>
+<div class="math-block">$$\mathbb{E}\big[(y - \hat f(x))^2\big] = \underbrace{\sigma^2}_{\text{irreducible noise}} + \underbrace{\big(\mathbb{E}[\hat f(x)] - f(x)\big)^2}_{\text{bias}^2} + \underbrace{\mathbb{E}\big[(\hat f(x) - \mathbb{E}[\hat f(x)])^2\big]}_{\text{variance}}$$</div>
+<p>Bias: error from the hypothesis class being too rigid (degree 1 cannot represent a sine). Variance: error from the fit chasing this particular sample's noise (degree 12 would look wildly different on a re-drawn training set). Capacity trades one for the other; the test-error U is that trade made visible.</p>
+<p><strong>Modern caveat worth saying in the interview:</strong> heavily over-parameterized deep nets can descend again past the interpolation point ("double descent"), so the classical U is the right mental model for the classical regime and small data, not a universal law. SGD noise, augmentation, and early stopping all act as implicit variance control.</p>
+</div>
+
+<div class="callout"><strong>Intuition.</strong> Train error measures how well you memorized; test error measures how well you generalized; the gap between the two curves <em>is</em> overfitting. Watch the widget: the gap is tiny at degree 3 and a chasm at degree 12, while train error only ever improves — train error is a liar with a consistent direction.</div>
+
+<aside class="term-box">
+<strong>Memorize</strong>
+<ul>
+<li><span class="term">bias–variance decomposition</span> — noise + bias² + variance; holds exactly for squared error.</li>
+<li><span class="term">underfitting / overfitting</span> — high bias / high variance; diagnosed by train-vs-validation gap.</li>
+<li><span class="term">capacity</span> — richness of the hypothesis class (degree, width, depth).</li>
+<li><span class="term">double descent</span> — test error can fall again past interpolation in over-parameterized nets.</li>
+<li><span class="term">early stopping</span> — halting training as implicit regularization; cheap variance control.</li>
+</ul>
+<div class="related">Related: cross-validation, learning curves, effective capacity vs parameter count.</div>
+</aside>
+
+<details class="quiz"><summary>Quiz: diagnose from curves</summary>
+<p><em>Q: Train error 2%, val error 15%. Bias or variance? Two fixes.</em> — Variance (big gap). More data, augmentation, stronger regularization, or smaller model.</p>
+<p><em>Q: Train error 20%, val error 21%. Fixes?</em> — Bias (both high, tiny gap). Bigger model, richer features, train longer, reduce regularization. More data will <em>not</em> help.</p>
+</details>
+</section>
+
+<!-- ================================================================ 5 -->
+<section id="regularization">
+<h2>5. Regularization: L1 vs L2, and the AdamW subtlety</h2>
+
+<figure class="viz">
+  <svg id="svg-reg" viewBox="0 0 640 320" role="img" aria-label="Loss contours meeting an L1 diamond constraint at a sparse vertex, versus an L2 circle constraint at a dense point">
+    <!-- left panel: L1 -->
+    <g>
+      <line x1="40" y1="160" x2="280" y2="160" stroke="var(--axis)" stroke-width="1"/>
+      <line x1="160" y1="40" x2="160" y2="280" stroke="var(--axis)" stroke-width="1"/>
+      <!-- loss contours centered off-axis -->
+      <ellipse cx="235" cy="95" rx="18" ry="11" fill="none" stroke="var(--s6)" stroke-width="2" transform="rotate(-25 235 95)"/>
+      <ellipse cx="235" cy="95" rx="42" ry="26" fill="none" stroke="var(--s6)" stroke-width="1.5" opacity="0.7" transform="rotate(-25 235 95)"/>
+      <ellipse cx="235" cy="95" rx="70" ry="44" fill="none" stroke="var(--s6)" stroke-width="1.5" opacity="0.45" transform="rotate(-25 235 95)"/>
+      <ellipse cx="235" cy="95" rx="100" ry="63" fill="none" stroke="var(--s6)" stroke-width="1.5" opacity="0.25" transform="rotate(-25 235 95)"/>
+      <!-- diamond -->
+      <path d="M160 100 L220 160 L160 220 L100 160 Z" fill="var(--s1)" opacity="0.18" stroke="var(--s1)" stroke-width="2"/>
+      <!-- touching point at vertex (w1 axis) -->
+      <circle cx="160" cy="100" r="8" fill="var(--s1)" stroke="var(--ink)" stroke-width="1.5"/>
+      <text x="160" y="86" text-anchor="middle" fill="var(--ink-2)" font-size="12">w* hits a corner → w₁ = 0</text>
+      <text x="160" y="304" text-anchor="middle" fill="var(--ink)" font-size="13" font-weight="600">L1: ‖w‖₁ ≤ t (diamond)</text>
+    </g>
+    <!-- right panel: L2 -->
+    <g>
+      <line x1="360" y1="160" x2="600" y2="160" stroke="var(--axis)" stroke-width="1"/>
+      <line x1="480" y1="40" x2="480" y2="280" stroke="var(--axis)" stroke-width="1"/>
+      <ellipse cx="555" cy="95" rx="18" ry="11" fill="none" stroke="var(--s6)" stroke-width="2" transform="rotate(-25 555 95)"/>
+      <ellipse cx="555" cy="95" rx="42" ry="26" fill="none" stroke="var(--s6)" stroke-width="1.5" opacity="0.7" transform="rotate(-25 555 95)"/>
+      <ellipse cx="555" cy="95" rx="70" ry="44" fill="none" stroke="var(--s6)" stroke-width="1.5" opacity="0.45" transform="rotate(-25 555 95)"/>
+      <ellipse cx="555" cy="95" rx="100" ry="63" fill="none" stroke="var(--s6)" stroke-width="1.5" opacity="0.25" transform="rotate(-25 555 95)"/>
+      <circle cx="480" cy="160" r="60" fill="var(--s1)" opacity="0.18" stroke="var(--s1)" stroke-width="2"/>
+      <circle cx="512" cy="110" r="8" fill="var(--s1)" stroke="var(--ink)" stroke-width="1.5"/>
+      <text x="530" y="98" fill="var(--ink-2)" font-size="12">w* on the arc → both weights shrink</text>
+      <text x="480" y="304" text-anchor="middle" fill="var(--ink)" font-size="13" font-weight="600">L2: ‖w‖₂ ≤ t (circle)</text>
+    </g>
+    <text x="320" y="26" text-anchor="middle" fill="var(--muted)" font-size="12">contours = unregularized loss; shaded region = constraint set; the solution is where the lowest contour touches the region</text>
+  </svg>
+  <figcaption>Constrained view of regularization. Ellipse contours are the data loss; the penalty is equivalent to constraining <em>w</em> to the shaded set. The L1 diamond has corners on the axes, so the touching point often has exact zeros — sparsity. The L2 circle has no corners: everything shrinks, nothing dies.</figcaption>
+</figure>
+
+<div class="concept">
+<div class="math-block">$$\mathcal{L}_{L2} = \mathcal{L}_{data} + \tfrac{\lambda}{2}\|w\|_2^2 \;\Rightarrow\; \nabla = \nabla\mathcal{L}_{data} + \lambda w \qquad\quad \mathcal{L}_{L1} = \mathcal{L}_{data} + \lambda\|w\|_1 \;\Rightarrow\; \text{subgradient } \lambda\,\text{sign}(w)$$</div>
+<p>L2 adds a force proportional to the weight (big weights pulled hardest — "weight decay"); L1 adds a constant-magnitude force toward zero, which actually reaches zero → feature selection. Bayesian reading: L2 = Gaussian prior on weights, L1 = Laplace prior.</p>
+<p><strong>The AdamW subtlety (worth one sentence in any interview):</strong> with SGD, adding \(\frac{\lambda}{2}\|w\|^2\) to the loss and decaying weights directly are the same update. With Adam they are <em>not</em>: the L2 gradient term \(\lambda w\) gets divided by Adam's per-parameter \(\sqrt{\hat v}\), so frequently-updated weights are barely regularized. AdamW decouples the decay — applies \(w \leftarrow w - \eta\lambda w\) outside the adaptive rescaling — restoring uniform decay. That decoupling is the whole difference between Adam+L2 and AdamW.</p>
+</div>
+
+<div class="callout"><strong>Intuition.</strong> Ask "where does the shrinking force stop?" L2's force fades as the weight shrinks (proportional), so weights asymptote near zero but never land. L1's force stays constant, so small weights get shoved exactly to zero and pinned there by the corner of the diamond.</div>
+
+<aside class="term-box">
+<strong>Memorize</strong>
+<ul>
+<li><span class="term">L2 / weight decay / ridge</span> — proportional shrinkage; Gaussian prior; keeps all features.</li>
+<li><span class="term">L1 / lasso</span> — constant shrinkage; Laplace prior; exact sparsity.</li>
+<li><span class="term">AdamW</span> — decoupled weight decay applied outside the adaptive-gradient rescaling; not equivalent to Adam + L2.</li>
+<li><span class="term">elastic net</span> — L1 + L2 mixture; sparsity plus stability under correlated features.</li>
+<li><span class="term">implicit regularization</span> — SGD noise, early stopping, augmentation, dropout regularize without a penalty term.</li>
+</ul>
+<div class="related">Related: MAP estimation, dropout, data augmentation as regularization.</div>
+</aside>
+
+<details class="quiz"><summary>Quiz: which penalty, and why</summary>
+<p><em>Q: 10,000 candidate features, you suspect ~50 matter. Which penalty?</em> — L1 (or elastic net if features correlate): you want exact zeros, i.e. selection.</p>
+<p><em>Q: Why did switching Adam → AdamW at the same λ change your results?</em> — Adam+L2 scales the decay by the inverse adaptive step so hot parameters escape regularization; AdamW applies it uniformly. Same λ, different effective regularization.</p>
+</details>
+</section>
+
+<!-- ================================================================ 6 -->
+<section id="confusion">
+<h2>6. Interactive: confusion matrix → metrics, and the imbalance trap</h2>
+
+<figure class="viz">
+  <div class="viz-controls" id="cm-grid" style="display:grid;grid-template-columns:auto auto auto;gap:6px;align-items:center;max-width:460px">
+    <span></span><strong style="text-align:center">predicted +</strong><strong style="text-align:center">predicted −</strong>
+    <strong>actual +</strong>
+    <label>TP <input type="number" id="cm-tp" value="80" min="0" step="1" style="width:6.5em"></label>
+    <label>FN <input type="number" id="cm-fn" value="20" min="0" step="1" style="width:6.5em"></label>
+    <strong>actual −</strong>
+    <label>FP <input type="number" id="cm-fp" value="2" min="0" step="1" style="width:6.5em"></label>
+    <label>TN <input type="number" id="cm-tn" value="98" min="0" step="1" style="width:6.5em"></label>
+  </div>
+  <div class="viz-controls">
+    <button id="cm-imbalance" type="button">make it 1:100 imbalanced (×100 negatives, same per-class rates)</button>
+    <button id="cm-reset" type="button">reset</button>
+  </div>
+  <div class="readout" id="cm-readout">—</div>
+  <figcaption>Live metrics from the four cells. The imbalance button multiplies FP and TN by 100 — the classifier's <em>behavior per class</em> (TPR, FPR) is unchanged; only the population mix changes. Accuracy climbs; precision craters.</figcaption>
+</figure>
+
+<div class="concept">
+<div class="math-block">$$\text{precision} = \frac{TP}{TP+FP} \qquad \text{recall (TPR)} = \frac{TP}{TP+FN} \qquad F_1 = \frac{2PR}{P+R} \qquad \text{accuracy} = \frac{TP+TN}{\text{all}}$$</div>
+<p>Precision conditions on <em>your predictions</em> ("when I raise an alarm, how often am I right?"); recall conditions on <em>reality</em> ("of the real events, how many did I catch?"). Only precision has FP in its denominator — so only precision feels the size of the negative pool. That asymmetry is the entire imbalance story: hold TPR and FPR fixed, multiply negatives by 100, and FP grows 100× while TP doesn't. Precision \(= \pi\,TPR / (\pi\,TPR + (1-\pi)FPR)\) collapses with prevalence \(\pi\); recall never moves.</p>
+<p>AV framing: pedestrians in the far field are a 1:many-thousand problem per frame. A detector with a "great" 0.1% per-proposal FPR still buries you in false positives because proposals are almost all negative. You tune per-class thresholds against precision/recall at deployment prevalence, never against accuracy.</p>
+</div>
+
+<div class="callout"><strong>Intuition.</strong> Accuracy is a weighted vote where the majority class holds almost all the votes. At 1:100, the constant classifier "always negative" scores 99% — accuracy answers a question nobody asked. Precision and recall each condition away the imbalance in one direction; F1 forces you to be honest in both.</div>
+
+<aside class="term-box">
+<strong>Memorize</strong>
+<ul>
+<li><span class="term">precision</span> — TP/(TP+FP); conditions on predictions; prevalence-sensitive.</li>
+<li><span class="term">recall / sensitivity / TPR</span> — TP/(TP+FN); conditions on actual positives; prevalence-free.</li>
+<li><span class="term">F1</span> — harmonic mean of P and R; harmonic → the weaker one dominates.</li>
+<li><span class="term">prevalence π</span> — positive fraction; the hidden variable behind every "accuracy is high" claim.</li>
+<li><span class="term">FPR / specificity</span> — FP/(FP+TN) and its complement; the per-negative error rate.</li>
+</ul>
+<div class="related">Related: class weighting, focal loss, resampling, threshold tuning.</div>
+</aside>
+
+<details class="quiz"><summary>Quiz: the imbalance twist</summary>
+<p><em>Q: After the ×100 button, which metrics moved and which didn't? Why?</em> — Recall and FPR are frozen (per-class rates). Precision and F1 collapsed (FP denominator grew 100×). Accuracy rose toward the TNR because negatives now dominate the average.</p>
+<p><em>Q: Your rare-event classifier reports 99.2% accuracy. What do you ask first?</em> — The prevalence, then precision/recall at the operating threshold.</p>
+</details>
+</section>
+
+<!-- ================================================================ 7 -->
+<section id="rocpr">
+<h2>7. ROC vs PR: the same classifier under two prevalences</h2>
+
+<figure class="viz">
+  <div style="display:flex;flex-wrap:wrap;gap:12px">
+    <svg id="svg-roc" viewBox="0 0 320 300" role="img" aria-label="ROC curve, identical at both imbalance ratios" style="flex:1 1 300px;max-width:100%"></svg>
+    <svg id="svg-pr" viewBox="0 0 320 300" role="img" aria-label="Precision-recall curves at balanced and 1:99 prevalence, showing the PR curve degrading" style="flex:1 1 300px;max-width:100%"></svg>
+  </div>
+  <figcaption>One score model — positives ~ 𝒩(1.5, 1), negatives ~ 𝒩(0, 1), threshold swept — evaluated at two prevalences. Points are computed in-page from Gaussian CDFs. Left: the ROC curve is <em>identical</em> for both (TPR and FPR are per-class rates; prevalence cancels). Right: the PR curve for the same scores sags badly at π = 0.01.</figcaption>
+  <div class="legend"><span><span style="display:inline-block;width:14px;height:2px;background:var(--s1);vertical-align:middle"></span> balanced, π = 0.5</span> <span><span style="display:inline-block;width:14px;height:2px;background:var(--s2);vertical-align:middle"></span> imbalanced, π = 0.01</span> <span><span style="display:inline-block;width:14px;height:2px;background:var(--muted);vertical-align:middle"></span> chance</span></div>
+</figure>
+
+<div class="concept">
+<p>ROC plots TPR vs FPR — both are <em>within-class</em> rates, so class mix never enters and the curve (and AUC) is prevalence-invariant. That invariance is a feature for comparing scoring functions and a bug for judging deployments: at 1:100, an FPR that looks tiny on the ROC x-axis is an avalanche of absolute false positives.</p>
+<p>PR swaps the x-axis contaminant for precision, which mixes classes through its FP denominator: \(P = \pi\,TPR/(\pi\,TPR + (1-\pi)FPR)\). Same curve-generating scores, but at \(\pi = 0.01\) each unit of FPR costs 99× more precision. The PR baseline also shifts: a random classifier gets precision \(= \pi\), not 0.5 — so "PR-AUC 0.30" can be excellent at \(\pi=0.01\) and terrible at \(\pi=0.5\).</p>
+<p><strong>Rule:</strong> ROC/AUC to compare rankers or when both classes matter symmetrically; PR when positives are rare and FP cost is the pain (rare-object detection, safety triggers, alert pipelines).</p>
+</div>
+
+<div class="callout"><strong>Intuition.</strong> ROC asks "how well do you separate the two piles?" — a property of the scores. PR asks "how usable are your alarms?" — a property of the scores <em>and</em> the world. When the world is 99% negatives, only PR tells you what the on-call experience will be.</div>
+
+<aside class="term-box">
+<strong>Memorize</strong>
+<ul>
+<li><span class="term">ROC / AUC</span> — TPR vs FPR; AUC = P(random positive scores above random negative); prevalence-invariant.</li>
+<li><span class="term">PR curve / AP</span> — precision vs recall; baseline = prevalence; the imbalance-honest view.</li>
+<li><span class="term">operating point</span> — one threshold = one point on either curve; deployment picks it by cost.</li>
+<li><span class="term">mAP</span> — detection's mean AP over classes (and IoU thresholds in COCO) — PR is the backbone of every detection benchmark.</li>
+</ul>
+<div class="related">Related: detection-error tradeoff (DET) curves, cost curves, Youden's J.</div>
+</aside>
+
+<details class="quiz"><summary>Quiz: which curve lies?</summary>
+<p><em>Q: A colleague shows ROC-AUC 0.95 for a rare-defect detector and calls it deployable. What's the trap?</em> — At low prevalence, high AUC coexists with unusable precision. Ask for the PR curve or precision at the required recall.</p>
+<p><em>Q: Why is the ROC curve literally identical at both ratios in the figure?</em> — TPR and FPR are each computed inside one class; changing how many of each class exist rescales counts, not rates.</p>
+</details>
+</section>
+
+<!-- ================================================================ 8 -->
+<section id="calibration">
+<h2>8. Calibration: does 0.8 mean 80%?</h2>
+
+<figure class="viz">
+  <svg id="svg-cal" viewBox="0 0 640 320" role="img" aria-label="Reliability diagram: per-bin accuracy bars falling below the diagonal for an overconfident model"></svg>
+  <figcaption>Reliability diagram (schematic of a typically <em>overconfident</em> modern net; bar heights follow acc ≈ conf<sup>1.6</sup>, drawn to illustrate the shape, not measured). Predictions are binned by confidence; each bar is the empirical accuracy in that bin. A calibrated model sits on the diagonal; bars below it mean the model is more confident than correct. The shaded gap is what ECE averages.</figcaption>
+  <div class="legend"><span><span style="display:inline-block;width:10px;height:10px;background:var(--s1)"></span> per-bin accuracy</span> <span><span style="display:inline-block;width:14px;height:2px;background:var(--muted);vertical-align:middle"></span> perfect calibration</span> <span><span style="display:inline-block;width:10px;height:10px;background:var(--s6);opacity:.35"></span> confidence gap</span></div>
+</figure>
+
+<div class="concept">
+<p>A model is <strong>calibrated</strong> if, among all predictions made with confidence \(p\), a fraction \(p\) are correct. Accuracy and calibration are orthogonal: modern nets got more accurate and <em>less</em> calibrated (Guo et al. 2017) — CE training plus overfitting pushes confidences toward 1.</p>
+<p><strong>Temperature scaling</strong> is the embarrassingly effective fix: learn a single scalar \(T\) on a held-out set and predict with</p>
+<div class="math-block">$$p_i = \text{softmax}(z_i / T), \qquad T \text{ chosen to minimize validation NLL}$$</div>
+<p>Because dividing all logits by the same \(T\) is monotone, <strong>argmax — and therefore accuracy, ROC, and every ranking metric — is exactly preserved</strong>; only the confidence values move. \(T > 1\) softens an overconfident model. One parameter, fit in seconds, and it's the standard first move before anything fancier (Platt scaling, isotonic regression, ensembles).</p>
+<p>Why you care in an AV stack: downstream consumers — fusion, tracking, planning — treat the confidence as a probability when weighting evidence. An overconfident 0.99 on a phantom detection propagates as near-certainty into the planner. Calibration is a system-safety property, not a leaderboard nicety.</p>
+</div>
+
+<div class="callout"><strong>Intuition.</strong> Temperature scaling can't fix a bad ranker — it only relabels the confidence axis. If the reliability bars are non-monotone (some 0.6-bin outperforming the 0.8-bin), one global temperature can't repair that; you need isotonic regression or a better model.</div>
+
+<aside class="term-box">
+<strong>Memorize</strong>
+<ul>
+<li><span class="term">calibration</span> — confidence matches empirical accuracy, per confidence level.</li>
+<li><span class="term">reliability diagram</span> — binned confidence vs accuracy; diagonal = calibrated.</li>
+<li><span class="term">ECE</span> — expected calibration error: bin-weighted average |accuracy − confidence|.</li>
+<li><span class="term">temperature scaling</span> — one scalar on logits, fit on held-out NLL; preserves argmax, moves confidence.</li>
+<li><span class="term">overconfidence</span> — the default failure of CE-trained deep nets.</li>
+</ul>
+<div class="related">Related: Platt scaling, isotonic regression, label smoothing (helps calibration a little), distillation temperature (§ inference page).</div>
+</aside>
+
+<details class="quiz"><summary>Quiz: what temperature scaling can and can't do</summary>
+<p><em>Q: Does temperature scaling change top-1 accuracy? mAP? ECE?</em> — No, no, yes. Monotone transform → rankings untouched; only probability values (hence ECE, NLL, Brier) change.</p>
+<p><em>Q: T fitted on validation comes out at 2.4. What does that say about the model?</em> — Strongly overconfident: logits need substantial softening before confidences match reality.</p>
+</details>
+</section>
+
+<!-- ================================================================ 9 -->
+<section id="classical">
+<h2>9. Classical vs learned: when logistic regression and GBTs still win</h2>
+
+<div class="concept">
+<p>The system-design round wants judgment, not deep-learning maximalism. The honest decision table:</p>
+<div style="overflow-x:auto">
+<table>
+<thead><tr><th>Situation</th><th>Reach for</th><th>Why</th></tr></thead>
+<tbody>
+<tr><td>Tabular features, ≤ ~100k rows</td><td>Gradient-boosted trees (XGBoost/LightGBM)</td><td>Still the strongest prior for heterogeneous tabular data; no representation to learn; handles missing values and mixed scales natively.</td></tr>
+<tr><td>Need coefficients you can defend (safety case, regulator, ablation)</td><td>Logistic regression</td><td>Monotone, auditable, convex (one global optimum), well-calibrated out of the box.</td></tr>
+<tr><td>Milliseconds-and-microwatts budget (MCU-class edge, per-track gating)</td><td>LR or a tiny tree</td><td>A dot product beats a forward pass; trivial to verify and quantize.</td></tr>
+<tr><td>Tiny labeled set, strong hand-crafted features exist</td><td>Classical + features</td><td>Deep nets spend their sample budget learning features you already have.</td></tr>
+<tr><td>Raw perceptual input: images, point clouds, audio, language</td><td>Deep nets, no contest</td><td>Feature learning is the whole game; hand-crafted descriptors lost this fight in 2012.</td></tr>
+<tr><td>Baseline / sanity harness for any of the above</td><td>LR first, always</td><td>If the deep model can't beat LR on your features, the pipeline — not the model — is the problem.</td></tr>
+</tbody>
+</table>
+</div>
+<p>In an AV org both live side by side: deep nets own the sensor-to-semantics layers, while classical models still show up in trigger/gating logic, log mining, diagnostics classifiers, and anywhere a safety argument needs a model a human can read. Saying "I'd baseline with logistic regression before spending GPU-weeks" is a senior answer.</p>
+</div>
+
+<div class="callout"><strong>Intuition.</strong> Deep learning wins where the features must be <em>learned</em>; classical wins where the features already <em>exist</em>. Ask "what's the representation gap?" — if it's zero (tabular), the deep net has no edge and worse variance.</div>
+
+<aside class="term-box">
+<strong>Memorize</strong>
+<ul>
+<li><span class="term">GBTs</span> — sequential trees fit to residual gradients; tabular king; watch for extrapolation failure outside the training hull.</li>
+<li><span class="term">convexity of LR</span> — logistic loss is convex in w → one global optimum, deterministic training.</li>
+<li><span class="term">inductive bias</span> — what each family assumes: trees = axis-aligned splits, convnets = locality + translation equivariance, transformers = learned pairwise relations.</li>
+<li><span class="term">baseline discipline</span> — always price the simple model first; it's your denominator for "was the deep net worth it?"</li>
+</ul>
+<div class="related">Related: feature engineering, model cards, distillation of a big model into an auditable small one.</div>
+</aside>
+
+<details class="quiz"><summary>Quiz: pick the tool</summary>
+<p><em>Q: Classify which logged disengagements need human review, from 40 structured telemetry features, 30k labeled rows.</em> — GBT (or LR baseline first). Tabular, small-ish, no representation gap; a deep net adds variance and opacity for nothing.</p>
+<p><em>Q: When would you replace that GBT with a net?</em> — When raw signals (camera clips, trajectories) enter the input and hand features start losing information — i.e., when a representation gap appears.</p>
+</details>
+</section>
+
+<script>
+(function(){
+"use strict";
+// ---------- shared helpers ----------
+function mulberry32(a){return function(){a|=0;a=a+0x6D2B79F5|0;var t=Math.imul(a^a>>>15,1|a);t=t+Math.imul(t^t>>>7,61|t)^t;return((t^t>>>14)>>>0)/4294967296;};}
+function gauss(rng){var u=Math.max(rng(),1e-12),v=rng();return Math.sqrt(-2*Math.log(u))*Math.cos(2*Math.PI*v);}
+function erf(x){var s=x<0?-1:1;x=Math.abs(x);var t=1/(1+0.3275911*x);
+  var y=1-(((((1.061405429*t-1.453152027)*t)+1.421413741)*t-0.284496736)*t+0.254829592)*t*Math.exp(-x*x);return s*y;}
+function Phi(x){return 0.5*(1+erf(x/Math.SQRT2));}
+var SVGNS="http://www.w3.org/2000/svg";
+function el(tag,attrs,parent){var e=document.createElementNS(SVGNS,tag);for(var k in attrs)e.setAttribute(k,attrs[k]);if(parent)parent.appendChild(e);return e;}
+function txt(parent,x,y,s,attrs){var e=el("text",Object.assign({x:x,y:y,fill:"var(--muted)","font-size":"11"},attrs||{}),parent);e.textContent=s;return e;}
+function clearSvg(s){while(s.firstChild)s.removeChild(s.firstChild);}
+function fmt(v,d){return Number(v).toFixed(d===undefined?2:d);}
+
+// ================= 2. logistic regression playground =================
+(function(){
+  var svg=document.getElementById("svg-logistic");
+  var wS=document.getElementById("lr-w"),bS=document.getElementById("lr-b");
+  var wV=document.getElementById("lr-w-val"),bV=document.getElementById("lr-b-val");
+  var out=document.getElementById("lr-readout");
+  if(!svg||!wS||!bS||!out)return;
+  // fixed dataset: 30 points on x in [0,10]
+  var rng=mulberry32(42),pts=[];
+  for(var i=0;i<15;i++)pts.push({x:0.5+rng()*5.0,y:0});   // class 0, some overlap past 4.5
+  for(var j=0;j<15;j++)pts.push({x:4.5+rng()*5.0,y:1});   // class 1
+  pts.forEach(function(p,k){p.jit=(mulberry32(100+k)()-0.5)*0.06;}); // display-only jitter
+  var M={l:60,r:20,t:20,b:44},W=640,H=340,pw=W-M.l-M.r,ph=H-M.t-M.b;
+  function sx(x){return M.l+x/10*pw;}
+  function sy(p){return M.t+(1.05-p)/1.2*ph;} // p domain [-0.15,1.05]
+  function render(){
+    var w=parseFloat(wS.value),b=parseFloat(bS.value);
+    wV.textContent=fmt(w);bV.textContent=fmt(b);
+    clearSvg(svg);
+    // axes + gridlines at p=0,0.5,1
+    [0,0.5,1].forEach(function(g){
+      el("line",{x1:M.l,x2:W-M.r,y1:sy(g),y2:sy(g),stroke:g===0.5?"var(--grid)":"var(--axis)","stroke-width":1,"stroke-dasharray":g===0.5?"4 4":"none"},svg);
+      txt(svg,M.l-8,sy(g)+4,String(g),{"text-anchor":"end"});
+    });
+    txt(svg,W/2,H-8,"x",{ "text-anchor":"middle","font-size":"13"});
+    txt(svg,18,H/2,"p(y=1|x)",{transform:"rotate(-90 18 "+(H/2)+")","text-anchor":"middle","font-size":"13"});
+    // sigmoid curve
+    var d="";
+    for(var xx=0;xx<=10.001;xx+=0.05){
+      var p=1/(1+Math.exp(-(w*xx+b)));
+      d+=(d?"L":"M")+fmt(sx(xx),1)+" "+fmt(sy(p),1);
+    }
+    el("path",{d:d,fill:"none",stroke:"var(--s1)","stroke-width":2},svg);
+    // decision threshold x* = -b/w
+    if(Math.abs(w)>1e-6){
+      var xstar=-b/w;
+      if(xstar>=0&&xstar<=10){
+        el("line",{x1:sx(xstar),x2:sx(xstar),y1:M.t,y2:H-M.b,stroke:"var(--s6)","stroke-width":2,"stroke-dasharray":"6 4"},svg);
+        txt(svg,sx(xstar)+5,M.t+12,"x* = "+fmt(xstar,2),{fill:"var(--ink-2)"});
+      }
+    }
+    // points + metrics
+    var correct=0,ce=0;
+    pts.forEach(function(p){
+      var prob=1/(1+Math.exp(-(w*p.x+b)));
+      var pred=prob>=0.5?1:0;
+      if(pred===p.y)correct++;
+      var pc=Math.min(Math.max(prob,1e-9),1-1e-9);
+      ce+=-(p.y*Math.log(pc)+(1-p.y)*Math.log(1-pc));
+      var c=el("circle",{cx:sx(p.x),cy:sy(p.y+p.jit),r:5.5,fill:p.y?"var(--s2)":"var(--s3)",
+        stroke:pred===p.y?"none":"var(--s6)","stroke-width":2},svg);
+      if(window.vizTooltip)window.vizTooltip(c,function(){return "x="+fmt(p.x,2)+"  class "+p.y+"  p="+fmt(prob,3)+(pred===p.y?"":"  (misclassified)");});
+    });
+    out.textContent="accuracy "+correct+"/30 = "+fmt(100*correct/30,1)+"%  ·  mean cross-entropy "+fmt(ce/30,3)+"  (misclassified points ringed)";
+  }
+  wS.addEventListener("input",render);bS.addEventListener("input",render);
+  render();
+})();
+
+// ================= 3. softmax temperature bars =================
+(function(){
+  var svg=document.getElementById("svg-temp");if(!svg)return;
+  var logits=[2.0,1.0,0.2],taus=[0.5,1,2],cols=["var(--s1)","var(--s2)","var(--s3)"];
+  var M={l:56,r:16,t:22,b:46},W=640,H=300,pw=W-M.l-M.r,ph=H-M.t-M.b;
+  function softmax(z,t){var m=Math.max.apply(null,z),ex=z.map(function(v){return Math.exp((v-m)/t);}),s=ex.reduce(function(a,b){return a+b;},0);return ex.map(function(v){return v/s;});}
+  // y axis 0..1
+  [0,0.25,0.5,0.75,1].forEach(function(g){
+    var y=M.t+ph*(1-g);
+    el("line",{x1:M.l,x2:W-M.r,y1:y,y2:y,stroke:g===0?"var(--axis)":"var(--grid)","stroke-width":1},svg);
+    txt(svg,M.l-8,y+4,fmt(g,2),{"text-anchor":"end"});
+  });
+  txt(svg,16,H/2,"probability",{transform:"rotate(-90 16 "+(H/2)+")","text-anchor":"middle","font-size":"13"});
+  var groupW=pw/taus.length,barW=Math.min(34,groupW/5);
+  taus.forEach(function(tau,g){
+    var p=softmax(logits,tau),gx=M.l+g*groupW+groupW/2;
+    p.forEach(function(pi,i){
+      var x=gx+(i-1)*(barW+6)-barW/2,h=pi*ph;
+      el("rect",{x:x,y:M.t+ph-h,width:barW,height:h,fill:cols[i],rx:3},svg);
+      txt(svg,x+barW/2,M.t+ph-h-5,fmt(pi,2),{"text-anchor":"middle",fill:"var(--ink-2)"});
+    });
+    txt(svg,gx,H-14,"τ = "+tau+(tau===0.5?" (sharpen)":tau===2?" (soften)":""),{"text-anchor":"middle","font-size":"12",fill:"var(--ink)"});
+  });
+})();
+
+// ================= 4. bias-variance explorer =================
+(function(){
+  var svg=document.getElementById("svg-fit"),chart=document.getElementById("svg-uch");
+  var slider=document.getElementById("bv-deg"),degV=document.getElementById("bv-deg-val"),out=document.getElementById("bv-readout");
+  if(!svg||!chart||!slider||!out)return;
+  // fixed dataset
+  var rng=mulberry32(7),N=40,data=[];
+  for(var i=0;i<N;i++){var x=i/(N-1);data.push({x:x,y:Math.sin(2*Math.PI*x)+0.3*gauss(rng)});}
+  var train=data.filter(function(_,i){return i%2===0;}),test=data.filter(function(_,i){return i%2===1;});
+  // least squares on monomials of t=2x-1, tiny ridge for conditioning
+  function fitPoly(pts,deg){
+    var n=deg+1,A=[],b=[];
+    for(var r=0;r<n;r++){A.push(new Array(n).fill(0));b.push(0);}
+    pts.forEach(function(p){
+      var t=2*p.x-1,phi=[1];
+      for(var k=1;k<n;k++)phi.push(phi[k-1]*t);
+      for(var r2=0;r2<n;r2++){b[r2]+=phi[r2]*p.y;for(var c=0;c<n;c++)A[r2][c]+=phi[r2]*phi[c];}
+    });
+    for(var d2=0;d2<n;d2++)A[d2][d2]+=1e-9;
+    // gaussian elimination, partial pivot
+    for(var col=0;col<n;col++){
+      var piv=col;for(var r3=col+1;r3<n;r3++)if(Math.abs(A[r3][col])>Math.abs(A[piv][col]))piv=r3;
+      var tmp=A[col];A[col]=A[piv];A[piv]=tmp;var tb=b[col];b[col]=b[piv];b[piv]=tb;
+      for(var r4=col+1;r4<n;r4++){var f=A[r4][col]/A[col][col];for(var c2=col;c2<n;c2++)A[r4][c2]-=f*A[col][c2];b[r4]-=f*b[col];}
+    }
+    var w=new Array(n).fill(0);
+    for(var r5=n-1;r5>=0;r5--){var s=b[r5];for(var c3=r5+1;c3<n;c3++)s-=A[r5][c3]*w[c3];w[r5]=s/A[r5][r5];}
+    return w;
+  }
+  function evalPoly(w,x){var t=2*x-1,s=0,pk=1;for(var k=0;k<w.length;k++){s+=w[k]*pk;pk*=t;}return s;}
+  function mse(w,pts){return pts.reduce(function(a,p){var e=p.y-evalPoly(w,p.x);return a+e*e;},0)/pts.length;}
+  // precompute all degrees (honest: same fits drive both views)
+  var fits={},errs=[];
+  for(var d=1;d<=12;d++){var w=fitPoly(train,d);fits[d]=w;errs.push({d:d,tr:mse(w,train),te:mse(w,test)});}
+  var bestD=errs.reduce(function(a,e){return e.te<a.te?e:a;},errs[0]).d;
+  // ---- fit panel ----
+  var M={l:56,r:16,t:16,b:40},W=640,H=340,pw=W-M.l-M.r,ph=H-M.t-M.b,Y0=-1.8,Y1=1.8;
+  function sx(x){return M.l+x*pw;}
+  function sy(y){return M.t+(Y1-y)/(Y1-Y0)*ph;}
+  function renderFit(deg){
+    clearSvg(svg);
+    [-1,0,1].forEach(function(g){el("line",{x1:M.l,x2:W-M.r,y1:sy(g),y2:sy(g),stroke:g===0?"var(--axis)":"var(--grid)","stroke-width":1},svg);txt(svg,M.l-8,sy(g)+4,String(g),{"text-anchor":"end"});});
+    txt(svg,W/2,H-8,"x",{"text-anchor":"middle","font-size":"13"});
+    // true function
+    var dT="";for(var x=0;x<=1.001;x+=0.01)dT+=(dT?"L":"M")+fmt(sx(x),1)+" "+fmt(sy(Math.sin(2*Math.PI*x)),1);
+    el("path",{d:dT,fill:"none",stroke:"var(--muted)","stroke-width":1.5,"stroke-dasharray":"5 5"},svg);
+    // fit curve (clamped to panel)
+    var w=fits[deg],dF="";
+    for(var x2=0;x2<=1.001;x2+=0.005){var y=Math.max(Y0,Math.min(Y1,evalPoly(w,x2)));dF+=(dF?"L":"M")+fmt(sx(x2),1)+" "+fmt(sy(y),1);}
+    el("path",{d:dF,fill:"none",stroke:"var(--s1)","stroke-width":2},svg);
+    train.forEach(function(p){el("circle",{cx:sx(p.x),cy:sy(p.y),r:5,fill:"var(--s3)"},svg);});
+    test.forEach(function(p){el("circle",{cx:sx(p.x),cy:sy(p.y),r:5,fill:"none",stroke:"var(--s2)","stroke-width":2},svg);});
+  }
+  // ---- U-curve panel ----
+  var m2={l:56,r:16,t:18,b:40},W2=640,H2=260,pw2=W2-m2.l-m2.r,ph2=H2-m2.t-m2.b;
+  var Emax=0.5; // clip for readability; test error at degree 12 can exceed this
+  function dx(d3){return m2.l+(d3-1)/11*pw2;}
+  function dy(e){return m2.t+(1-Math.min(e,Emax)/Emax)*ph2;}
+  function renderChart(deg){
+    clearSvg(chart);
+    [0,0.1,0.2,0.3,0.4,0.5].forEach(function(g){el("line",{x1:m2.l,x2:W2-m2.r,y1:dy(g),y2:dy(g),stroke:g===0?"var(--axis)":"var(--grid)","stroke-width":1},chart);txt(chart,m2.l-8,dy(g)+4,fmt(g,1),{"text-anchor":"end"});});
+    for(var d4=1;d4<=12;d4++)txt(chart,dx(d4),H2-22,String(d4),{"text-anchor":"middle"});
+    txt(chart,W2/2,H2-6,"polynomial degree",{"text-anchor":"middle","font-size":"12"});
+    txt(chart,16,H2/2,"MSE",{transform:"rotate(-90 16 "+(H2/2)+")","text-anchor":"middle","font-size":"12"});
+    // zones based on actual argmin of test error
+    var zx0=dx(1),zx1=dx(Math.max(1,bestD-1)),zx2=dx(Math.min(12,bestD+1)),zx3=dx(12);
+    [["underfit",zx0,zx1],["sweet spot",zx1,zx2],["overfit",zx2,zx3]].forEach(function(z,i){
+      el("rect",{x:z[1],y:m2.t,width:Math.max(z[2]-z[1],0),height:ph2,fill:"var(--seq-2)",opacity:i===1?0.35:0.15},chart);
+      txt(chart,(z[1]+z[2])/2,m2.t+14,z[0],{"text-anchor":"middle","font-size":"11",fill:"var(--ink-2)"});
+    });
+    // curves up to current degree
+    function path(key,color){
+      var d5="";errs.forEach(function(e){if(e.d<=deg)d5+=(d5?"L":"M")+fmt(dx(e.d),1)+" "+fmt(dy(e[key]),1);});
+      if(d5)el("path",{d:d5,fill:"none",stroke:color,"stroke-width":2},chart);
+      errs.forEach(function(e){if(e.d<=deg){var c=el("circle",{cx:dx(e.d),cy:dy(e[key]),r:4,fill:color},chart);
+        if(window.vizTooltip)window.vizTooltip(c,function(){return "degree "+e.d+"  "+(key==="tr"?"train":"test")+" MSE "+fmt(e[key],4)+(e[key]>Emax?" (clipped in chart)":"");});}});
+    }
+    path("tr","var(--s2)");path("te","var(--s6)");
+  }
+  function update(){
+    var deg=parseInt(slider.value,10);
+    degV.textContent=String(deg);
+    renderFit(deg);renderChart(deg);
+    var e=errs[deg-1];
+    var zone=deg<bestD-1?"underfitting":(deg>bestD+1?"overfitting":"near the sweet spot");
+    out.textContent="degree "+deg+"  ·  train MSE "+fmt(e.tr,4)+"  ·  test MSE "+fmt(e.te,4)+"  ·  "+zone+" (test-error argmin at degree "+bestD+")";
+  }
+  slider.addEventListener("input",update);
+  update();
+})();
+
+// ================= 6. confusion matrix calculator =================
+(function(){
+  var ids=["tp","fp","fn","tn"],inputs={};
+  var ok=true;
+  ids.forEach(function(k){inputs[k]=document.getElementById("cm-"+k);if(!inputs[k])ok=false;});
+  var out=document.getElementById("cm-readout"),btn=document.getElementById("cm-imbalance"),rst=document.getElementById("cm-reset");
+  if(!ok||!out)return;
+  var defaults={tp:80,fp:2,fn:20,tn:98};
+  function val(k){var v=parseFloat(inputs[k].value);return isFinite(v)&&v>=0?v:0;}
+  function compute(){
+    var TP=val("tp"),FP=val("fp"),FN=val("fn"),TN=val("tn"),n=TP+FP+FN+TN;
+    if(n===0){out.textContent="enter some counts";return;}
+    var P=TP+FP>0?TP/(TP+FP):NaN,R=TP+FN>0?TP/(TP+FN):NaN;
+    var F1=(P>0&&R>0)?2*P*R/(P+R):NaN,acc=(TP+TN)/n,prev=(TP+FN)/n;
+    function pct(v){return isFinite(v)?fmt(100*v,1)+"%":"undef";}
+    out.textContent="precision "+pct(P)+"  ·  recall "+pct(R)+"  ·  F1 "+pct(F1)+"  ·  accuracy "+pct(acc)+"  ·  prevalence "+pct(prev);
+  }
+  ids.forEach(function(k){inputs[k].addEventListener("input",compute);});
+  if(btn)btn.addEventListener("click",function(){
+    inputs.fp.value=String(val("fp")*100);inputs.tn.value=String(val("tn")*100);compute();
+  });
+  if(rst)rst.addEventListener("click",function(){
+    ids.forEach(function(k){inputs[k].value=String(defaults[k]);});compute();
+  });
+  compute();
+})();
+
+// ================= 7. ROC vs PR under imbalance =================
+(function(){
+  var rocSvg=document.getElementById("svg-roc"),prSvg=document.getElementById("svg-pr");
+  if(!rocSvg||!prSvg)return;
+  // score model: pos ~ N(mu,1), neg ~ N(0,1); sweep threshold
+  var mu=1.5,pts=[];
+  for(var t=6;t>=-5;t-=0.1){pts.push({tpr:1-Phi(t-mu),fpr:1-Phi(t)});}
+  function precision(pi,p){var d=pi*p.tpr+(1-pi)*p.fpr;return d>0?pi*p.tpr/d:1;}
+  function panel(svg,title,xlab,ylab){
+    var M={l:48,r:10,t:26,b:40},W=320,H=300,pw=W-M.l-M.r,ph=H-M.t-M.b;
+    [0,0.25,0.5,0.75,1].forEach(function(g){
+      el("line",{x1:M.l,x2:W-M.r,y1:M.t+ph*(1-g),y2:M.t+ph*(1-g),stroke:g===0?"var(--axis)":"var(--grid)","stroke-width":1},svg);
+      el("line",{y1:M.t,y2:H-M.b,x1:M.l+pw*g,x2:M.l+pw*g,stroke:g===0?"var(--axis)":"var(--grid)","stroke-width":1},svg);
+      txt(svg,M.l-6,M.t+ph*(1-g)+4,fmt(g,2),{"text-anchor":"end","font-size":"10"});
+      txt(svg,M.l+pw*g,H-M.b+16,fmt(g,2),{"text-anchor":"middle","font-size":"10"});
+    });
+    txt(svg,W/2,14,title,{"text-anchor":"middle","font-size":"13",fill:"var(--ink)","font-weight":"600"});
+    txt(svg,W/2,H-6,xlab,{"text-anchor":"middle","font-size":"12"});
+    txt(svg,12,H/2,ylab,{transform:"rotate(-90 12 "+(H/2)+")","text-anchor":"middle","font-size":"12"});
+    return {sx:function(x){return M.l+x*pw;},sy:function(y){return M.t+(1-y)*ph;},M:M,pw:pw,ph:ph};
+  }
+  function curve(svg,sc,xs,ys,color,dash){
+    var d="";for(var i=0;i<xs.length;i++)d+=(d?"L":"M")+fmt(sc.sx(xs[i]),1)+" "+fmt(sc.sy(ys[i]),1);
+    el("path",{d:d,fill:"none",stroke:color,"stroke-width":2,"stroke-dasharray":dash||"none"},svg);
+  }
+  // ROC panel: one curve (identical for both priors) + chance diagonal
+  var rs=panel(rocSvg,"ROC — same at both prevalences","FPR","TPR");
+  curve(rocSvg,rs,[0,1],[0,1],"var(--muted)","5 5");
+  curve(rocSvg,rs,pts.map(function(p){return p.fpr;}),pts.map(function(p){return p.tpr;}),"var(--s1)");
+  txt(rocSvg,rs.sx(0.42),rs.sy(0.87),"AUC = "+fmt(Phi(mu/Math.SQRT2),3),{fill:"var(--ink-2)","font-size":"12"});
+  // PR panel: two prevalences + their baselines
+  var ps=panel(prSvg,"PR — prevalence changes everything","recall (TPR)","precision");
+  curve(prSvg,ps,[0,1],[0.5,0.5],"var(--muted)","5 5");
+  curve(prSvg,ps,[0,1],[0.01,0.01],"var(--muted)","2 4");
+  [[0.5,"var(--s1)"],[0.01,"var(--s2)"]].forEach(function(cfg){
+    var pi=cfg[0];
+    curve(prSvg,ps,pts.map(function(p){return p.tpr;}),pts.map(function(p){return precision(pi,p);}),cfg[1]);
+  });
+  txt(prSvg,ps.sx(0.55),ps.sy(0.93),"π = 0.5",{fill:"var(--ink-2)","font-size":"11"});
+  txt(prSvg,ps.sx(0.30),ps.sy(0.30),"π = 0.01",{fill:"var(--ink-2)","font-size":"11"});
+})();
+
+// ================= 8. calibration reliability diagram =================
+(function(){
+  var svg=document.getElementById("svg-cal");if(!svg)return;
+  var M={l:56,r:16,t:16,b:46},W=640,H=320,pw=W-M.l-M.r,ph=H-M.t-M.b;
+  function sx(x){return M.l+x*pw;}
+  function sy(y){return M.t+(1-y)*ph;}
+  [0,0.25,0.5,0.75,1].forEach(function(g){
+    el("line",{x1:M.l,x2:W-M.r,y1:sy(g),y2:sy(g),stroke:g===0?"var(--axis)":"var(--grid)","stroke-width":1},svg);
+    txt(svg,M.l-8,sy(g)+4,fmt(g,2),{"text-anchor":"end"});
+  });
+  txt(svg,W/2,H-8,"predicted confidence (bin midpoint)",{"text-anchor":"middle","font-size":"12"});
+  txt(svg,16,H/2,"empirical accuracy",{transform:"rotate(-90 16 "+(H/2)+")","text-anchor":"middle","font-size":"12"});
+  // bars: overconfident model, acc = conf^1.6 (schematic, stated in caption)
+  var bins=10,bw=pw/bins-4;
+  for(var i=0;i<bins;i++){
+    var conf=(i+0.5)/bins,acc=Math.pow(conf,1.6);
+    var x=sx(i/bins)+2;
+    el("rect",{x:x,y:sy(conf),width:bw,height:Math.max(sy(acc)-sy(conf),0),fill:"var(--s6)",opacity:0.3},svg); // gap
+    el("rect",{x:x,y:sy(acc),width:bw,height:sy(0)-sy(acc),fill:"var(--s1)",rx:3},svg); // accuracy bar
+  }
+  el("line",{x1:sx(0),y1:sy(0),x2:sx(1),y2:sy(1),stroke:"var(--muted)","stroke-width":2,"stroke-dasharray":"6 5"},svg);
+  txt(svg,sx(0.68),sy(0.78),"perfect calibration",{fill:"var(--ink-2)","font-size":"12",transform:"rotate(-32 "+sx(0.68)+" "+sy(0.78)+")"});
+  txt(svg,sx(0.83),sy(0.52),"gap = overconfidence",{fill:"var(--ink-2)","font-size":"11","text-anchor":"middle"});
+})();
+})();
+</script>
+</main>
+</body>
+</html>
